@@ -24,12 +24,12 @@ kubectl apply -f k8s/service.yaml
 echo "⏳ Waiting for deployment to be ready..."
 
 # Wait for deployment to be ready
-kubectl wait --for=condition=available --timeout=300s deployment/photovault-frontend
+kubectl wait --for=condition=available --timeout=300s deployment/photovault-frontend -n webapps
 
 echo "📋 Getting service information..."
 
 # Show service details
-kubectl get service photovault-frontend-service
+kubectl get service photovault-frontend-service -n webapps
 
 echo "✅ PhotoVault Frontend deployed successfully!"
 echo "🌐 You can access the frontend using the EXTERNAL-IP shown above"

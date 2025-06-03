@@ -72,31 +72,31 @@ jobs:
     - name: Deploy to Kubernetes
       run: |
         # Update image in deployment
-        kubectl set image deployment/photovault-frontend photovault-frontend=${{ env.IMAGE_NAME }}:latest -n default
+        kubectl set image deployment/photovault-frontend photovault-frontend=${{ env.IMAGE_NAME }}:latest -n webapps
         
         # If deployment doesn't exist, create it
-        if ! kubectl get deployment photovault-frontend -n default &> /dev/null; then
+        if ! kubectl get deployment photovault-frontend -n webapps &> /dev/null; then
           kubectl apply -f k8s/deployment.yaml
         fi
         
         # Apply service if it doesn't exist
-        if ! kubectl get service photovault-frontend-service -n default &> /dev/null; then
+        if ! kubectl get service photovault-frontend-service -n webapps &> /dev/null; then
           kubectl apply -f k8s/service.yaml
         fi
         
         # Wait for rollout to complete
-        kubectl rollout status deployment/photovault-frontend -n default --timeout=300s
+        kubectl rollout status deployment/photovault-frontend -n webapps --timeout=300s
         
     - name: Get service status
       run: |
         echo "=== Deployment Status ==="
-        kubectl get deployment photovault-frontend -n default
+        kubectl get deployment photovault-frontend -n webapps
         echo ""
         echo "=== Pods ==="
-        kubectl get pods -l app=photovault-frontend -n default
+        kubectl get pods -l app=photovault-frontend -n webapps
         echo ""
         echo "=== Service ==="
-        kubectl get service photovault-frontend-service -n default
+        kubectl get service photovault-frontend-service -n webapps
         echo ""
         echo "=== External IP (MetalLB) ==="
-        kubectl get service photovault-frontend-service -n default -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+        kubectl get service photovault-frontend-service -n webapps -o jsonpath='{.status.loadBalancer.ingress[0].ip}'

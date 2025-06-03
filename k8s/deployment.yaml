@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: photovault-frontend
-  namespace: default
+  namespace: webapps
   labels:
     app: photovault-frontend
     component: frontend
