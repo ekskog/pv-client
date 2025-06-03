@@ -13,6 +13,21 @@
         @navigate="handleNavigation"
       />
 
+      <!-- Albums View -->
+      <Albums 
+        v-else-if="currentView === 'albums'"
+        @navigate="handleNavigation"
+        @openAlbum="handleAlbumOpen"
+      />
+
+      <!-- Album Detail View -->
+      <AlbumDetail 
+        v-else-if="currentView === 'album-detail'"
+        :albumName="selectedAlbumName"
+        @back="handleBackToAlbums"
+        @photoOpened="handlePhotoOpen"
+      />
+
       <!-- Bucket Explorer View -->
       <BucketExplorer 
         v-else-if="currentView === 'buckets'"
@@ -26,14 +41,33 @@ import { ref } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import Navigation from './components/Navigation.vue'
 import Home from './components/Home.vue'
+import Albums from './components/Albums.vue'
+import AlbumDetail from './components/AlbumDetail.vue'
 import BucketExplorer from './components/BucketExplorer.vue'
 
 // Reactive state
 const currentView = ref('home')
+const selectedAlbumName = ref('')
 
 // Methods
 const handleNavigation = (view) => {
   currentView.value = view
+}
+
+const handleAlbumOpen = (album) => {
+  selectedAlbumName.value = album.name
+  currentView.value = 'album-detail'
+  console.log('Opening album:', album.name)
+}
+
+const handleBackToAlbums = () => {
+  currentView.value = 'albums'
+  selectedAlbumName.value = ''
+}
+
+const handlePhotoOpen = (photo) => {
+  // TODO: Implement photo lightbox/viewer
+  console.log('Opening photo:', photo)
 }
 </script>
 

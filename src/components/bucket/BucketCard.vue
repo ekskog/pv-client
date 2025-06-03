@@ -4,7 +4,7 @@
     :class="{ 'active': isSelected }"
     @click="$emit('click')"
   >
-    <div class="bucket-icon">📁</div>
+    <div class="bucket-icon"><i class="fas fa-database"></i></div>
     <div class="bucket-name">{{ bucket.name }}</div>
     <div class="bucket-date">{{ formatDate(bucket.creationDate) }}</div>
     <div class="bucket-stats">

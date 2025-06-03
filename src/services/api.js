@@ -71,6 +71,39 @@ class ApiService {
       body: JSON.stringify({ folderPath })
     })
   }
+
+  // File upload
+  async uploadFile(bucketName, objectName, formData) {
+    const url = `${API_BASE_URL}/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`
+    
+    try {
+      const response = await fetch(url, {
+        method: 'PUT',
+        body: formData, // Don't set Content-Type for FormData
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('File upload failed:', error)
+      throw error
+    }
+  }
+
+  // Delete object
+  async deleteObject(bucketName, objectName) {
+    return this.request(`/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`, {
+      method: 'DELETE'
+    })
+  }
+
+  // Get object URL for display
+  getObjectUrl(bucketName, objectName) {
+    return `${API_BASE_URL}/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`
+  }
 }
 
 export default new ApiService()

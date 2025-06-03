@@ -6,14 +6,21 @@
         :class="{ active: currentView === 'home' }"
         @click="$emit('navigate', 'home')"
       >
-        🏠 Home
+        <i class="fas fa-home"></i> Home
+      </button>
+      <button 
+        class="nav-link"
+        :class="{ active: currentView === 'albums' }"
+        @click="$emit('navigate', 'albums')"
+      >
+        <i class="fas fa-layer-group"></i> Albums
       </button>
       <button 
         class="nav-link"
         :class="{ active: currentView === 'buckets' }"
         @click="$emit('navigate', 'buckets')"
       >
-        📁 Storage Buckets
+        <i class="fas fa-database"></i> Storage Buckets
       </button>
     </div>
   </nav>

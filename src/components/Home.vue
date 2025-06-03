@@ -5,28 +5,22 @@
       <p class="hero-subtitle">Minimalist photo gallery and storage management</p>
       <div class="hero-actions">
         <button class="btn-primary" @click="$emit('navigate', 'buckets')">
-          📁 Browse Storage
+          <i class="fas fa-folder"></i> Browse Storage
         </button>
       </div>
     </div>
 
     <div class="features">
-      <div class="feature-card">
-        <div class="feature-icon">🗂️</div>
+      <div class="feature-card" @click="$emit('navigate', 'albums')">
+        <div class="feature-icon"><i class="fas fa-layer-group"></i></div>
         <h3>Organize</h3>
-        <p>Create and manage folders to organize your photos and files efficiently.</p>
+        <p>Create and manage albums to organize your photos efficiently.</p>
       </div>
       
       <div class="feature-card">
-        <div class="feature-icon">📊</div>
+        <div class="feature-icon"><i class="fas fa-chart-bar"></i></div>
         <h3>Statistics</h3>
         <p>View detailed statistics including object counts and storage usage for each bucket.</p>
-      </div>
-      
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <h3>Fast</h3>
-        <p>Built with Vue 3 and modern web technologies for optimal performance.</p>
       </div>
     </div>
   </div>
@@ -113,6 +107,7 @@ defineEmits(['navigate'])
   padding: 2rem;
   text-align: center;
   transition: all 0.2s ease;
+  cursor: pointer;
 }
 
 .feature-card:hover {

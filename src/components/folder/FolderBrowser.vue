@@ -29,7 +29,7 @@
         class="folder-item back-button"
         @click="navigateUp"
       >
-        <div class="folder-icon">⬆️</div>
+        <div class="folder-icon"><i class="fas fa-arrow-up"></i></div>
         <div class="folder-name">..</div>
       </div>
 
@@ -40,14 +40,14 @@
         class="folder-item"
         @click="navigateToPath(folder.name)"
       >
-        <div class="folder-icon">📁</div>
+        <div class="folder-icon"><i class="fas fa-folder"></i></div>
         <div class="folder-name">{{ folder.displayName }}</div>
         <button 
           @click.stop="deleteFolder(folder.name)"
           class="delete-btn"
           title="Delete folder"
         >
-          🗑️
+          <i class="fas fa-trash"></i>
         </button>
       </div>
     </div>
