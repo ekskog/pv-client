@@ -1,0 +1,99 @@
+name: Build and Deploy PhotoVault Frontend
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: ekskog/photovault-frontend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+          
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'v1.28.0'
+        
+    - name: Configure kubectl
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+        chmod 600 ~/.kube/config
+        
+    - name: Verify cluster connection
+      run: |
+        kubectl cluster-info
+        kubectl get nodes
+        
+    - name: Deploy to Kubernetes
+      run: |
+        # Update image in deployment
+        kubectl set image deployment/photovault-frontend photovault-frontend=${{ env.IMAGE_NAME }}:latest -n default
+        
+        # If deployment doesn't exist, create it
+        if ! kubectl get deployment photovault-frontend -n default &> /dev/null; then
+          kubectl apply -f k8s/deployment.yaml
+        fi
+        
+        # Apply service if it doesn't exist
+        if ! kubectl get service photovault-frontend-service -n default &> /dev/null; then
+          kubectl apply -f k8s/service.yaml
+        fi
+        
+        # Wait for rollout to complete
+        kubectl rollout status deployment/photovault-frontend -n default --timeout=300s
+        
+    - name: Get service status
+      run: |
+        echo "=== Deployment Status ==="
+        kubectl get deployment photovault-frontend -n default
+        echo ""
+        echo "=== Pods ==="
+        kubectl get pods -l app=photovault-frontend -n default
+        echo ""
+        echo "=== Service ==="
+        kubectl get service photovault-frontend-service -n default
+        echo ""
+        echo "=== External IP (MetalLB) ==="
+        kubectl get service photovault-frontend-service -n default -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
