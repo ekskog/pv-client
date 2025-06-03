@@ -71,18 +71,12 @@ jobs:
         
     - name: Deploy to Kubernetes
       run: |
+        # Apply manifests first (create if doesn't exist)
+        kubectl apply -f k8s/deployment.yaml
+        kubectl apply -f k8s/service.yaml
+        
         # Update image in deployment
         kubectl set image deployment/photovault-frontend photovault-frontend=${{ env.IMAGE_NAME }}:latest -n webapps
-        
-        # If deployment doesn't exist, create it
-        if ! kubectl get deployment photovault-frontend -n webapps &> /dev/null; then
-          kubectl apply -f k8s/deployment.yaml
-        fi
-        
-        # Apply service if it doesn't exist
-        if ! kubectl get service photovault-frontend-service -n webapps &> /dev/null; then
-          kubectl apply -f k8s/service.yaml
-        fi
         
         # Wait for rollout to complete
         kubectl rollout status deployment/photovault-frontend -n webapps --timeout=300s
