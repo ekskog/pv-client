@@ -1,0 +1,70 @@
+<template>
+  <header class="header">
+    <h1 class="logo">PhotoVault</h1>
+    <div class="health-status" :class="{ 'healthy': isHealthy, 'unhealthy': !isHealthy }">
+      {{ healthStatus }}
+    </div>
+  </header>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue'
+import apiService from '../services/api.js'
+
+// Reactive state
+const isHealthy = ref(false)
+const healthStatus = ref('Checking...')
+
+// Methods
+const checkHealth = async () => {
+  try {
+    const health = await apiService.getHealth()
+    isHealthy.value = health.status === 'healthy'
+    healthStatus.value = isHealthy.value ? 'Connected' : 'Disconnected'
+  } catch (err) {
+    isHealthy.value = false
+    healthStatus.value = 'Offline'
+  }
+}
+
+// Initialize
+onMounted(async () => {
+  await checkHealth()
+})
+</script>
+
+<style scoped>
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.logo {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+.health-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.healthy {
+  background: #e8f5e8;
+  color: #2e7d32;
+}
+
+.unhealthy {
+  background: #fde8e8;
+  color: #c62828;
+}
+</style>
