@@ -71,6 +71,7 @@ const formatFileSize = (bytes) => {
   padding: 1rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  min-height: 120px;
 }
 
 .bucket-card:hover {
@@ -91,6 +92,7 @@ const formatFileSize = (bytes) => {
 .bucket-name {
   font-weight: 500;
   margin-bottom: 0.25rem;
+  word-break: break-word;
 }
 
 .bucket-date {
@@ -131,5 +133,35 @@ const formatFileSize = (bytes) => {
 .stat-item.error .stat-label {
   color: #d32f2f;
   font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .bucket-card {
+    padding: 0.875rem;
+    min-height: 100px;
+  }
+  
+  .bucket-icon {
+    font-size: 1.75rem;
+  }
+  
+  .bucket-name {
+    font-size: 0.95rem;
+  }
+  
+  .bucket-date {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .bucket-card {
+    padding: 0.75rem;
+  }
+  
+  .stat-label,
+  .stat-value {
+    font-size: 0.7rem;
+  }
 }
 </style>

@@ -321,4 +321,111 @@ watch(() => props.bucketName, async (newBucket) => {
   gap: 0.5rem;
   justify-content: flex-end;
 }
+
+@media (max-width: 768px) {
+  .folder-browser {
+    padding: 1rem;
+  }
+  
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .actions {
+    justify-content: center;
+  }
+  
+  .breadcrumb {
+    text-align: center;
+    font-size: 0.8rem;
+  }
+  
+  .contents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.75rem;
+  }
+  
+  .folder-item {
+    padding: 0.75rem;
+  }
+  
+  .folder-icon {
+    font-size: 1.75rem;
+  }
+  
+  .folder-name {
+    font-size: 0.875rem;
+  }
+  
+  .modal {
+    margin: 1rem;
+    min-width: auto;
+    max-width: 90vw;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .folder-browser {
+    padding: 0.75rem;
+  }
+  
+  .header h2 {
+    font-size: 1.25rem;
+  }
+  
+  .breadcrumb {
+    font-size: 0.75rem;
+  }
+  
+  .separator {
+    margin: 0 0.25rem;
+  }
+  
+  .contents-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.5rem;
+  }
+  
+  .folder-item {
+    padding: 0.5rem;
+    min-height: 80px;
+  }
+  
+  .folder-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .folder-name {
+    font-size: 0.8rem;
+  }
+  
+  .delete-btn {
+    font-size: 0.875rem;
+    top: 0.25rem;
+    right: 0.25rem;
+  }
+  
+  .modal {
+    padding: 1.5rem;
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.85rem;
+  }
+}
 </style>

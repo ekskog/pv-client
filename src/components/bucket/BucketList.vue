@@ -98,11 +98,30 @@ onMounted(async () => {
   margin-bottom: 1rem;
   color: #333;
   font-weight: 500;
+  font-size: 1.5rem;
 }
 
 .buckets-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 1rem;
+}
+
+@media (max-width: 768px) {
+  .buckets-section h2 {
+    font-size: 1.25rem;
+    text-align: center;
+  }
+  
+  .buckets-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .buckets-grid {
+    gap: 0.5rem;
+  }
 }
 </style>

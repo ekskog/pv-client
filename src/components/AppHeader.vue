@@ -67,4 +67,34 @@ onMounted(async () => {
   background: #fde8e8;
   color: #c62828;
 }
+
+@media (max-width: 768px) {
+  .header {
+    padding: 1rem;
+  }
+  
+  .logo {
+    font-size: 1.25rem;
+  }
+  
+  .health-status {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0.75rem;
+  }
+  
+  .logo {
+    font-size: 1.1rem;
+  }
+  
+  .health-status {
+    font-size: 0.75rem;
+    padding: 0.15rem 0.5rem;
+  }
+}
 </style>

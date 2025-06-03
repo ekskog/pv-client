@@ -56,6 +56,7 @@ defineEmits(['navigate'])
   color: #666;
   border-bottom: 2px solid transparent;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -67,5 +68,36 @@ defineEmits(['navigate'])
   color: #2196f3;
   border-bottom-color: #2196f3;
   background: #f8f9ff;
+}
+
+@media (max-width: 768px) {
+  .navigation {
+    padding: 0 1rem;
+  }
+  
+  .nav-links {
+    gap: 0.5rem;
+    justify-content: center;
+  }
+  
+  .nav-link {
+    padding: 0.875rem 1rem;
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .navigation {
+    padding: 0 0.5rem;
+  }
+  
+  .nav-links {
+    gap: 0.25rem;
+  }
+  
+  .nav-link {
+    padding: 0.75rem 0.75rem;
+    font-size: 0.75rem;
+  }
 }
 </style>

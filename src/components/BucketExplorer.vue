@@ -70,4 +70,34 @@ const handleError = (errorMessage) => {
   flex-direction: column;
   gap: 2rem;
 }
+
+@media (max-width: 768px) {
+  .bucket-explorer {
+    padding: 1rem;
+  }
+  
+  .loading, .error {
+    padding: 1.5rem;
+    font-size: 1rem;
+  }
+  
+  .content {
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .bucket-explorer {
+    padding: 0.75rem;
+  }
+  
+  .loading, .error {
+    padding: 1rem;
+    font-size: 0.95rem;
+  }
+  
+  .content {
+    gap: 1rem;
+  }
+}
 </style>

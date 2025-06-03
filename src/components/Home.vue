@@ -69,12 +69,14 @@ defineEmits(['navigate'])
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+  line-height: 1.6;
 }
 
 .hero-actions {
   display: flex;
   gap: 1rem;
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 .btn-primary {
@@ -88,6 +90,7 @@ defineEmits(['navigate'])
   font-weight: 600;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+  min-height: 44px; /* Touch-friendly target */
 }
 
 .btn-primary:hover {
@@ -98,7 +101,7 @@ defineEmits(['navigate'])
 
 .features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 2rem;
   margin-top: 2rem;
 }
@@ -134,5 +137,88 @@ defineEmits(['navigate'])
   color: #666;
   line-height: 1.6;
   margin: 0;
+}
+
+@media (max-width: 768px) {
+  .home {
+    padding: 1rem;
+  }
+  
+  .hero {
+    padding: 2.5rem 0;
+    margin-bottom: 2rem;
+  }
+  
+  .hero-title {
+    font-size: 2.25rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.1rem;
+    padding: 0 1rem;
+  }
+  
+  .btn-primary {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.95rem;
+  }
+  
+  .features {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+  
+  .feature-card {
+    padding: 1.5rem;
+  }
+  
+  .feature-icon {
+    font-size: 2.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .home {
+    padding: 0.75rem;
+  }
+  
+  .hero {
+    padding: 2rem 0;
+    margin-bottom: 1.5rem;
+  }
+  
+  .hero-title {
+    font-size: 1.875rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1rem;
+  }
+  
+  .btn-primary {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+  }
+  
+  .features {
+    gap: 1rem;
+  }
+  
+  .feature-card {
+    padding: 1.25rem;
+  }
+  
+  .feature-icon {
+    font-size: 2.25rem;
+  }
+  
+  .feature-card h3 {
+    font-size: 1.1rem;
+  }
+  
+  .feature-card p {
+    font-size: 0.95rem;
+  }
 }
 </style>
