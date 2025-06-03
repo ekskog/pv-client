@@ -1,4 +1,5 @@
 <template>
+  <!-- PhotoVault Bucket Explorer - CI/CD Test -->
   <div class="bucket-explorer">
     <div v-if="loading" class="loading">
       Loading...
