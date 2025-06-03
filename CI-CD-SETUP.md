@@ -4,7 +4,7 @@
 
 The repository includes an automated CI/CD pipeline that:
 - ✅ Builds Docker image on every commit
-- ✅ Pushes to Docker Hub registry
+- ✅ Pushes to GitHub Container Registry (ghcr.io)
 - ✅ Deploys to Kubernetes cluster via MetalLB
 - ✅ Provides deployment status and service information
 
@@ -14,19 +14,14 @@ To enable the CI/CD pipeline, add these secrets in your GitHub repository:
 
 ### Go to: `Settings` → `Secrets and variables` → `Actions` → `New repository secret`
 
-1. **DOCKER_USERNAME**
-   - Your Docker Hub username (e.g., `ekskog`)
+**KUBECONFIG**
+- Base64 encoded content of your kubeconfig file
+- Run this command to get the value:
+```bash
+cat ~/.kube/k3s.yaml | base64 | tr -d '\n'
+```
 
-2. **DOCKER_PASSWORD** 
-   - Your Docker Hub password or access token
-   - ⚠️ Recommended: Use a Personal Access Token instead of password
-
-3. **KUBECONFIG**
-   - Base64 encoded content of your kubeconfig file
-   - Run this command to get the value:
-   ```bash
-   cat ~/.kube/k3s.yaml | base64 | tr -d '\n'
-   ```
+> **Note**: No Docker registry secrets needed! GitHub Container Registry uses the automatic `GITHUB_TOKEN`.
 
 ## Setup Commands
 
@@ -59,7 +54,7 @@ The workflow creates multiple tags:
 
 1. **Build**: Vue.js app built with Vite
 2. **Containerize**: Multi-stage Docker build with nginx
-3. **Push**: Image pushed to `ekskog/photovault-frontend`
+3. **Push**: Image pushed to `ghcr.io/ekskog/photovault-frontend`
 4. **Deploy**: Kubernetes deployment updated with new image
 5. **Verify**: Rollout status and service information displayed
 
