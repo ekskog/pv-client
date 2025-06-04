@@ -20,6 +20,7 @@ spec:
       containers:
       - name: photovault-frontend
         image: ghcr.io/ekskog/photovault-frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
           name: http
