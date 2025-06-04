@@ -1,7 +1,7 @@
 // PhotoVault API Service
 // Handles all communication with the PhotoVault Express API
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://photovault-api-service.webapps.svc.cluster.local'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://vault-api.hbvu.su'
 
 class ApiService {
   async request(endpoint, options = {}) {
@@ -72,13 +72,29 @@ class ApiService {
     })
   }
 
-  // File upload
-  async uploadFile(bucketName, objectName, formData) {
-    const url = `${API_BASE_URL}/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`
+  // File upload - Updated to match API spec
+  async uploadFile(bucketName, files, folderPath = '') {
+    const formData = new FormData()
+    
+    // Add files to form data
+    if (Array.isArray(files)) {
+      files.forEach(file => {
+        formData.append('files', file)
+      })
+    } else {
+      formData.append('files', files)
+    }
+    
+    // Add folder path if provided
+    if (folderPath) {
+      formData.append('folderPath', folderPath)
+    }
+    
+    const url = `${API_BASE_URL}/buckets/${bucketName}/upload`
     
     try {
       const response = await fetch(url, {
-        method: 'PUT',
+        method: 'POST',
         body: formData, // Don't set Content-Type for FormData
       })
       
@@ -93,16 +109,16 @@ class ApiService {
     }
   }
 
-  // Delete object
-  async deleteObject(bucketName, objectName) {
-    return this.request(`/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`, {
-      method: 'DELETE'
-    })
-  }
+  // Delete object - This endpoint doesn't exist in your API
+  // async deleteObject(bucketName, objectName) {
+  //   return this.request(`/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`, {
+  //     method: 'DELETE'
+  //   })
+  // }
 
-  // Get object URL for display
+  // Object URL generation for downloading/viewing files
   getObjectUrl(bucketName, objectName) {
-    return `${API_BASE_URL}/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`
+    return `${API_BASE_URL}/buckets/${bucketName}/download?object=${encodeURIComponent(objectName)}`
   }
 }
 

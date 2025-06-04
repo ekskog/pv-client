@@ -198,7 +198,9 @@ const loadPhotos = async () => {
   
   try {
     console.log(`Loading photos for album: ${props.albumName}`)
-    const response = await apiService.getBucketContents(BUCKET_NAME, props.albumName + '/')
+    // Ensure we have a single trailing slash for the prefix
+    const prefix = props.albumName.endsWith('/') ? props.albumName : props.albumName + '/'
+    const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
     console.log('Album contents response:', response)
     
     if (response.success && response.data) {
@@ -277,32 +279,23 @@ const uploadPhotos = async () => {
   error.value = null
   
   try {
-    const totalFiles = selectedFiles.value.length
-    let uploadedFiles = 0
+    uploadStatus.value = `Uploading ${selectedFiles.value.length} files...`
     
-    for (const file of selectedFiles.value) {
-      uploadStatus.value = `Uploading ${file.name}... (${uploadedFiles + 1}/${totalFiles})`
-      
-      const formData = new FormData()
-      formData.append('file', file)
-      
-      // Upload to album folder
-      const objectName = `${props.albumName}/${file.name}`
-      const response = await apiService.uploadFile(BUCKET_NAME, objectName, formData)
-      
-      if (!response.success) {
-        throw new Error(`Failed to upload ${file.name}: ${response.error}`)
-      }
-      
-      uploadedFiles++
-      uploadProgress.value = (uploadedFiles / totalFiles) * 100
+    // Use the API's upload endpoint with files array and folderPath
+    const response = await apiService.uploadFile(BUCKET_NAME, selectedFiles.value, props.albumName)
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Upload failed')
     }
     
+    uploadProgress.value = 100
     uploadStatus.value = 'Upload complete!'
     
     // Close dialog and refresh photos
-    closeUploadDialog()
-    await loadPhotos()
+    setTimeout(() => {
+      closeUploadDialog()
+      loadPhotos()
+    }, 1000)
     
   } catch (err) {
     console.error('Upload error:', err)
