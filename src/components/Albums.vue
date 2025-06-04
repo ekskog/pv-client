@@ -182,7 +182,19 @@ const createAlbum = async () => {
   try {
     const albumName = newAlbumName.value.trim()
     console.log(`Creating album: ${albumName}`)
-    const response = await apiService.createFolder(BUCKET_NAME, albumName)
+    
+    // Instead of explicitly creating a folder, we'll create a placeholder file
+    // that establishes the album folder structure. This prevents duplicate folder creation.
+    const placeholderName = `${albumName}/.album-info`
+    const placeholderData = new FormData()
+    const placeholderBlob = new Blob([JSON.stringify({
+      name: albumName,
+      created: new Date().toISOString(),
+      description: `Photo album: ${albumName}`
+    })], { type: 'application/json' })
+    placeholderData.append('file', placeholderBlob)
+    
+    const response = await apiService.uploadFile(BUCKET_NAME, placeholderName, placeholderData)
     console.log('Create album response:', response)
     
     if (response.success) {

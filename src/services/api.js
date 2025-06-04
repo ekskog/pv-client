@@ -1,7 +1,7 @@
 // PhotoVault API Service
 // Handles all communication with the PhotoVault Express API
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://vault.hbvu.su'
 
 class ApiService {
   async request(endpoint, options = {}) {
