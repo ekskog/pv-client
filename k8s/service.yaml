@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: photovault-frontend-service
+  name: photovault-vue-service
   namespace: webapps
   labels:
-    app: photovault-frontend
+    app: photovault-vue
     component: frontend
 spec:
   type: LoadBalancer
@@ -14,4 +14,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: photovault-frontend
+    app: photovault-vue
