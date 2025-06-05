@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/ekskog/photovault-frontend
+  IMAGE_NAME: ghcr.io/ekskog/photovault-vue
 
 jobs:
   build-and-deploy:
@@ -76,21 +76,21 @@ jobs:
         kubectl apply -f k8s/service.yaml
         
         # Update image in deployment
-        kubectl set image deployment/photovault-frontend photovault-frontend=${{ env.IMAGE_NAME }}:latest -n webapps
+        kubectl set image deployment/photovault-vue photovault-vue=${{ env.IMAGE_NAME }}:latest -n webapps
         
         # Wait for rollout to complete
-        kubectl rollout status deployment/photovault-frontend -n webapps --timeout=300s
+        kubectl rollout status deployment/photovault-vue -n webapps --timeout=300s
         
     - name: Get service status
       run: |
         echo "=== Deployment Status ==="
-        kubectl get deployment photovault-frontend -n webapps
+        kubectl get deployment photovault-vue -n webapps
         echo ""
         echo "=== Pods ==="
-        kubectl get pods -l app=photovault-frontend -n webapps
+        kubectl get pods -l app=photovault-vue -n webapps
         echo ""
         echo "=== Service ==="
-        kubectl get service photovault-frontend-service -n webapps
+        kubectl get service photovault-vue-service -n webapps
         echo ""
         echo "=== External IP (MetalLB) ==="
-        kubectl get service photovault-frontend-service -n webapps -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+        kubectl get service photovault-vue-service -n webapps -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
