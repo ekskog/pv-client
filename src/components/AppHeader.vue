@@ -1,6 +1,8 @@
 <template>
   <header class="header">
-    <h1 class="logo">PhotoVault</h1>
+    <h1 class="logo">
+      <i class="fas fa-camera"></i>
+    </h1>
     <div class="health-status" :class="{ 'healthy': isHealthy, 'unhealthy': !isHealthy }">
       {{ healthStatus }}
     </div>
@@ -49,6 +51,16 @@ onMounted(async () => {
   font-weight: 600;
   color: #333;
   margin: 0;
+}
+
+.logo i {
+  font-size: 1.8rem;
+  color: #4a90e2;
+  transition: color 0.3s ease;
+}
+
+.logo i:hover {
+  color: #357abd;
 }
 
 .health-status {

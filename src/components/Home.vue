@@ -1,13 +1,8 @@
 <template>
   <div class="home">
     <div class="hero">
-      <h1 class="hero-title">PhotoVault</h1>
+      <h1 class="hero-title">HBVU PHOTOS</h1>
       <p class="hero-subtitle">Minimalist photo gallery and storage management</p>
-      <div class="hero-actions">
-        <button class="btn-primary" @click="$emit('navigate', 'buckets')">
-          <i class="fas fa-folder"></i> Browse Storage
-        </button>
-      </div>
     </div>
 
     <div class="features">

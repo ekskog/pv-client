@@ -1,8 +1,8 @@
-PhotoVault Frontend - Kubernetes Deployment Resume
+HBVU PHOTOS Frontend - Kubernetes Deployment Resume
 =====================================================
 
 TASK OVERVIEW:
-Deploy the PhotoVault Vue.js frontend application to a Kubernetes cluster using MetalLB (no ingress needed), with automated CI/CD pipeline via GitHub Actions.
+Deploy the HBVU PHOTOS Vue.js frontend application to a Kubernetes cluster using MetalLB (no ingress needed), with automated CI/CD pipeline via GitHub Actions.
 
 COMPLETED OBJECTIVES:
 ✅ Docker Build Infrastructure - Successfully built Docker image with multi-stage build (Node.js + nginx)

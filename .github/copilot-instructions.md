@@ -1,9 +1,9 @@
-# PhotoVault Frontend - Copilot Instructions
+# HBVU PHOTOS Frontend - Copilot Instructions
 
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
 ## Project Overview
-This is a Vue 3 frontend application for PhotoVault - a minimalist photo gallery interface that connects to a MinIO-based storage API.
+This is a Vue 3 frontend application for HBVU PHOTOS - a minimalist photo gallery interface that connects to a MinIO-based storage API.
 
 ## Technology Stack
 - Vue 3 with Composition API
@@ -19,7 +19,7 @@ This is a Vue 3 frontend application for PhotoVault - a minimalist photo gallery
 - Follow Vue.js best practices for component structure
 
 ## API Integration
-- Backend API runs on PhotoVault Express server
+- Backend API runs on HBVU PHOTOS Express server
 - Endpoints include bucket management and folder operations
 - Use fetch API for HTTP requests
 - Handle loading states and error conditions gracefully

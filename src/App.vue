@@ -71,7 +71,7 @@ const handlePhotoOpen = (photo) => {
 </script>
 
 <style scoped>
-/* Minimalist PhotoVault Styles */
+/* Minimalist HBVU PHOTOS Styles */
 #app {
   min-height: 100vh;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

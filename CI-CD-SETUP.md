@@ -1,4 +1,4 @@
-# PhotoVault Frontend - CI/CD Setup
+# HBVU PHOTOS Frontend - CI/CD Setup
 
 ## GitHub Actions Workflow
 

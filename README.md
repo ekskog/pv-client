@@ -6,7 +6,7 @@ Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://
 
 ## Backend API
 
-This frontend connects to the [PhotoVault API](https://github.com/ekskog/photovault-api) which provides:
+This frontend connects to the [HBVU PHOTOS API](https://github.com/ekskog/photovault-api) which provides:
 
 - `GET /buckets` - List buckets
 - `POST /buckets` - Create bucket
