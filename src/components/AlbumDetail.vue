@@ -197,11 +197,9 @@ const loadPhotos = async () => {
   error.value = null
   
   try {
-    console.log(`Loading photos for album: ${props.albumName}`)
     // Ensure we have a single trailing slash for the prefix
     const prefix = props.albumName.endsWith('/') ? props.albumName : props.albumName + '/'
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
-    console.log('Album contents response:', response)
     
     if (response.success && response.data) {
       // Filter only image files
@@ -212,7 +210,6 @@ const loadPhotos = async () => {
       )
       
       photos.value = imageFiles
-      console.log(`Loaded ${imageFiles.length} photos`)
     } else {
       throw new Error(response.error || 'Failed to load album photos')
     }

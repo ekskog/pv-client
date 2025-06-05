@@ -33,14 +33,24 @@ spec:
             cpu: "100m"
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 80
+            httpHeaders:
+            - name: User-Agent
+              value: "k8s-healthcheck"
           initialDelaySeconds: 30
-          periodSeconds: 10
+          periodSeconds: 300
+          timeoutSeconds: 30
+          failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 80
+            httpHeaders:
+            - name: User-Agent
+              value: "k8s-healthcheck"
           initialDelaySeconds: 5
-          periodSeconds: 5
+          periodSeconds: 15
+          timeoutSeconds: 5
+          failureThreshold: 3
       restartPolicy: Always
