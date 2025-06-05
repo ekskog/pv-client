@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: photovault-frontend
+  name: photovault-vue
   namespace: webapps
   labels:
-    app: photovault-frontend
+    app: photovault-vue
     component: frontend
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: photovault-frontend
+      app: photovault-vue
   template:
     metadata:
       labels:
-        app: photovault-frontend
+        app: photovault-vue
         component: frontend
     spec:
       containers:
-      - name: photovault-frontend
-        image: ghcr.io/ekskog/photovault-frontend:latest
+      - name: photovault-vue
+        image: ghcr.io/ekskog/photovault-vue:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80

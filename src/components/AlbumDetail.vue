@@ -47,7 +47,45 @@
           @click="openPhoto(photo)"
         >
           <div class="photo-thumbnail">
-            <img :src="getPhotoUrl(photo)" :alt="photo.name" @error="handleImageError">
+            <!-- Non-HEIC files: Display immediately -->
+            <img 
+              v-if="!isHeicFile(photo.name)"
+              :src="getPhotoUrl(photo)" 
+              :alt="photo.name" 
+              @error="handleImageError"
+              class="photo-image"
+            >
+            
+            <!-- HEIC files: Show converted image if available -->
+            <img 
+              v-else-if="isHeicFile(photo.name) && heicConversionStates[photo.name] === 'success' && convertedImages[photo.name]"
+              :src="convertedImages[photo.name]" 
+              :alt="photo.name" 
+              @error="handleImageError"
+              class="photo-image"
+            >
+            
+            <!-- HEIC files: Show loading state while converting -->
+            <div v-else-if="isHeicFile(photo.name) && heicConversionStates[photo.name] === 'loading'" class="heic-loading">
+              <i class="fas fa-spinner fa-spin"></i>
+              <span>Converting HEIC...</span>
+            </div>
+            
+            <!-- HEIC files: Show error state if conversion failed -->
+            <div v-else-if="isHeicFile(photo.name) && heicConversionStates[photo.name] === 'error'" class="heic-error">
+              <i class="fas fa-exclamation-triangle"></i>
+              <span>Failed to convert HEIC</span>
+              <button @click.stop="downloadPhoto(photo)" class="download-btn">
+                <i class="fas fa-download"></i> Download Original
+              </button>
+            </div>
+            
+            <!-- Fallback for HEIC files in unknown state -->
+            <div v-else class="heic-placeholder">
+              <i class="fas fa-image"></i>
+              <span>HEIC Image</span>
+            </div>
+            
             <div class="photo-overlay">
               <button 
                 class="btn-delete-photo" 
@@ -55,6 +93,15 @@
                 title="Delete Photo"
               >
                 <i class="fas fa-trash"></i>
+              </button>
+              <!-- Download button for HEIC files -->
+              <button 
+                v-if="isHeicFile(photo.name)"
+                class="btn-download-photo" 
+                @click.stop="downloadPhoto(photo)"
+                title="Download Original HEIC"
+              >
+                <i class="fas fa-download"></i>
               </button>
             </div>
           </div>
@@ -95,7 +142,7 @@
               Drag and drop photos here or click to select
             </p>
             <p class="upload-hint">
-              Supports JPG, PNG, GIF files
+              Supports JPG, PNG, GIF, HEIC files (HEIC images converted for web display)
             </p>
           </div>
         </div>
@@ -159,7 +206,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import heic2any from 'heic2any'
 import apiService from '../services/api.js'
 
 // Props
@@ -177,6 +225,8 @@ const emit = defineEmits(['back', 'photoOpened'])
 const loading = ref(false)
 const error = ref(null)
 const photos = ref([])
+const convertedImages = ref({}) // Store converted HEIC images as blob URLs
+const heicConversionStates = ref({}) // Track conversion states: 'loading', 'success', 'error'
 const showUploadDialog = ref(false)
 const showDeletePhotoDialog = ref(false)
 const selectedFiles = ref([])
@@ -196,6 +246,10 @@ const loadPhotos = async () => {
   loading.value = true
   error.value = null
   
+  // Clear previous conversion states and images
+  heicConversionStates.value = {}
+  cleanupBlobUrls()
+  
   try {
     // Clean the album name and ensure we have exactly one trailing slash
     let cleanAlbumName = props.albumName.trim()
@@ -207,14 +261,17 @@ const loadPhotos = async () => {
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
     
     if (response.success && response.data) {
-      // Filter only image files
+      // Filter only image files (including HEIC from iPhone)
       const imageFiles = (response.data.objects || []).filter(obj => 
         obj.name && 
         !obj.name.endsWith('/') && 
-        /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(obj.name)
+        /\.(jpg|jpeg|png|gif|bmp|webp|heic|heif)$/i.test(obj.name)
       )
       
       photos.value = imageFiles
+      
+      // Convert HEIC files to JPEG for display in the background
+      convertHeicImagesInBackground(imageFiles)
     } else {
       throw new Error(response.error || 'Failed to load album photos')
     }
@@ -226,8 +283,65 @@ const loadPhotos = async () => {
   }
 }
 
+const convertHeicImagesInBackground = async (imageFiles) => {
+  const heicFiles = imageFiles.filter(photo => isHeicFile(photo.name))
+  
+  // Initialize loading states for all HEIC files immediately
+  const initialStates = {}
+  heicFiles.forEach(photo => {
+    initialStates[photo.name] = 'loading'
+  })
+  heicConversionStates.value = { ...heicConversionStates.value, ...initialStates }
+  
+  // Process each HEIC file individually and update UI immediately when ready
+  heicFiles.forEach(async (photo) => {
+    try {
+      // Fetch the HEIC file
+      const response = await fetch(apiService.getObjectUrl(BUCKET_NAME, photo.name))
+      if (!response.ok) {
+        throw new Error(`Failed to fetch HEIC file: ${response.statusText}`)
+      }
+      
+      // Convert to blob
+      const heicBlob = await response.blob()
+      
+      // Convert HEIC to JPEG using heic2any
+      const convertedBlob = await heic2any({
+        blob: heicBlob,
+        toType: 'image/jpeg',
+        quality: 0.8
+      })
+      
+      // Create blob URL for display and update state immediately
+      const blobUrl = URL.createObjectURL(convertedBlob)
+      
+      // Force reactivity by creating new objects
+      convertedImages.value = { ...convertedImages.value, [photo.name]: blobUrl }
+      heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'success' }
+      
+    } catch (error) {
+      console.error(`Failed to convert HEIC file ${photo.name}:`, error)
+      heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'error' }
+    }
+  })
+}
+
+const isHeicFile = (filename) => {
+  return /\.(heic|heif)$/i.test(filename)
+}
+
+const downloadPhoto = (photo) => {
+  const downloadUrl = apiService.getObjectUrl(BUCKET_NAME, photo.name)
+  const link = document.createElement('a')
+  link.href = downloadUrl
+  link.download = getPhotoDisplayName(photo.name)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
 const getPhotoUrl = (photo) => {
-  // Use the API service method for getting object URLs
+  // For non-HEIC files, use the API service method for getting object URLs
   return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
@@ -241,6 +355,13 @@ const handleImageError = (event) => {
 }
 
 const openPhoto = (photo) => {
+  // For HEIC files, download them directly since they might not display properly in lightbox
+  if (isHeicFile(photo.name)) {
+    downloadPhoto(photo)
+    return
+  }
+  
+  // For other images, emit the photo opened event
   emit('photoOpened', photo)
 }
 
@@ -360,9 +481,23 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+// Cleanup function for blob URLs
+const cleanupBlobUrls = () => {
+  Object.values(convertedImages.value).forEach(url => {
+    if (url && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  })
+  convertedImages.value = {}
+}
+
 // Lifecycle
 onMounted(() => {
   loadPhotos()
+})
+
+onUnmounted(() => {
+  cleanupBlobUrls()
 })
 </script>
 
@@ -541,10 +676,63 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.photo-thumbnail img {
+.photo-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.heic-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 0.5rem;
+  background: #f8f9fa;
+  color: #2196f3;
+  font-size: 0.9rem;
+}
+
+.heic-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 0.5rem;
+  background: #ffeaa7;
+  color: #e17055;
+  font-size: 0.8rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.heic-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 0.5rem;
+  background: #f0f0f0;
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.download-btn {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.download-btn:hover {
+  background: #1976d2;
 }
 
 .photo-overlay {
@@ -573,10 +761,25 @@ onMounted(() => {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.9rem;
+  margin-right: 0.5rem;
 }
 
 .btn-delete-photo:hover {
   background: #d32f2f;
+}
+
+.btn-download-photo {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-download-photo:hover {
+  background: #1976d2;
 }
 
 .photo-info {
