@@ -57,7 +57,6 @@ const handleNavigation = (view) => {
 const handleAlbumOpen = (album) => {
   selectedAlbumName.value = album.name
   currentView.value = 'album-detail'
-  console.log('Opening album:', album.name)
 }
 
 const handleBackToAlbums = () => {

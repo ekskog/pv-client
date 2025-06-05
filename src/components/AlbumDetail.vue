@@ -197,8 +197,13 @@ const loadPhotos = async () => {
   error.value = null
   
   try {
-    // Ensure we have a single trailing slash for the prefix
-    const prefix = props.albumName.endsWith('/') ? props.albumName : props.albumName + '/'
+    // Clean the album name and ensure we have exactly one trailing slash
+    let cleanAlbumName = props.albumName.trim()
+    // Remove any trailing slashes first
+    cleanAlbumName = cleanAlbumName.replace(/\/+$/, '')
+    // Add exactly one trailing slash
+    const prefix = cleanAlbumName + '/'
+    
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
     
     if (response.success && response.data) {
