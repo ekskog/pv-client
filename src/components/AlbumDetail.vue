@@ -9,7 +9,11 @@
         <h1><i class="fas fa-folder-open"></i> {{ albumName }}</h1>
         <p class="subtitle">{{ photos.length }} photos</p>
       </div>
-      <button class="btn-primary" @click="showUploadDialog = true">
+      <button 
+        v-if="canUploadPhotos"
+        class="btn-primary" 
+        @click="showUploadDialog = true"
+      >
         <i class="fas fa-plus"></i> Add Photos
       </button>
     </div>
@@ -33,7 +37,11 @@
         <div class="empty-icon"><i class="fas fa-images"></i></div>
         <h3>No Photos Yet</h3>
         <p>Start building your album by adding some photos!</p>
-        <button class="btn-primary" @click="showUploadDialog = true">
+        <button 
+          v-if="canUploadPhotos"
+          class="btn-primary" 
+          @click="showUploadDialog = true"
+        >
           <i class="fas fa-plus"></i> Add Photos
         </button>
       </div>
@@ -314,6 +322,7 @@
                 <i class="fas fa-download"></i>
               </button>
               <button 
+                v-if="canDeletePhoto"
                 @click="confirmDeletePhoto(currentPhoto)" 
                 class="btn-lightbox-action btn-danger-action"
                 title="Delete Photo"
@@ -332,6 +341,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import heic2any from 'heic2any'
 import apiService from '../services/api.js'
+import authService from '../services/auth.js'
 
 // Props
 const props = defineProps({
@@ -372,6 +382,15 @@ const lightboxLoading = ref(false)
 // Computed properties
 const currentPhoto = computed(() => {
   return photos.value[currentPhotoIndex.value] || null
+})
+
+// Permission checks
+const canUploadPhotos = computed(() => {
+  return authService.canPerformAction('upload_photos')
+})
+
+const canDeletePhoto = computed(() => {
+  return authService.canPerformAction('delete_photo')
 })
 
 // Constants
@@ -641,6 +660,12 @@ const removeFile = (index) => {
 const uploadPhotos = async () => {
   if (selectedFiles.value.length === 0) return
   
+  // Check permission before proceeding
+  if (!authService.canPerformAction('upload_photos')) {
+    error.value = 'You do not have permission to upload photos'
+    return
+  }
+  
   uploading.value = true
   uploadProgress.value = 0
   error.value = null
@@ -725,6 +750,12 @@ const uploadPhotos = async () => {
 }
 
 const confirmDeletePhoto = (photo) => {
+  // Check permission before showing dialog
+  if (!authService.canPerformAction('delete_photo')) {
+    error.value = 'You do not have permission to delete photos'
+    return
+  }
+  
   photoToDelete.value = photo
   showDeletePhotoDialog.value = true
 }

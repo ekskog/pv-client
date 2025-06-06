@@ -4,14 +4,31 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://vault-api.hbvu.su'
 
 class ApiService {
+  constructor() {
+    this.authService = null // Will be set by auth service
+  }
+
+  // Set auth service reference (to avoid circular imports)
+  setAuthService(authService) {
+    this.authService = authService
+  }
+
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`
     
+    // Add authentication headers if user is logged in
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    }
+
+    // Add auth token if available
+    if (this.authService?.getToken()) {
+      headers['Authorization'] = `Bearer ${this.authService.getToken()}`
+    }
+    
     const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     }
 
@@ -120,6 +137,11 @@ class ApiService {
     
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
+      
+      // Add auth header if available
+      if (this.authService?.getToken()) {
+        xhr.setRequestHeader('Authorization', `Bearer ${this.authService.getToken()}`)
+      }
       
       // Track upload progress
       if (onProgress) {

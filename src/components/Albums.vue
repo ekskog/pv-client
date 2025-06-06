@@ -3,7 +3,11 @@
     <div class="albums-header">
       <h1>Photo Albums</h1>
       <p class="subtitle">Organize your photos into albums</p>
-      <button class="btn-primary" @click="showCreateDialog = true">
+      <button 
+        v-if="canCreateAlbum"
+        class="btn-primary" 
+        @click="showCreateDialog = true"
+      >
         <i class="fas fa-plus"></i> Create New Album
       </button>
     </div>
@@ -36,6 +40,7 @@
         </p>
         <div class="album-actions">
           <button 
+            v-if="canDeleteAlbum"
             class="btn-danger-small" 
             @click.stop="confirmDelete(album)"
             title="Delete Album"
@@ -49,8 +54,13 @@
       <div v-if="albums.length === 0" class="empty-state">
         <div class="empty-icon"><i class="fas fa-camera"></i></div>
         <h3>No Albums Yet</h3>
-        <p>Create your first photo album to get started!</p>
-        <button class="btn-primary" @click="showCreateDialog = true">
+        <p v-if="canCreateAlbum">Create your first photo album to get started!</p>
+        <p v-else>No albums available to view.</p>
+        <button 
+          v-if="canCreateAlbum"
+          class="btn-primary" 
+          @click="showCreateDialog = true"
+        >
           Create Album
         </button>
       </div>
@@ -106,8 +116,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import apiService from '../services/api.js'
+import authService from '../services/auth.js'
 
 // Emits
 const emit = defineEmits(['navigate', 'openAlbum'])
@@ -123,6 +134,15 @@ const creating = ref(false)
 const deleting = ref(false)
 const albumToDelete = ref(null)
 const albumNameInput = ref(null)
+
+// Computed properties for permission checks
+const canCreateAlbum = computed(() => {
+  return authService.canPerformAction('create_album')
+})
+
+const canDeleteAlbum = computed(() => {
+  return authService.canPerformAction('delete_album')
+})
 
 // Constants
 const BUCKET_NAME = 'photovault' // The correct bucket name
@@ -162,6 +182,12 @@ const loadAlbums = async () => {
 const createAlbum = async () => {
   if (!newAlbumName.value.trim()) return
   
+  // Check permission before proceeding
+  if (!authService.canPerformAction('create_album')) {
+    error.value = 'You do not have permission to create albums'
+    return
+  }
+  
   creating.value = true
   error.value = null
   
@@ -196,6 +222,12 @@ const createAlbum = async () => {
 }
 
 const confirmDelete = (album) => {
+  // Check permission before showing dialog
+  if (!authService.canPerformAction('delete_album')) {
+    error.value = 'You do not have permission to delete albums'
+    return
+  }
+  
   albumToDelete.value = album
   showDeleteDialog.value = true
 }

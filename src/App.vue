@@ -1,53 +1,84 @@
 <template>
   <div id="app">
-    <AppHeader />
-    <Navigation 
-      :currentView="currentView"
-      @navigate="handleNavigation"
+    <!-- Show login screen if not authenticated -->
+    <Login 
+      v-if="!isAuthenticated"
+      @login-success="handleLoginSuccess"
     />
-
-    <main class="main">
-      <!-- Home View -->
-      <Home 
-        v-if="currentView === 'home'"
+    
+    <!-- Main app when authenticated -->
+    <div v-else>
+      <AppHeader />
+      <Navigation 
+        :currentView="currentView"
+        :currentUser="currentUser"
         @navigate="handleNavigation"
+        @logout="handleLogout"
       />
 
-      <!-- Albums View -->
-      <Albums 
-        v-else-if="currentView === 'albums'"
-        @navigate="handleNavigation"
-        @openAlbum="handleAlbumOpen"
-      />
+      <main class="main">
+        <!-- Home View -->
+        <Home 
+          v-if="currentView === 'home'"
+          @navigate="handleNavigation"
+        />
 
-      <!-- Album Detail View -->
-      <AlbumDetail 
-        v-else-if="currentView === 'album-detail'"
-        :albumName="selectedAlbumName"
-        @back="handleBackToAlbums"
-        @photoOpened="handlePhotoOpen"
-      />
+        <!-- Albums View -->
+        <Albums 
+          v-else-if="currentView === 'albums'"
+          @navigate="handleNavigation"
+          @openAlbum="handleAlbumOpen"
+        />
 
-      <!-- Bucket Explorer View -->
-      <BucketExplorer 
-        v-else-if="currentView === 'buckets'"
-      />
-    </main>
+        <!-- Album Detail View -->
+        <AlbumDetail 
+          v-else-if="currentView === 'album-detail'"
+          :albumName="selectedAlbumName"
+          @back="handleBackToAlbums"
+          @photoOpened="handlePhotoOpen"
+        />
+
+        <!-- Bucket Explorer View -->
+        <BucketExplorer 
+          v-else-if="currentView === 'buckets'"
+        />
+
+        <!-- User Management View (Admin Only) -->
+        <UserManagement 
+          v-else-if="currentView === 'users'"
+        />
+      </main>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import Navigation from './components/Navigation.vue'
 import Home from './components/Home.vue'
 import Albums from './components/Albums.vue'
 import AlbumDetail from './components/AlbumDetail.vue'
 import BucketExplorer from './components/BucketExplorer.vue'
+import Login from './components/Login.vue'
+import UserManagement from './components/UserManagement.vue'
+import authService from './services/auth.js'
 
 // Reactive state
 const currentView = ref('home')
 const selectedAlbumName = ref('')
+const isAuthenticated = ref(false)
+const currentUser = ref(null)
+
+// Computed properties
+const userRole = computed(() => currentUser.value?.role || 'user')
+
+// Initialize auth service
+onMounted(async () => {
+  await authService.init()
+  isAuthenticated.value = authService.isAuthenticated()
+  currentUser.value = authService.getCurrentUser()
+})
 
 // Methods
 const handleNavigation = (view) => {
@@ -66,6 +97,19 @@ const handleBackToAlbums = () => {
 
 const handlePhotoOpen = (photo) => {
   // TODO: Implement photo lightbox/viewer
+}
+
+const handleLoginSuccess = (user) => {
+  currentUser.value = user
+  isAuthenticated.value = true
+  currentView.value = 'home'
+}
+
+const handleLogout = () => {
+  authService.logout()
+  currentUser.value = null
+  isAuthenticated.value = false
+  currentView.value = 'home'
 }
 </script>
 

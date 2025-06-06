@@ -32,6 +32,47 @@ spec:
         ports:
         - containerPort: 80
           name: http
+        env:
+        # Load environment variables from Kubernetes Secret
+        - name: VITE_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: photovault-frontend-dev-secrets
+              key: VITE_API_URL
+        - name: VITE_DEMO_MODE
+          valueFrom:
+            secretKeyRef:
+              name: photovault-frontend-dev-secrets
+              key: VITE_DEMO_MODE
+        - name: VITE_DEMO_ADMIN_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: photovault-frontend-dev-secrets
+              key: VITE_DEMO_ADMIN_USERNAME
+        - name: VITE_DEMO_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photovault-frontend-dev-secrets
+              key: VITE_DEMO_ADMIN_PASSWORD
+        - name: VITE_DEMO_USER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: photovault-frontend-dev-secrets
+              key: VITE_DEMO_USER_USERNAME
+        - name: VITE_DEMO_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photovault-frontend-dev-secrets
+              key: VITE_DEMO_USER_PASSWORD
+        - name: VITE_DEMO_USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: photovault-frontend-dev-secrets
+              key: VITE_DEMO_USER_PASSWORD
+        # Load non-sensitive config from ConfigMap
+        envFrom:
+        - configMapRef:
+            name: photovault-frontend-config
         resources:
           requests:
             memory: "64Mi"
