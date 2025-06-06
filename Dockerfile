@@ -2,7 +2,7 @@
 # Multi-stage build with runtime environment variable support
 
 # Build stage
-FROM node:18-alpine as build-stage
+FROM node:18-alpine AS build-stage
 
 # Set working directory
 WORKDIR /app
@@ -38,7 +38,7 @@ ENV VITE_API_TIMEOUT=$VITE_API_TIMEOUT
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine as production-stage
+FROM nginx:alpine AS production-stage
 
 # Install envsubst for runtime environment variable substitution
 RUN apk add --no-cache gettext
@@ -50,19 +50,17 @@ COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create a startup script for runtime environment variable handling
-RUN cat > /docker-entrypoint.sh << 'EOF'
-#!/bin/sh
-
-# Replace environment variables in JavaScript files at runtime
-# This allows for runtime configuration changes without rebuilding
-
-echo "Starting HBVU PHOTOS Frontend..."
-echo "API URL: ${VITE_API_URL:-not set}"
-echo "Demo Mode: ${VITE_DEMO_MODE:-not set}"
-
-# Start nginx
-nginx -g "daemon off;"
-EOF
+RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
+    echo '# Replace environment variables in JavaScript files at runtime' >> /docker-entrypoint.sh && \
+    echo '# This allows for runtime configuration changes without rebuilding' >> /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
+    echo 'echo "Starting HBVU PHOTOS Frontend..."' >> /docker-entrypoint.sh && \
+    echo 'echo "API URL: ${VITE_API_URL:-not set}"' >> /docker-entrypoint.sh && \
+    echo 'echo "Demo Mode: ${VITE_DEMO_MODE:-not set}"' >> /docker-entrypoint.sh && \
+    echo '' >> /docker-entrypoint.sh && \
+    echo '# Start nginx' >> /docker-entrypoint.sh && \
+    echo 'nginx -g "daemon off;"' >> /docker-entrypoint.sh
 
 RUN chmod +x /docker-entrypoint.sh
 
