@@ -66,7 +66,6 @@ const handleBackToAlbums = () => {
 
 const handlePhotoOpen = (photo) => {
   // TODO: Implement photo lightbox/viewer
-  console.log('Opening photo:', photo)
 }
 </script>
 

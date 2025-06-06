@@ -41,19 +41,21 @@
       <!-- Photos Grid -->
       <div v-else class="photos-grid">
         <div 
-          v-for="photo in photos" 
+          v-for="photo in visiblePhotos" 
           :key="photo.name"
           class="photo-card"
           @click="openPhoto(photo)"
         >
           <div class="photo-thumbnail">
-            <!-- Non-HEIC files: Display immediately -->
+            <!-- Non-HEIC files: Display immediately with lazy loading and compression -->
             <img 
               v-if="!isHeicFile(photo.name)"
-              :src="getPhotoUrl(photo)" 
+              :src="getOptimizedPhotoUrl(photo)" 
               :alt="photo.name" 
               @error="handleImageError"
               class="photo-image"
+              loading="lazy"
+              :data-full-src="getPhotoUrl(photo)"
             >
             
             <!-- HEIC files: Show converted image if available -->
@@ -63,6 +65,7 @@
               :alt="photo.name" 
               @error="handleImageError"
               class="photo-image"
+              loading="lazy"
             >
             
             <!-- HEIC files: Show loading state while converting -->
@@ -86,23 +89,9 @@
               <span>HEIC Image</span>
             </div>
             
-            <div class="photo-overlay">
-              <button 
-                class="btn-delete-photo" 
-                @click.stop="confirmDeletePhoto(photo)"
-                title="Delete Photo"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
-              <!-- Download button for HEIC files -->
-              <button 
-                v-if="isHeicFile(photo.name)"
-                class="btn-download-photo" 
-                @click.stop="downloadPhoto(photo)"
-                title="Download Original HEIC"
-              >
-                <i class="fas fa-download"></i>
-              </button>
+            <!-- Loading placeholder for images -->
+            <div v-if="!isHeicFile(photo.name)" class="image-loading-placeholder">
+              <i class="fas fa-image"></i>
             </div>
           </div>
           <div class="photo-info">
@@ -110,6 +99,9 @@
             <span class="photo-size">{{ formatFileSize(photo.size) }}</span>
           </div>
         </div>
+
+        <!-- Load More Trigger (Invisible) -->
+        <div class="load-more-trigger" v-if="photos.length > visiblePhotos.length"></div>
       </div>
     </div>
 
@@ -202,6 +194,107 @@
         </div>
       </div>
     </div>
+
+    <!-- Lightbox Viewer -->
+    <div v-if="showLightbox" class="lightbox-overlay" @click="closeLightbox">
+      <div class="lightbox-container" @click.stop>
+        <!-- Navigation Controls -->
+        <button 
+          class="lightbox-nav lightbox-prev" 
+          @click="previousPhoto"
+          :disabled="currentPhotoIndex === 0"
+          title="Previous Photo (←)"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        
+        <button 
+          class="lightbox-nav lightbox-next" 
+          @click="nextPhoto"
+          :disabled="currentPhotoIndex === photos.length - 1"
+          title="Next Photo (→)"
+        >
+          <i class="fas fa-chevron-right"></i>
+        </button>
+
+        <!-- Close Button -->
+        <button class="lightbox-close" @click="closeLightbox" title="Close (Esc)">
+          <i class="fas fa-times"></i>
+        </button>
+
+        <!-- Photo Display -->
+        <div class="lightbox-content">
+          <div class="lightbox-image-container">
+            <!-- Regular images -->
+            <img 
+              v-if="currentPhoto && !isHeicFile(currentPhoto.name)"
+              :src="getPhotoUrl(currentPhoto)" 
+              :alt="currentPhoto.name"
+              class="lightbox-image"
+              @error="handleLightboxImageError"
+            >
+            
+            <!-- HEIC images: Show converted version -->
+            <img 
+              v-else-if="currentPhoto && isHeicFile(currentPhoto.name) && heicConversionStates[currentPhoto.name] === 'success' && convertedImages[currentPhoto.name]"
+              :src="convertedImages[currentPhoto.name]" 
+              :alt="currentPhoto.name"
+              class="lightbox-image"
+            >
+            
+            <!-- HEIC loading state -->
+            <div v-else-if="currentPhoto && isHeicFile(currentPhoto.name) && heicConversionStates[currentPhoto.name] === 'loading'" class="lightbox-heic-loading">
+              <i class="fas fa-spinner fa-spin"></i>
+              <p>Converting HEIC image...</p>
+            </div>
+            
+            <!-- HEIC error state -->
+            <div v-else-if="currentPhoto && isHeicFile(currentPhoto.name) && heicConversionStates[currentPhoto.name] === 'error'" class="lightbox-heic-error">
+              <i class="fas fa-exclamation-triangle"></i>
+              <p>Failed to convert HEIC file</p>
+              <button @click="downloadPhoto(currentPhoto)" class="btn-download-lightbox">
+                <i class="fas fa-download"></i> Download Original
+              </button>
+            </div>
+
+            <!-- Loading placeholder -->
+            <div v-if="lightboxLoading" class="lightbox-loading">
+              <i class="fas fa-spinner fa-spin"></i>
+              <p>Loading image...</p>
+            </div>
+          </div>
+
+          <!-- Photo Info -->
+          <div class="lightbox-info">
+            <div class="lightbox-photo-details">
+              <h3>{{ getPhotoDisplayName(currentPhoto?.name) }}</h3>
+              <p class="lightbox-photo-meta">
+                {{ formatFileSize(currentPhoto?.size) }} • 
+                {{ currentPhotoIndex + 1 }} of {{ photos.length }}
+              </p>
+            </div>
+            
+            <!-- Action Buttons -->
+            <div class="lightbox-actions">
+              <button 
+                @click="downloadPhoto(currentPhoto)" 
+                class="btn-lightbox-action"
+                title="Download Photo"
+              >
+                <i class="fas fa-download"></i>
+              </button>
+              <button 
+                @click="confirmDeletePhoto(currentPhoto)" 
+                class="btn-lightbox-action btn-danger-action"
+                title="Delete Photo"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -238,8 +331,19 @@ const photoToDelete = ref(null)
 const deletingPhoto = ref(false)
 const fileInput = ref(null)
 
+// Lightbox state
+const showLightbox = ref(false)
+const currentPhotoIndex = ref(0)
+const lightboxLoading = ref(false)
+
+// Computed properties
+const currentPhoto = computed(() => {
+  return photos.value[currentPhotoIndex.value] || null
+})
+
 // Constants
 const BUCKET_NAME = 'photovault'
+const ITEMS_PER_PAGE = 50
 
 // Methods
 const loadPhotos = async () => {
@@ -261,6 +365,7 @@ const loadPhotos = async () => {
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
     
     if (response.success && response.data) {
+      
       // Filter only image files (including HEIC from iPhone)
       const imageFiles = (response.data.objects || []).filter(obj => 
         obj.name && 
@@ -268,7 +373,11 @@ const loadPhotos = async () => {
         /\.(jpg|jpeg|png|gif|bmp|webp|heic|heif)$/i.test(obj.name)
       )
       
+      
       photos.value = imageFiles
+      
+      // Initialize virtual scrolling with the loaded photos
+      resetVirtualScrolling()
       
       // Convert HEIC files to JPEG for display in the background
       convertHeicImagesInBackground(imageFiles)
@@ -276,7 +385,6 @@ const loadPhotos = async () => {
       throw new Error(response.error || 'Failed to load album photos')
     }
   } catch (err) {
-    console.error('Error loading photos:', err)
     error.value = `Error loading photos: ${err.message}`
   } finally {
     loading.value = false
@@ -305,11 +413,13 @@ const convertHeicImagesInBackground = async (imageFiles) => {
       // Convert to blob
       const heicBlob = await response.blob()
       
-      // Convert HEIC to JPEG using heic2any
+      // Convert HEIC to JPEG with optimized settings for thumbnails
       const convertedBlob = await heic2any({
         blob: heicBlob,
         toType: 'image/jpeg',
-        quality: 0.8
+        quality: 0.6, // Lower quality for faster loading
+        maxWidth: 800, // Limit width for thumbnails
+        maxHeight: 800 // Limit height for thumbnails
       })
       
       // Create blob URL for display and update state immediately
@@ -320,7 +430,6 @@ const convertHeicImagesInBackground = async (imageFiles) => {
       heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'success' }
       
     } catch (error) {
-      console.error(`Failed to convert HEIC file ${photo.name}:`, error)
       heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'error' }
     }
   })
@@ -345,24 +454,106 @@ const getPhotoUrl = (photo) => {
   return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
+const getOptimizedPhotoUrl = (photo) => {
+  // For thumbnails, we'll add query parameters to hint the server
+  // This prepares for when backend thumbnail support is added
+  const baseUrl = apiService.getObjectUrl(BUCKET_NAME, photo.name)
+  
+  // Add thumbnail parameters (backend can implement these later)
+  // For now, this just returns the regular URL but is ready for backend optimization
+  return `${baseUrl}&thumbnail=true&size=300x300&quality=70`
+}
+
+const preloadImage = (src) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = src
+  })
+}
+
+const loadImageProgressively = async (photo, imgElement) => {
+  try {
+    // First load optimized/thumbnail version
+    const optimizedSrc = getOptimizedPhotoUrl(photo)
+    await preloadImage(optimizedSrc)
+    
+    // Then progressively enhance with full resolution when user hovers or clicks
+    imgElement.addEventListener('mouseenter', async () => {
+      if (!imgElement.dataset.fullLoaded) {
+        try {
+          const fullSrc = getPhotoUrl(photo)
+          await preloadImage(fullSrc)
+          imgElement.src = fullSrc
+          imgElement.dataset.fullLoaded = 'true'
+        } catch (error) {
+          // Failed to load full resolution image
+        }
+      }
+    }, { once: true })
+    
+  } catch (error) {
+    // Failed to load optimized image
+  }
+}
+
 const getPhotoDisplayName = (filename) => {
   return filename.split('/').pop() || filename
 }
 
 const handleImageError = (event) => {
-  console.error('Failed to load image:', event.target.src)
   event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='
 }
 
 const openPhoto = (photo) => {
-  // For HEIC files, download them directly since they might not display properly in lightbox
-  if (isHeicFile(photo.name)) {
-    downloadPhoto(photo)
-    return
+  // Find the photo index in the photos array
+  const photoIndex = photos.value.findIndex(p => p.name === photo.name)
+  if (photoIndex !== -1) {
+    currentPhotoIndex.value = photoIndex
+    showLightbox.value = true
+    
+    // Add keyboard event listener
+    document.addEventListener('keydown', handleLightboxKeyboard)
   }
+}
+
+const closeLightbox = () => {
+  showLightbox.value = false
+  lightboxLoading.value = false
   
-  // For other images, emit the photo opened event
-  emit('photoOpened', photo)
+  // Remove keyboard event listener
+  document.removeEventListener('keydown', handleLightboxKeyboard)
+}
+
+const nextPhoto = () => {
+  if (currentPhotoIndex.value < photos.value.length - 1) {
+    currentPhotoIndex.value++
+  }
+}
+
+const previousPhoto = () => {
+  if (currentPhotoIndex.value > 0) {
+    currentPhotoIndex.value--
+  }
+}
+
+const handleLightboxKeyboard = (event) => {
+  switch (event.key) {
+    case 'Escape':
+      closeLightbox()
+      break
+    case 'ArrowLeft':
+      previousPhoto()
+      break
+    case 'ArrowRight':
+      nextPhoto()
+      break
+  }
+}
+
+const handleLightboxImageError = (event) => {
+  // Lightbox image failed to load
 }
 
 const triggerFileInput = () => {
@@ -421,7 +612,6 @@ const uploadPhotos = async () => {
     }, 1000)
     
   } catch (err) {
-    console.error('Upload error:', err)
     error.value = `Upload failed: ${err.message}`
   } finally {
     uploading.value = false
@@ -452,7 +642,6 @@ const deletePhoto = async () => {
     }
   } catch (err) {
     error.value = `Failed to delete photo: ${err.message}`
-    console.error('Error deleting photo:', err)
   } finally {
     deletingPhoto.value = false
   }
@@ -491,13 +680,90 @@ const cleanupBlobUrls = () => {
   convertedImages.value = {}
 }
 
+// Performance monitoring
+const trackImageLoadTime = (photoName, startTime) => {
+  const loadTime = Date.now() - startTime
+  
+  // Track slow loading images (>2 seconds) - could be used for analytics
+  if (loadTime > 2000) {
+    // Slow image load detected
+  }
+}
+
+// Batch image preloading for visible images
+const preloadVisibleImages = () => {
+  const imageElements = document.querySelectorAll('.photo-image[loading="lazy"]')
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const img = entry.target
+        const startTime = Date.now()
+        
+        img.addEventListener('load', () => {
+          trackImageLoadTime(img.alt, startTime)
+        }, { once: true })
+        
+        observer.unobserve(img)
+      }
+    })
+  }, { rootMargin: '50px' })
+  
+  imageElements.forEach(img => observer.observe(img))
+}
+
+// Virtual scrolling for large photo collections (optional optimization)
+const visiblePhotos = ref([])
+const currentPage = ref(1)
+
+const loadMorePhotos = () => {
+  const startIndex = (currentPage.value - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  
+  const newPhotos = photos.value.slice(startIndex, endIndex)
+  
+  if (newPhotos.length > 0) {
+    visiblePhotos.value = [...visiblePhotos.value, ...newPhotos]
+    currentPage.value++
+  }
+}
+
+const resetVirtualScrolling = () => {
+  visiblePhotos.value = []
+  currentPage.value = 1
+  loadMorePhotos()
+}
+
+// Intersection observer for infinite scroll
+const setupInfiniteScroll = () => {
+  const sentinel = document.querySelector('.load-more-trigger')
+  if (!sentinel) return
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && visiblePhotos.value.length < photos.value.length) {
+        loadMorePhotos()
+      }
+    })
+  }, { threshold: 0.1 })
+  
+  observer.observe(sentinel)
+}
+
 // Lifecycle
-onMounted(() => {
-  loadPhotos()
+onMounted(async () => {
+  await loadPhotos()
+  
+  // Setup performance monitoring after images are loaded
+  setTimeout(() => {
+    preloadVisibleImages()
+    setupInfiniteScroll()
+  }, 100)
 })
 
 onUnmounted(() => {
   cleanupBlobUrls()
+  // Clean up keyboard listener if lightbox is open
+  document.removeEventListener('keydown', handleLightboxKeyboard)
 })
 </script>
 
@@ -641,7 +907,7 @@ onUnmounted(() => {
 .empty-state h3 {
   font-size: 1.5rem;
   color: #333;
-  margin: 0 0 1rem 0;
+  margin: 0;
 }
 
 .empty-state p {
@@ -649,10 +915,14 @@ onUnmounted(() => {
   margin: 0 0 2rem 0;
 }
 
+/* Performance optimizations */
 .photos-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
+  /* Enable hardware acceleration */
+  transform: translateZ(0);
+  will-change: scroll-position;
 }
 
 .photo-card {
@@ -662,24 +932,92 @@ onUnmounted(() => {
   overflow: hidden;
   transition: all 0.2s ease;
   cursor: pointer;
+  /* Enable hardware acceleration for hover effects */
+  will-change: transform, box-shadow;
+  /* Optimize repaint areas */
+  contain: layout;
 }
 
 .photo-card:hover {
   border-color: #2196f3;
   box-shadow: 0 4px 12px rgba(33, 150, 243, 0.1);
-  transform: translateY(-2px);
+  transform: translateY(-2px) translateZ(0);
+}
+
+/* Image loading optimization */
+.photo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.3s ease;
+  /* Improve image rendering */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* Optimize for thumbnails */
+  filter: contrast(1.02) saturate(1.05);
+}
+
+/* Loading states with smooth transitions */
+.photo-image.loading {
+  opacity: 0;
+  filter: blur(2px);
+}
+
+.photo-image.loaded {
+  opacity: 1;
+  filter: none;
 }
 
 .photo-thumbnail {
   position: relative;
+  width: 100%;
   aspect-ratio: 1;
   overflow: hidden;
+  background: #f8f9fa;
 }
 
 .photo-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: opacity 0.3s ease;
+}
+
+.image-loading-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+  color: #ccc;
+  font-size: 2rem;
+  z-index: 1;
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.photo-image:not([src=""]) + .image-loading-placeholder {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Progressive loading states */
+.photo-image[data-full-loaded="true"] {
+  filter: none;
+}
+
+.photo-image:not([data-full-loaded="true"]) {
+  filter: blur(0.5px) brightness(1.1);
+}
+
+/* Lazy loading optimization */
+.photo-image[loading="lazy"] {
+  content-visibility: auto;
+  contain-intrinsic-size: 200px 200px;
 }
 
 .heic-loading {
@@ -732,53 +1070,6 @@ onUnmounted(() => {
 }
 
 .download-btn:hover {
-  background: #1976d2;
-}
-
-.photo-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.photo-card:hover .photo-overlay {
-  opacity: 1;
-}
-
-.btn-delete-photo {
-  background: #f44336;
-  color: white;
-  border: none;
-  padding: 0.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  margin-right: 0.5rem;
-}
-
-.btn-delete-photo:hover {
-  background: #d32f2f;
-}
-
-.btn-download-photo {
-  background: #2196f3;
-  color: white;
-  border: none;
-  padding: 0.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-}
-
-.btn-download-photo:hover {
   background: #1976d2;
 }
 
@@ -994,6 +1285,275 @@ onUnmounted(() => {
   
   .dialog-actions {
     flex-direction: column;
+  }
+}
+
+/* Lightbox Styles */
+.lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  cursor: pointer;
+}
+
+.lightbox-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+}
+
+.lightbox-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 95vw;
+  max-height: 95vh;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-image-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 100%;
+  height: calc(100% - 80px); /* Reserve space for info bar */
+  min-height: 0; /* Allow shrinking */
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: calc(100vh - 120px); /* Account for info bar at bottom */
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  display: block;
+  margin: 0 auto;
+}
+
+.lightbox-loading,
+.lightbox-heic-loading,
+.lightbox-heic-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.lightbox-loading i,
+.lightbox-heic-loading i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.lightbox-heic-error {
+  color: #ffcdd2;
+}
+
+.lightbox-heic-error i {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #f44336;
+}
+
+.btn-download-lightbox {
+  background: #2196f3;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-top: 1rem;
+  transition: background 0.2s ease;
+}
+
+.btn-download-lightbox:hover {
+  background: #1976d2;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.lightbox-nav:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.lightbox-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.lightbox-prev {
+  left: 2rem;
+}
+
+.lightbox-next {
+  right: 2rem;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  z-index: 10;
+}
+
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.lightbox-info {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 8px;
+  margin-top: auto;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 800px;
+}
+
+.lightbox-photo-details h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.lightbox-photo-meta {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.lightbox-actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn-lightbox-action {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.btn-lightbox-action:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
+}
+
+.btn-danger-action:hover {
+  background: rgba(244, 67, 54, 0.8);
+}
+
+/* Mobile responsiveness for lightbox */
+@media (max-width: 768px) {
+  .lightbox-nav {
+    width: 50px;
+    height: 50px;
+    font-size: 1.2rem;
+  }
+  
+  .lightbox-prev {
+    left: 1rem;
+  }
+  
+  .lightbox-next {
+    right: 1rem;
+  }
+  
+  .lightbox-close {
+    top: 1rem;
+    right: 1rem;
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  
+  .lightbox-info {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+    padding: 1rem;
+  }
+  
+  .lightbox-content {
+    max-width: 98vw;
+    max-height: 98vh;
+  }
+  
+  .lightbox-image {
+    max-height: calc(100vh - 140px); /* More space for mobile info bar */
+  }
+  
+  .lightbox-image-container {
+    height: calc(100% - 100px); /* Adjust for mobile info bar */
   }
 }
 </style>

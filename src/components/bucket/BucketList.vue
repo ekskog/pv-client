@@ -58,7 +58,6 @@ const loadBucketStats = async (bucketName) => {
       }
     }
   } catch (err) {
-    console.warn(`Failed to load stats for bucket ${bucketName}:`, err)
     // Set error state if the call fails
     bucketStats.value[bucketName] = { 
       objectCount: 0, 
@@ -80,7 +79,6 @@ const loadBuckets = async () => {
       loadBucketStats(bucket.name)
     })
   } catch (err) {
-    console.error('Error loading buckets:', err)
     error.value = 'Failed to load buckets: ' + err.message
   } finally {
     loading.value = false

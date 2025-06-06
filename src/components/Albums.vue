@@ -133,14 +133,9 @@ const loadAlbums = async () => {
   error.value = null
   
   try {
-    console.log(`🔍 Loading albums from bucket: ${BUCKET_NAME}`)
     const response = await apiService.getBucketContents(BUCKET_NAME)
-    console.log('📦 Bucket contents response:', response)
     
     if (response.success && response.data) {
-      console.log('✅ Raw data received:', response.data)
-      console.log('📁 Folders found:', response.data.folders)
-      console.log('📄 Objects found:', response.data.objects)
       
       // Filter only folders (albums) from the response
       // Check both folders array and objects array for folder-like items
@@ -154,19 +149,10 @@ const loadAlbums = async () => {
       
       const foundAlbums = [...foldersFromFolders, ...foldersFromObjects]
       albums.value = foundAlbums
-      
-      console.log(`🎯 Total albums loaded: ${foundAlbums.length}`)
-      console.log(`📁 From folders array: ${foldersFromFolders.length}`)
-      console.log(`📁 From objects array: ${foldersFromObjects.length}`)
-      if (foundAlbums.length > 0) {
-        console.log('📋 Album names:', foundAlbums.map(album => album.name))
-      }
     } else {
-      console.error('❌ API response indicates failure:', response)
       throw new Error(response.error || 'Failed to load albums - API returned unsuccessful response')
     }
   } catch (err) {
-    console.error('💥 Detailed error loading albums:', err)
     error.value = `Error loading albums: ${err.message}. Check browser console for details.`
   } finally {
     loading.value = false
@@ -181,7 +167,6 @@ const createAlbum = async () => {
   
   try {
     const albumName = newAlbumName.value.trim()
-    console.log(`Creating album: ${albumName}`)
     
     // Instead of explicitly creating a folder, we'll create a placeholder file
     // that establishes the album folder structure. This prevents duplicate folder creation.
@@ -195,23 +180,16 @@ const createAlbum = async () => {
     placeholderData.append('file', placeholderBlob)
     
     const response = await apiService.uploadFile(BUCKET_NAME, placeholderName, placeholderData)
-    console.log('Create album response:', response)
     
     if (response.success) {
-      console.log('Album created successfully, refreshing list...')
       closeDialog() // Close dialog first to show loading state
       await loadAlbums() // Refresh the list
-      
-      // Show success message
-      const successMsg = `Album "${albumName}" created successfully!`
-      console.log(successMsg)
       // You could also show a toast notification here
     } else {
       throw new Error(response.error || 'Failed to create album')
     }
   } catch (err) {
     error.value = `Failed to create album: ${err.message}`
-    console.error('Error creating album:', err)
   } finally {
     creating.value = false
   }
@@ -239,7 +217,6 @@ const deleteAlbum = async () => {
     }
   } catch (err) {
     error.value = `Failed to delete album: ${err.message}`
-    console.error('Error deleting album:', err)
   } finally {
     deleting.value = false
   }
@@ -248,10 +225,8 @@ const deleteAlbum = async () => {
 const checkBuckets = async () => {
   try {
     const response = await apiService.getBuckets()
-    console.log('Available buckets:', response)
     alert(`Available buckets: ${JSON.stringify(response.data || response, null, 2)}`)
   } catch (err) {
-    console.error('Error checking buckets:', err)
     alert(`Error checking buckets: ${err.message}`)
   }
 }

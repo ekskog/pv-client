@@ -24,7 +24,6 @@ class ApiService {
       
       return await response.json()
     } catch (error) {
-      console.error('API request failed:', error)
       throw error
     }
   }
@@ -104,7 +103,6 @@ class ApiService {
       
       return await response.json()
     } catch (error) {
-      console.error('File upload failed:', error)
       throw error
     }
   }
