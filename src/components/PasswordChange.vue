@@ -224,19 +224,14 @@ const changePassword = async () => {
       
       // For demo, we can't actually change passwords
       if (isOwnPassword.value) {
-        // Simulate current password check using configured demo credentials
+        // Simulate current password check using hardcoded demo credentials
         const currentUser = authService.getCurrentUser()
-        const demoConfig = authService.getConfig()
         
-        // Check current password against demo configuration
-        let expectedPassword = ''
-        if (currentUser.username === demoConfig.adminUsername) {
-          expectedPassword = demoConfig.adminPassword
-        } else if (currentUser.username === demoConfig.userUsername) {
-          expectedPassword = demoConfig.userPassword
+        // Check current password against hardcoded credentials
+        if (currentUser.username === 'admin' && currentPassword.value !== 'admin123') {
+          throw new Error('Current password is incorrect')
         }
-        
-        if (expectedPassword && currentPassword.value !== expectedPassword) {
+        if (currentUser.username === 'user' && currentPassword.value !== 'user123') {
           throw new Error('Current password is incorrect')
         }
       }

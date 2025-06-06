@@ -16,23 +16,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Accept build-time environment variables
-ARG VITE_API_URL
-ARG VITE_DEMO_MODE
-ARG VITE_AUTH_ENDPOINT
-ARG VITE_USER_ENDPOINT
-ARG VITE_JWT_SECRET
-ARG VITE_SESSION_TIMEOUT
-ARG VITE_API_TIMEOUT
+# Accept build-time environment variables (only API URL needed)
+ARG VITE_API_URL=https://vault-api.hbvu.su
 
 # Set environment variables for build
 ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_DEMO_MODE=$VITE_DEMO_MODE
-ENV VITE_AUTH_ENDPOINT=$VITE_AUTH_ENDPOINT
-ENV VITE_USER_ENDPOINT=$VITE_USER_ENDPOINT
-ENV VITE_JWT_SECRET=$VITE_JWT_SECRET
-ENV VITE_SESSION_TIMEOUT=$VITE_SESSION_TIMEOUT
-ENV VITE_API_TIMEOUT=$VITE_API_TIMEOUT
 
 # Build the application
 RUN npm run build
@@ -49,17 +37,9 @@ COPY --from=build-stage /app/dist /usr/share/nginx/html
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Create a startup script for runtime environment variable handling
+# Create a simple startup script
 RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
-    echo '' >> /docker-entrypoint.sh && \
-    echo '# Replace environment variables in JavaScript files at runtime' >> /docker-entrypoint.sh && \
-    echo '# This allows for runtime configuration changes without rebuilding' >> /docker-entrypoint.sh && \
-    echo '' >> /docker-entrypoint.sh && \
     echo 'echo "Starting HBVU PHOTOS Frontend..."' >> /docker-entrypoint.sh && \
-    echo 'echo "API URL: ${VITE_API_URL:-not set}"' >> /docker-entrypoint.sh && \
-    echo 'echo "Demo Mode: ${VITE_DEMO_MODE:-not set}"' >> /docker-entrypoint.sh && \
-    echo '' >> /docker-entrypoint.sh && \
-    echo '# Start nginx' >> /docker-entrypoint.sh && \
     echo 'nginx -g "daemon off;"' >> /docker-entrypoint.sh
 
 RUN chmod +x /docker-entrypoint.sh

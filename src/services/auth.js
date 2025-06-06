@@ -1,47 +1,37 @@
 // HBVU PHOTOS Authentication Service
-// Secure authentication service with environment variable configuration
+// Simple demo authentication with hardcoded credentials
 
 const AUTH_TOKEN_KEY = 'hbvu_auth_token';
 const USER_DATA_KEY = 'hbvu_user_data';
 
-// Configuration from environment variables
+// Simple configuration - just the API URL and demo mode
 const config = {
-  demoMode: import.meta.env.VITE_DEMO_MODE === 'true',
-  apiUrl: import.meta.env.VITE_API_URL,
-  authEndpoint: import.meta.env.VITE_AUTH_ENDPOINT || '/api/auth/login',
-  userEndpoint: import.meta.env.VITE_USER_ENDPOINT || '/api/users',
-  demoCredentials: {
-    admin: {
-      username: import.meta.env.VITE_DEMO_ADMIN_USERNAME || 'admin',
-      password: import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'admin123'
-    },
-    user: {
-      username: import.meta.env.VITE_DEMO_USER_USERNAME || 'user',
-      password: import.meta.env.VITE_DEMO_USER_PASSWORD || 'user123'
-    }
-  }
+  demoMode: true, // Always demo mode for now
+  apiUrl: import.meta.env.VITE_API_URL || 'https://vault-api.hbvu.su',
+  authEndpoint: '/api/auth/login',
+  userEndpoint: '/api/users'
 };
 
-// Demo users for development (only used when VITE_DEMO_MODE=true)
+// Demo users with hardcoded credentials
 const demoUsers = {
-  [config.demoCredentials.admin.username]: {
+  admin: {
     id: 1,
-    username: config.demoCredentials.admin.username,
+    username: 'admin',
     name: 'Admin User',
     email: 'admin@hbvu.su',
     role: 'admin',
     avatar: '👤',
-    password: config.demoCredentials.admin.password,
+    password: 'admin123',
     permissions: ['upload_photos', 'create_album', 'delete_album', 'delete_photo', 'manage_users']
   },
-  [config.demoCredentials.user.username]: {
+  user: {
     id: 2,
-    username: config.demoCredentials.user.username,
+    username: 'user',
     name: 'Regular User',
     email: 'user@hbvu.su',
     role: 'user',
     avatar: '👤',
-    password: config.demoCredentials.user.password,
+    password: 'user123',
     permissions: []
   }
 };
