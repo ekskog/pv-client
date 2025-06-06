@@ -153,13 +153,38 @@
         </div>
 
         <!-- Selected Files -->
-        <div v-if="selectedFiles.length > 0 && !uploading" class="selected-files">
+        <div v-if="selectedFiles.length > 0" class="selected-files">
           <h4>Selected Files ({{ selectedFiles.length }})</h4>
           <div class="file-list">
             <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
-              <span class="file-name">{{ file.name }}</span>
-              <span class="file-size">{{ formatFileSize(file.size) }}</span>
-              <button @click="removeFile(index)" class="btn-remove">
+              <div class="file-info">
+                <span class="file-name">{{ file.name }}</span>
+                <span class="file-size">{{ formatFileSize(file.size) }}</span>
+              </div>
+              
+              <!-- Individual file progress -->
+              <div v-if="uploading" class="file-progress">
+                <div v-if="fileUploadProgress[file.name] === -1" class="file-status error">
+                  <i class="fas fa-exclamation-triangle"></i>
+                  <span>Failed</span>
+                </div>
+                <div v-else-if="uploadedFiles.has(file.name)" class="file-status success">
+                  <i class="fas fa-check"></i>
+                  <span>Complete</span>
+                </div>
+                <div v-else-if="fileUploadProgress[file.name] > 0" class="file-status uploading">
+                  <div class="mini-progress-bar">
+                    <div class="mini-progress-fill" :style="{ width: `${fileUploadProgress[file.name]}%` }"></div>
+                  </div>
+                  <span>{{ Math.round(fileUploadProgress[file.name]) }}%</span>
+                </div>
+                <div v-else class="file-status waiting">
+                  <i class="fas fa-clock"></i>
+                  <span>Waiting</span>
+                </div>
+              </div>
+              
+              <button v-if="!uploading" @click="removeFile(index)" class="btn-remove">
                 <i class="fas fa-times"></i>
               </button>
             </div>
@@ -206,7 +231,7 @@
         <!-- Navigation Controls -->
         <button 
           class="lightbox-nav lightbox-prev" 
-          @click="previousPhoto"
+          @click.stop="previousPhoto"
           :disabled="currentPhotoIndex === 0"
           title="Previous Photo (←)"
         >
@@ -215,7 +240,7 @@
         
         <button 
           class="lightbox-nav lightbox-next" 
-          @click="nextPhoto"
+          @click.stop="nextPhoto"
           :disabled="currentPhotoIndex === photos.length - 1"
           title="Next Photo (→)"
         >
@@ -223,7 +248,7 @@
         </button>
 
         <!-- Close Button -->
-        <button class="lightbox-close" @click="closeLightbox" title="Close (Esc)">
+        <button class="lightbox-close" @click.stop="closeLightbox" title="Close (Esc)">
           <i class="fas fa-times"></i>
         </button>
 
@@ -331,6 +356,9 @@ const selectedFiles = ref([])
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadStatus = ref('')
+const fileUploadProgress = ref({}) // Track individual file progress
+const uploadedFiles = ref(new Set()) // Track completed uploads
+const failedFiles = ref(new Set()) // Track failed uploads
 const isDragging = ref(false)
 const photoToDelete = ref(null)
 const deletingPhoto = ref(false)
@@ -544,14 +572,22 @@ const closeLightbox = () => {
 }
 
 const nextPhoto = () => {
+  console.log('Next photo clicked. Current index:', currentPhotoIndex.value, 'Total photos:', photos.value.length)
   if (currentPhotoIndex.value < photos.value.length - 1) {
     currentPhotoIndex.value++
+    console.log('Moving to next photo. New index:', currentPhotoIndex.value)
+  } else {
+    console.log('Already at last photo')
   }
 }
 
 const previousPhoto = () => {
+  console.log('Previous photo clicked. Current index:', currentPhotoIndex.value)
   if (currentPhotoIndex.value > 0) {
     currentPhotoIndex.value--
+    console.log('Moving to previous photo. New index:', currentPhotoIndex.value)
+  } else {
+    console.log('Already at first photo')
   }
 }
 
@@ -609,31 +645,82 @@ const uploadPhotos = async () => {
   uploadProgress.value = 0
   error.value = null
   
+  // Initialize progress tracking for each file
+  fileUploadProgress.value = {}
+  uploadedFiles.value = new Set()
+  failedFiles.value = new Set()
+  
+  selectedFiles.value.forEach(file => {
+    fileUploadProgress.value[file.name] = 0
+  })
+  
   try {
     uploadStatus.value = `Uploading ${selectedFiles.value.length} files...`
     
-    // Use the API's upload endpoint with files array and folderPath
-    const response = await apiService.uploadFile(BUCKET_NAME, selectedFiles.value, props.albumName)
+    let completedUploads = 0
+    const totalFiles = selectedFiles.value.length
     
-    if (!response.success) {
-      throw new Error(response.error || 'Upload failed')
+    // Upload files one by one to track individual progress
+    for (const file of selectedFiles.value) {
+      try {
+        uploadStatus.value = `Uploading ${file.name}...`
+        
+        const response = await apiService.uploadSingleFile(
+          BUCKET_NAME, 
+          file, 
+          props.albumName,
+          (progress) => {
+            // Update individual file progress
+            fileUploadProgress.value = {
+              ...fileUploadProgress.value,
+              [file.name]: progress
+            }
+            
+            // Calculate overall progress
+            const totalProgress = Object.values(fileUploadProgress.value).reduce((sum, prog) => sum + prog, 0)
+            const completedFilesProgress = completedUploads * 100
+            uploadProgress.value = Math.round((totalProgress + completedFilesProgress) / totalFiles)
+          }
+        )
+        
+        if (response.success) {
+          uploadedFiles.value.add(file.name)
+          fileUploadProgress.value = {
+            ...fileUploadProgress.value,
+            [file.name]: 100
+          }
+          completedUploads++
+        } else {
+          throw new Error(response.error || 'Upload failed')
+        }
+      } catch (err) {
+        failedFiles.value.add(file.name)
+        fileUploadProgress.value = {
+          ...fileUploadProgress.value,
+          [file.name]: -1 // -1 indicates error
+        }
+        console.error(`Failed to upload ${file.name}:`, err)
+      }
     }
     
     uploadProgress.value = 100
-    uploadStatus.value = 'Upload complete!'
     
-    // Close dialog and refresh photos
+    if (failedFiles.value.size > 0) {
+      uploadStatus.value = `${uploadedFiles.value.size} files uploaded, ${failedFiles.value.size} failed`
+    } else {
+      uploadStatus.value = 'All files uploaded successfully!'
+    }
+    
+    // Close dialog and refresh photos after a delay
     setTimeout(() => {
       closeUploadDialog()
       loadPhotos()
-    }, 1000)
+    }, 2000)
     
   } catch (err) {
     error.value = `Upload failed: ${err.message}`
   } finally {
     uploading.value = false
-    uploadProgress.value = 0
-    uploadStatus.value = ''
   }
 }
 
@@ -671,6 +758,9 @@ const closeUploadDialog = () => {
   uploadProgress.value = 0
   uploadStatus.value = ''
   isDragging.value = false
+  fileUploadProgress.value = {}
+  uploadedFiles.value = new Set()
+  failedFiles.value = new Set()
 }
 
 const closeDeletePhotoDialog = () => {
@@ -1262,33 +1352,92 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.5rem;
+  padding: 0.75rem;
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   margin-bottom: 0.5rem;
+  gap: 1rem;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
 }
 
 .file-name {
   font-weight: 500;
   color: #333;
-  flex: 1;
+  font-size: 0.9rem;
   word-break: break-word;
 }
 
 .file-size {
   font-size: 0.8rem;
   color: #666;
-  margin: 0 1rem;
+  margin-top: 0.25rem;
+}
+
+.file-progress {
+  display: flex;
+  align-items: center;
+  min-width: 120px;
+  justify-content: flex-end;
+}
+
+.file-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.file-status.success {
+  color: #4caf50;
+}
+
+.file-status.error {
+  color: #f44336;
+}
+
+.file-status.uploading {
+  color: #2196f3;
+}
+
+.file-status.waiting {
+  color: #666;
+}
+
+.mini-progress-bar {
+  width: 60px;
+  height: 4px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.mini-progress-fill {
+  height: 100%;
+  background: #2196f3;
+  transition: width 0.3s ease;
 }
 
 .btn-remove {
   background: #f44336;
   color: white;
   border: none;
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .btn-remove:hover {
@@ -1461,7 +1610,7 @@ onUnmounted(() => {
   justify-content: center;
   transition: all 0.2s ease;
   backdrop-filter: blur(10px);
-  z-index: 10;
+  z-index: 100;
 }
 
 .lightbox-nav:hover:not(:disabled) {
@@ -1499,7 +1648,7 @@ onUnmounted(() => {
   justify-content: center;
   transition: all 0.2s ease;
   backdrop-filter: blur(10px);
-  z-index: 10;
+  z-index: 100;
 }
 
 .lightbox-close:hover {

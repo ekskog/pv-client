@@ -107,6 +107,55 @@ class ApiService {
     }
   }
 
+  // Single file upload with progress tracking
+  async uploadSingleFile(bucketName, file, folderPath = '', onProgress = null) {
+    const formData = new FormData()
+    formData.append('files', file)
+    
+    if (folderPath) {
+      formData.append('folderPath', folderPath)
+    }
+    
+    const url = `${API_BASE_URL}/buckets/${bucketName}/upload`
+    
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      
+      // Track upload progress
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 100
+            onProgress(percentComplete)
+          }
+        })
+      }
+      
+      // Handle completion
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText)
+            resolve(response)
+          } catch (error) {
+            reject(new Error('Invalid JSON response'))
+          }
+        } else {
+          reject(new Error(`HTTP error! status: ${xhr.status}`))
+        }
+      })
+      
+      // Handle errors
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error occurred'))
+      })
+      
+      // Start the upload
+      xhr.open('POST', url)
+      xhr.send(formData)
+    })
+  }
+
   // Delete object - This endpoint doesn't exist in your API
   // async deleteObject(bucketName, objectName) {
   //   return this.request(`/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`, {
