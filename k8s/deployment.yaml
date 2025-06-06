@@ -8,6 +8,11 @@ metadata:
     component: frontend
 spec:
   replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
   selector:
     matchLabels:
       app: photovault-vue
@@ -16,6 +21,9 @@ spec:
       labels:
         app: photovault-vue
         component: frontend
+      annotations:
+        # This annotation will be updated by the CI/CD pipeline to force pod recreation
+        deployment.kubernetes.io/revision: "1"
     spec:
       containers:
       - name: photovault-vue

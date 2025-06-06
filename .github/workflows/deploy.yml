@@ -172,8 +172,15 @@ jobs:
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
           
-          # Update image in deployment
-          kubectl set image deployment/photovault-vue photovault-vue=${{ env.IMAGE_NAME }}:latest -n webapps
+          # Get the commit-specific tag from the build metadata
+          COMMIT_TAG="${{ env.IMAGE_NAME }}:main-$(echo ${{ github.sha }} | cut -c1-7)"
+          echo "Using image tag: $COMMIT_TAG"
+          
+          # Update image in deployment with commit-specific tag
+          kubectl set image deployment/photovault-vue photovault-vue=$COMMIT_TAG -n webapps
+          
+          # Restart deployment to ensure pods are recreated
+          kubectl rollout restart deployment/photovault-vue -n webapps
           
           # Wait for rollout to complete
           kubectl rollout status deployment/photovault-vue -n webapps --timeout=300s
