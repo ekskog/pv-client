@@ -83,8 +83,13 @@
               </button>
             </div>
             
-            <!-- Fallback for HEIC files in unknown state -->
-            <div v-else class="heic-placeholder">
+            <!-- HEIC files: Placeholder that triggers lazy conversion -->
+            <div 
+              v-else
+              class="heic-placeholder" 
+              :data-photo-name="photo.name"
+              ref="heicPlaceholderRefs"
+            >
               <i class="fas fa-image"></i>
               <span>HEIC Image</span>
             </div>
@@ -379,8 +384,9 @@ const loadPhotos = async () => {
       // Initialize virtual scrolling with the loaded photos
       resetVirtualScrolling()
       
-      // Convert HEIC files to JPEG for display in the background
-      convertHeicImagesInBackground(imageFiles)
+      // DON'T convert HEIC files immediately - do it on-demand only
+      // Initialize HEIC states as 'pending' for lazy conversion
+      initializeHeicStates(imageFiles)
     } else {
       throw new Error(response.error || 'Failed to load album photos')
     }
@@ -391,48 +397,59 @@ const loadPhotos = async () => {
   }
 }
 
-const convertHeicImagesInBackground = async (imageFiles) => {
+const initializeHeicStates = (imageFiles) => {
   const heicFiles = imageFiles.filter(photo => isHeicFile(photo.name))
   
-  // Initialize loading states for all HEIC files immediately
+  // Just initialize states as 'pending' - don't start conversion yet
   const initialStates = {}
   heicFiles.forEach(photo => {
-    initialStates[photo.name] = 'loading'
+    initialStates[photo.name] = 'pending'
   })
   heicConversionStates.value = { ...heicConversionStates.value, ...initialStates }
+}
+
+const convertHeicImageOnDemand = async (photo) => {
+  // If already converted or in progress, don't start again
+  if (heicConversionStates.value[photo.name] === 'success' || 
+      heicConversionStates.value[photo.name] === 'loading') {
+    return
+  }
   
-  // Process each HEIC file individually and update UI immediately when ready
-  heicFiles.forEach(async (photo) => {
-    try {
-      // Fetch the HEIC file
-      const response = await fetch(apiService.getObjectUrl(BUCKET_NAME, photo.name))
-      if (!response.ok) {
-        throw new Error(`Failed to fetch HEIC file: ${response.statusText}`)
-      }
-      
-      // Convert to blob
-      const heicBlob = await response.blob()
-      
-      // Convert HEIC to JPEG with optimized settings for thumbnails
-      const convertedBlob = await heic2any({
-        blob: heicBlob,
-        toType: 'image/jpeg',
-        quality: 0.6, // Lower quality for faster loading
-        maxWidth: 800, // Limit width for thumbnails
-        maxHeight: 800 // Limit height for thumbnails
-      })
-      
-      // Create blob URL for display and update state immediately
-      const blobUrl = URL.createObjectURL(convertedBlob)
-      
-      // Force reactivity by creating new objects
-      convertedImages.value = { ...convertedImages.value, [photo.name]: blobUrl }
-      heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'success' }
-      
-    } catch (error) {
-      heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'error' }
+  // Set to loading state
+  heicConversionStates.value = { 
+    ...heicConversionStates.value, 
+    [photo.name]: 'loading' 
+  }
+  
+  try {
+    // Fetch the HEIC file
+    const response = await fetch(apiService.getObjectUrl(BUCKET_NAME, photo.name))
+    if (!response.ok) {
+      throw new Error(`Failed to fetch HEIC file: ${response.statusText}`)
     }
-  })
+    
+    // Convert to blob
+    const heicBlob = await response.blob()
+    
+    // Convert HEIC to JPEG with optimized settings for thumbnails
+    const convertedBlob = await heic2any({
+      blob: heicBlob,
+      toType: 'image/jpeg',
+      quality: 0.7, // Slightly better quality since we're doing fewer conversions
+      maxWidth: 1200, // Larger size since it's on-demand
+      maxHeight: 1200
+    })
+    
+    // Create blob URL for display and update state
+    const blobUrl = URL.createObjectURL(convertedBlob)
+    
+    // Force reactivity by creating new objects
+    convertedImages.value = { ...convertedImages.value, [photo.name]: blobUrl }
+    heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'success' }
+    
+  } catch (error) {
+    heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'error' }
+  }
 }
 
 const isHeicFile = (filename) => {
@@ -711,6 +728,35 @@ const preloadVisibleImages = () => {
   imageElements.forEach(img => observer.observe(img))
 }
 
+// Intersection observer for HEIC lazy conversion
+const setupHeicLazyConversion = () => {
+  const heicPlaceholders = document.querySelectorAll('.heic-placeholder[data-photo-name]')
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const placeholder = entry.target
+        const photoName = placeholder.dataset.photoName
+        
+        // Find the photo object
+        const photo = photos.value.find(p => p.name === photoName)
+        if (photo && heicConversionStates.value[photoName] === 'pending') {
+          // Start converting this HEIC image
+          convertHeicImageOnDemand(photo)
+        }
+        
+        // Stop observing this placeholder
+        observer.unobserve(placeholder)
+      }
+    })
+  }, { 
+    rootMargin: '100px', // Start conversion 100px before the image is visible
+    threshold: 0.1 
+  })
+  
+  heicPlaceholders.forEach(placeholder => observer.observe(placeholder))
+}
+
 // Virtual scrolling for large photo collections (optional optimization)
 const visiblePhotos = ref([])
 const currentPage = ref(1)
@@ -724,6 +770,11 @@ const loadMorePhotos = () => {
   if (newPhotos.length > 0) {
     visiblePhotos.value = [...visiblePhotos.value, ...newPhotos]
     currentPage.value++
+    
+    // Setup HEIC lazy conversion for newly loaded photos
+    setTimeout(() => {
+      setupHeicLazyConversion()
+    }, 50)
   }
 }
 
@@ -753,10 +804,11 @@ const setupInfiniteScroll = () => {
 onMounted(async () => {
   await loadPhotos()
   
-  // Setup performance monitoring after images are loaded
+  // Setup performance monitoring and lazy loading after images are loaded
   setTimeout(() => {
     preloadVisibleImages()
     setupInfiniteScroll()
+    setupHeicLazyConversion() // Setup HEIC lazy conversion
   }, 100)
 })
 
