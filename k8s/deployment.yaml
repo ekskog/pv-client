@@ -33,9 +33,12 @@ spec:
         - containerPort: 80
           name: http
         env:
-        # Simple configuration - only API URL needed
+        # API Configuration
         - name: VITE_API_URL
           value: "https://vault-api.hbvu.su"
+        # Authentication Mode: demo for development, api for production
+        - name: VITE_AUTH_MODE
+          value: "demo"
         # Load non-sensitive config from ConfigMap
         envFrom:
         - configMapRef:

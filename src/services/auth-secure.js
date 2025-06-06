@@ -1,38 +1,47 @@
 // HBVU PHOTOS Authentication Service
-// Supports both demo and database authentication modes
+// Secure authentication service with environment variable configuration
 
 const AUTH_TOKEN_KEY = 'hbvu_auth_token';
 const USER_DATA_KEY = 'hbvu_user_data';
 
-// Configuration with dual-mode authentication support
+// Configuration from environment variables
 const config = {
-  apiUrl: import.meta.env.VITE_API_URL || 'https://vault-api.hbvu.su',
-  authMode: import.meta.env.VITE_AUTH_MODE || 'demo', // 'demo' or 'api'
-  authEndpoint: '/auth/login',
-  userEndpoint: '/auth/me',
-  statusEndpoint: '/auth/status'
+  demoMode: import.meta.env.VITE_DEMO_MODE === 'true',
+  apiUrl: import.meta.env.VITE_API_URL,
+  authEndpoint: import.meta.env.VITE_AUTH_ENDPOINT || '/api/auth/login',
+  userEndpoint: import.meta.env.VITE_USER_ENDPOINT || '/api/users',
+  demoCredentials: {
+    admin: {
+      username: import.meta.env.VITE_DEMO_ADMIN_USERNAME || 'admin',
+      password: import.meta.env.VITE_DEMO_ADMIN_PASSWORD || 'admin123'
+    },
+    user: {
+      username: import.meta.env.VITE_DEMO_USER_USERNAME || 'user',
+      password: import.meta.env.VITE_DEMO_USER_PASSWORD || 'user123'
+    }
+  }
 };
 
-// Demo users with hardcoded credentials (for demo mode)
+// Demo users for development (only used when VITE_DEMO_MODE=true)
 const demoUsers = {
-  admin: {
+  [config.demoCredentials.admin.username]: {
     id: 1,
-    username: 'admin',
+    username: config.demoCredentials.admin.username,
     name: 'Admin User',
     email: 'admin@hbvu.su',
     role: 'admin',
     avatar: '👤',
-    password: 'admin123',
+    password: config.demoCredentials.admin.password,
     permissions: ['upload_photos', 'create_album', 'delete_album', 'delete_photo', 'manage_users']
   },
-  user: {
+  [config.demoCredentials.user.username]: {
     id: 2,
-    username: 'user',
+    username: config.demoCredentials.user.username,
     name: 'Regular User',
-    email: 'user@hbvu.su', 
+    email: 'user@hbvu.su',
     role: 'user',
     avatar: '👤',
-    password: 'user123',
+    password: config.demoCredentials.user.password,
     permissions: []
   }
 };
@@ -64,8 +73,8 @@ async function demoLogin(username, password) {
   };
 }
 
-// API authentication function (production)
-async function apiLogin(username, password) {
+// Production authentication function
+async function productionLogin(username, password) {
   const response = await fetch(`${config.apiUrl}${config.authEndpoint}`, {
     method: 'POST',
     headers: {
@@ -79,31 +88,12 @@ async function apiLogin(username, password) {
     throw new Error(error.message || 'Authentication failed');
   }
   
-  const data = await response.json();
-  
-  if (!data.success) {
-    throw new Error(data.error || 'Authentication failed');
-  }
-  
-  return {
-    token: data.data.token,
-    user: {
-      id: data.data.user.id,
-      username: data.data.user.username,
-      name: data.data.user.username, // Use username as name if no display name
-      email: data.data.user.email,
-      role: data.data.user.role,
-      avatar: '👤',
-      permissions: data.data.user.role === 'admin' ? 
-        ['upload_photos', 'create_album', 'delete_album', 'delete_photo', 'manage_users'] : 
-        []
-    }
-  };
+  return await response.json();
 }
 
 // Validate token with backend
 async function validateToken(token) {
-  if (config.authMode === 'demo') {
+  if (config.demoMode) {
     // Demo token validation
     try {
       const decoded = JSON.parse(atob(token));
@@ -112,19 +102,13 @@ async function validateToken(token) {
       return false;
     }
   } else {
-    // API token validation
-      try {
-      const response = await fetch(`${config.apiUrl}${config.userEndpoint}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      return response.ok;
-    } catch {
-      return false;
-    }
+    // Production token validation
+    const response = await fetch(`${config.apiUrl}/api/auth/validate`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response.ok;
   }
 }
 
@@ -160,10 +144,10 @@ class AuthService {
     try {
       let response;
       
-      if (config.authMode === 'demo') {
+      if (config.demoMode) {
         response = await demoLogin(username, password);
       } else {
-        response = await apiLogin(username, password);
+        response = await productionLogin(username, password);
       }
       
       this.token = response.token;
@@ -328,51 +312,6 @@ class AuthService {
       }
       
       return true;
-    }
-  }
-
-  // Password change method
-  async changePassword({ userId, currentPassword, newPassword }) {
-    if (config.demoMode) {
-      // Demo mode: simulate password change
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // In demo mode, we can't actually change passwords
-      // Just validate current password if it's provided
-      if (currentPassword) {
-        const currentUser = this.getCurrentUser();
-        if (!currentUser) {
-          throw new Error('Not authenticated');
-        }
-        
-        // For demo, check against known demo passwords
-        const demoUser = Object.values(demoUsers).find(u => u.id === currentUser.id);
-        if (demoUser && demoUser.password !== currentPassword) {
-          throw new Error('Current password is incorrect');
-        }
-      }
-      
-      return { success: true, message: 'Password changed successfully (demo mode)' };
-    } else {
-      // Production: change password via backend
-      const response = await fetch(`${config.apiUrl}${config.userEndpoint}/${userId}/password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`
-        },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword
-        })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to change password' }));
-        throw new Error(error.message);
-      }
-      
-      return await response.json();
     }
   }
 

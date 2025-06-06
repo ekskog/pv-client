@@ -13,18 +13,24 @@ class ApiService {
     this.authService = authService
   }
 
+  // Get authentication token
+  getAuthToken() {
+    return localStorage.getItem('hbvu_auth_token')
+  }
+
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`
     
-    // Add authentication headers if user is logged in
+    // Add authentication headers
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
     }
 
     // Add auth token if available
-    if (this.authService?.getToken()) {
-      headers['Authorization'] = `Bearer ${this.authService.getToken()}`
+    const token = this.getAuthToken()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
     }
     
     const config = {
@@ -35,8 +41,23 @@ class ApiService {
     try {
       const response = await fetch(url, config)
       
+      // Handle 401 Unauthorized - token might be expired
+      if (response.status === 401) {
+        // Clear invalid token
+        localStorage.removeItem('hbvu_auth_token')
+        localStorage.removeItem('hbvu_user_data')
+        
+        // Redirect to login if auth service is available
+        if (this.authService) {
+          this.authService.clearAuth()
+        }
+        
+        throw new Error('Authentication required. Please log in again.')
+      }
+      
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }))
+        throw new Error(errorData.message || errorData.error || `HTTP error! status: ${response.status}`)
       }
       
       return await response.json()
