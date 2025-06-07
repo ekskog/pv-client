@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import Navigation from './components/Navigation.vue'
 import Home from './components/Home.vue'
@@ -76,9 +76,29 @@ const userRole = computed(() => currentUser.value?.role || 'user')
 // Initialize auth service
 onMounted(async () => {
   await authService.init()
+  updateAuthState()
+  
+  // Listen for storage events (e.g., logout in another tab)
+  window.addEventListener('storage', handleStorageChange)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('storage', handleStorageChange)
+})
+
+// Handle storage changes (logout in another tab)
+const handleStorageChange = (event) => {
+  if (event.key === 'hbvu_auth_token' && !event.newValue) {
+    // Token was removed, update auth state
+    updateAuthState()
+  }
+}
+
+// Update authentication state
+const updateAuthState = () => {
   isAuthenticated.value = authService.isAuthenticated()
   currentUser.value = authService.getCurrentUser()
-})
+}
 
 // Methods
 const handleNavigation = (view) => {
@@ -100,15 +120,13 @@ const handlePhotoOpen = (photo) => {
 }
 
 const handleLoginSuccess = (user) => {
-  currentUser.value = user
-  isAuthenticated.value = true
+  updateAuthState()
   currentView.value = 'home'
 }
 
 const handleLogout = () => {
   authService.logout()
-  currentUser.value = null
-  isAuthenticated.value = false
+  updateAuthState()
   currentView.value = 'home'
 }
 </script>

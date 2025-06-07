@@ -43,16 +43,23 @@ class ApiService {
       
       // Handle 401 Unauthorized - token might be expired
       if (response.status === 401) {
+        console.warn('Authentication failed - clearing tokens and redirecting to login');
+        
         // Clear invalid token
         localStorage.removeItem('hbvu_auth_token')
         localStorage.removeItem('hbvu_user_data')
         
-        // Redirect to login if auth service is available
+        // Clear auth service state if available
         if (this.authService) {
           this.authService.clearAuth()
         }
         
-        throw new Error('Authentication required. Please log in again.')
+        // Force page reload to show login screen
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
+        
+        throw new Error('Invalid or expired token')
       }
       
       if (!response.ok) {

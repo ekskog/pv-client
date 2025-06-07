@@ -39,27 +39,38 @@ const demoUsers = {
 
 // Demo authentication function (development only)
 async function demoLogin(username, password) {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Use the backend API for demo authentication to ensure consistency
+  const response = await fetch(`${config.apiUrl}${config.authEndpoint}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username, password })
+  });
   
-  const user = demoUsers[username];
-  if (!user || user.password !== password) {
-    throw new Error('Invalid username or password');
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Login failed' }));
+    throw new Error(error.message || 'Authentication failed');
   }
   
-  // Generate a simple demo token
-  const token = btoa(JSON.stringify({ userId: user.id, exp: Date.now() + 24 * 60 * 60 * 1000 }));
+  const data = await response.json();
+  
+  if (!data.success) {
+    throw new Error(data.error || 'Authentication failed');
+  }
   
   return {
-    token,
+    token: data.data.token,
     user: {
-      id: user.id,
-      username: user.username,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-      permissions: user.permissions
+      id: data.data.user.id,
+      username: data.data.user.username,
+      name: data.data.user.username,
+      email: data.data.user.email,
+      role: data.data.user.role,
+      avatar: '👤',
+      permissions: data.data.user.role === 'admin' ? 
+        ['upload_photos', 'create_album', 'delete_album', 'delete_photo', 'manage_users'] : 
+        []
     }
   };
 }
@@ -104,16 +115,26 @@ async function apiLogin(username, password) {
 // Validate token with backend
 async function validateToken(token) {
   if (config.authMode === 'demo') {
-    // Demo token validation
+    // For demo mode, validate against the backend to ensure consistency
     try {
-      const decoded = JSON.parse(atob(token));
-      return decoded.exp > Date.now();
+      const response = await fetch(`${config.apiUrl}${config.userEndpoint}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        return data.success !== false; // Return true if response is successful
+      }
+      return false;
     } catch {
       return false;
     }
   } else {
     // API token validation
-      try {
+    try {
       const response = await fetch(`${config.apiUrl}${config.userEndpoint}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -133,18 +154,34 @@ class AuthService {
     this.currentUser = null;
     this.token = localStorage.getItem(AUTH_TOKEN_KEY);
     this.isInitialized = false;
+    
+    // Set up API service reference after import
+    this.setupApiService();
+  }
+  
+  // Set up API service reference to avoid circular import issues
+  async setupApiService() {
+    const { default: apiService } = await import('./api.js');
+    apiService.setAuthService(this);
   }
 
   // Initialize auth service and restore session
   async init() {
     if (this.token) {
       try {
-        if (await validateToken(this.token)) {
+        // Validate token with backend
+        const isValid = await validateToken(this.token);
+        if (isValid) {
+          // Try to get user data from localStorage first
           const userData = localStorage.getItem(USER_DATA_KEY);
           if (userData) {
             this.currentUser = JSON.parse(userData);
+          } else {
+            // If no cached user data, fetch from backend
+            await this.fetchCurrentUser();
           }
         } else {
+          console.warn('Token validation failed, clearing auth');
           this.clearAuth();
         }
       } catch (error) {
@@ -153,6 +190,41 @@ class AuthService {
       }
     }
     this.isInitialized = true;
+  }
+
+  // Fetch current user from backend
+  async fetchCurrentUser() {
+    try {
+      const response = await fetch(`${config.apiUrl}${config.userEndpoint}`, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.data.user) {
+          this.currentUser = {
+            id: data.data.user.id,
+            username: data.data.user.username,
+            name: data.data.user.username,
+            email: data.data.user.email,
+            role: data.data.user.role,
+            avatar: '👤',
+            permissions: data.data.user.role === 'admin' ? 
+              ['upload_photos', 'create_album', 'delete_album', 'delete_photo', 'manage_users'] : 
+              []
+          };
+          localStorage.setItem(USER_DATA_KEY, JSON.stringify(this.currentUser));
+        }
+      } else {
+        throw new Error('Failed to fetch user data');
+      }
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+      this.clearAuth();
+    }
   }
 
   // Login with username and password
