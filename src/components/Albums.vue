@@ -193,7 +193,6 @@ const createAlbum = async () => {
   
   try {
     const albumName = newAlbumName.value.trim()
-    console.log(`Creating album: ${albumName}`);
 
     // Use the correct API endpoint to create a folder
     const response = await apiService.createFolder(BUCKET_NAME, albumName)
@@ -201,13 +200,11 @@ const createAlbum = async () => {
     if (response.success) {
       closeDialog() // Close dialog first to show loading state
       await loadAlbums() // Refresh the list
-      console.log(`Album '${albumName}' created successfully`);
     } else {
       throw new Error(response.error || 'Failed to create album')
     }
   } catch (err) {
     error.value = `Failed to create album: ${err.message}`
-    console.error('Album creation error:', err);
   } finally {
     creating.value = false
   }

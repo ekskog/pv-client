@@ -99,21 +99,17 @@ const handleLogin = async () => {
   error.value = ''
 
   try {
-    console.log('Attempting login for user:', username.value.trim());
     const result = await authService.login(username.value.trim(), password.value)
     
     if (result.success) {
-      console.log('Login successful:', result.user);
       emit('login-success', result.user)
       // Clear form
       username.value = ''
       password.value = ''
     } else {
-      console.error('Login failed:', result.error);
       error.value = result.error || 'Login failed'
     }
   } catch (err) {
-    console.error('Login error:', err);
     error.value = err.message || 'An unexpected error occurred'
   } finally {
     loading.value = false

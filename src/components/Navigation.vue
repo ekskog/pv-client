@@ -121,12 +121,9 @@ const closePasswordDialog = () => {
 
 const handlePasswordSuccess = (data) => {
   // Show success message
-  console.log('Password changed successfully')
-  
   // If user changed their own password, they might need to re-authenticate
   if (data.isOwnPassword) {
     // In a real app, you might want to redirect to login
-    console.log('User changed their own password - may need to re-authenticate')
   }
 }
 
