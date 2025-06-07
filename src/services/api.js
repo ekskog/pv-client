@@ -136,10 +136,20 @@ class ApiService {
     
     const url = `${API_BASE_URL}/buckets/${bucketName}/upload`
     
+    // Prepare headers (don't set Content-Type for FormData)
+    const headers = {}
+    
+    // Add auth token if available
+    const token = this.getAuthToken()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+    
     try {
       const response = await fetch(url, {
         method: 'POST',
-        body: formData, // Don't set Content-Type for FormData
+        headers,
+        body: formData,
       })
       
       if (!response.ok) {
@@ -165,11 +175,6 @@ class ApiService {
     
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest()
-      
-      // Add auth header if available
-      if (this.authService?.getToken()) {
-        xhr.setRequestHeader('Authorization', `Bearer ${this.authService.getToken()}`)
-      }
       
       // Track upload progress
       if (onProgress) {
@@ -200,8 +205,15 @@ class ApiService {
         reject(new Error('Network error occurred'))
       })
       
-      // Start the upload
+      // Start the upload - MUST be called before setting headers
       xhr.open('POST', url)
+      
+      // Add auth header if available - AFTER xhr.open()
+      const token = this.getAuthToken()
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      }
+      
       xhr.send(formData)
     })
   }
