@@ -65,27 +65,7 @@
               :data-full-src="getPhotoUrl(photo)"
             >
             
-            <!-- HEIC Conversion Status Indicator -->
-            <div 
-              v-if="isHeicFile(photo.name)" 
-              class="heic-conversion-status"
-              :class="{
-                'converting': heicConversionStates[photo.name] === 'loading',
-                'converted': heicConversionStates[photo.name] === 'success',
-                'error': heicConversionStates[photo.name] === 'error'
-              }"
-            >
-              <div v-if="heicConversionStates[photo.name] === 'loading'" class="conversion-spinner">
-                <i class="fas fa-sync fa-spin"></i>
-                <span class="conversion-text">Converting...</span>
-              </div>
-              <div v-else-if="heicConversionStates[photo.name] === 'success'" class="conversion-success">
-                <i class="fas fa-check"></i>
-              </div>
-              <div v-else-if="heicConversionStates[photo.name] === 'error'" class="conversion-error">
-                <i class="fas fa-exclamation-triangle"></i>
-              </div>
-            </div>
+            <!-- Status indicators removed - backend handles conversion -->
             
             <!-- Loading placeholder for images -->
             <div class="image-loading-placeholder">
@@ -131,7 +111,7 @@
               Drag and drop photos here or click to select
             </p>
             <p class="upload-hint">
-              Supports JPG, PNG, GIF, HEIC files (HEIC images converted for web display)
+              Supports JPG, PNG, GIF, HEIC files (optimized for fast display)
             </p>
           </div>
         </div>
@@ -247,21 +227,9 @@
         <!-- Photo Display -->
         <div class="lightbox-content">
           <div class="lightbox-image-container">
-            <!-- HEIC Conversion Loading State -->
-            <div 
-              v-if="currentPhoto && isHeicFile(currentPhoto.name) && heicConversionStates[currentPhoto.name] === 'loading'" 
-              class="lightbox-heic-converting"
-            >
-              <i class="fas fa-sync fa-spin"></i>
-              <p>Converting HEIC image...</p>
-              <div class="conversion-progress">
-                <div class="progress-bar"></div>
-              </div>
-            </div>
-            
-            <!-- All images use the same logic now -->
+            <!-- Backend handles all conversions -->
             <img 
-              v-else-if="currentPhoto"
+              v-if="currentPhoto"
               :src="getPhotoUrl(currentPhoto)" 
               :alt="currentPhoto.name"
               class="lightbox-image"
@@ -311,7 +279,6 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import heic2any from 'heic2any'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
 
@@ -330,8 +297,7 @@ const emit = defineEmits(['back', 'photoOpened'])
 const loading = ref(false)
 const error = ref(null)
 const photos = ref([])
-const convertedImages = ref({}) // Store converted HEIC images as blob URLs
-const heicConversionStates = ref({}) // Track conversion states: 'loading', 'success', 'error'
+// Removed HEIC conversion variables - backend handles all conversions
 const showUploadDialog = ref(false)
 const showDeletePhotoDialog = ref(false)
 const selectedFiles = ref([])
@@ -362,7 +328,6 @@ const currentPhoto = computed(() => {
       name: photo.name,
       size: photo.size,
       type: photo.name.split('.').pop().toUpperCase(),
-      isHEIC: isHeicFile(photo.name),
       index: currentPhotoIndex.value,
       totalFiles: lightboxPhotos.value.length
     })
@@ -389,8 +354,7 @@ const loadPhotos = async () => {
   loading.value = true
   error.value = null
   
-  // Clear previous conversion states and images
-  heicConversionStates.value = {}
+  // Clear previous data
   cleanupBlobUrls()
   
   try {
@@ -403,31 +367,28 @@ const loadPhotos = async () => {
     
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
     
+    // DEBUG: Log the exact response received from backend
+    console.log('🔍 RAW RESPONSE FROM BACKEND:', JSON.stringify(response, null, 2))
+    
     if (response.success && response.data) {
       
-      // Load ALL image files into photos array (for lightbox navigation)
-      const allImageFiles = (response.data.objects || []).filter(obj => {
-        if (!obj.name || obj.name.endsWith('/')) return false;
-        
-        // Check if it's an image file
-        const isImage = /\.(jpg|jpeg|png|gif|bmp|webp|heic|heif)$/i.test(obj.name);
-        return isImage;
+      // Load ALL files returned by backend (no filtering)
+      const allFiles = (response.data.objects || []).filter(obj => {
+        // Only exclude folders (names ending with '/')
+        return obj.name && !obj.name.endsWith('/');
       })
       
       // DEBUG: Log files received from backend
-      console.log('📁 Files received from backend:', allImageFiles.map(f => ({
+      console.log('📁 Files received from backend:', allFiles.map(f => ({
         name: f.name,
         size: f.size,
         type: f.name.split('.').pop().toUpperCase()
       })))
       
-      photos.value = allImageFiles
+      photos.value = allFiles
       
       // Reset pagination
       resetVirtualScrolling()
-      
-      // Start preemptive HEIC conversion for better lightbox experience
-      startPreemptiveHeicConversion(allImageFiles)
     } else {
       throw new Error(response.error || 'Failed to load album photos')
     }
@@ -436,121 +397,6 @@ const loadPhotos = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const startPreemptiveHeicConversion = async (imageFiles) => {
-  // Find all HEIC files that need conversion
-  const heicFiles = imageFiles.filter(photo => isHeicFile(photo.name))
-  
-  if (heicFiles.length === 0) return
-  
-  console.log(`🔄 Starting preemptive conversion for ${heicFiles.length} HEIC files...`)
-  
-  // Initialize all HEIC files as 'loading' state
-  const initialStates = {}
-  heicFiles.forEach(photo => {
-    initialStates[photo.name] = 'loading'
-  })
-  heicConversionStates.value = { ...heicConversionStates.value, ...initialStates }
-  
-  // Convert HEIC files in small batches to avoid overwhelming the browser
-  const batchSize = 2 // Process 2 files at a time
-  
-  for (let i = 0; i < heicFiles.length; i += batchSize) {
-    const batch = heicFiles.slice(i, i + batchSize)
-    
-    // Process batch in parallel
-    await Promise.allSettled(
-      batch.map(async (photo) => {
-        try {
-          await convertHeicFile(photo)
-          console.log(`✅ Preemptively converted: ${photo.name}`)
-        } catch (error) {
-          console.error(`❌ Preemptive conversion failed for ${photo.name}:`, error.message)
-          heicConversionStates.value = { 
-            ...heicConversionStates.value, 
-            [photo.name]: 'error' 
-          }
-        }
-      })
-    )
-    
-    // Small delay between batches to keep UI responsive
-    if (i + batchSize < heicFiles.length) {
-      await new Promise(resolve => setTimeout(resolve, 200))
-    }
-  }
-  
-  console.log('🎉 Preemptive HEIC conversion completed!')
-}
-
-// Core HEIC conversion function used by both preemptive and on-demand conversion
-const convertHeicFile = async (photo) => {
-  try {
-    // Fetch the original HEIC file
-    const response = await fetch(apiService.getObjectUrl(BUCKET_NAME, photo.name))
-    if (!response.ok) {
-      throw new Error(`Failed to fetch HEIC file: ${response.statusText}`)
-    }
-    
-    // Convert to blob
-    const heicBlob = await response.blob()
-    
-    // Validate blob size and type
-    if (heicBlob.size === 0) {
-      throw new Error('HEIC file is empty')
-    }
-    
-    // Try client-side conversion
-    let convertedBlob
-    try {
-      // Primary conversion attempt - high quality for lightbox
-      convertedBlob = await heic2any({
-        blob: heicBlob,
-        toType: 'image/jpeg',
-        quality: 0.9,
-        // Preserve original resolution for best lightbox experience
-      })
-    } catch (heicError) {
-      // Fallback to PNG if JPEG conversion fails
-      convertedBlob = await heic2any({
-        blob: heicBlob,
-        toType: 'image/png',
-        quality: 0.9,
-      })
-    }
-    
-    // Create blob URL and update state
-    const blobUrl = URL.createObjectURL(convertedBlob)
-    convertedImages.value = { ...convertedImages.value, [photo.name]: blobUrl }
-    heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'success' }
-    
-  } catch (error) {
-    console.error(`❌ HEIC conversion failed for ${photo.name}:`, error.message || error)
-    heicConversionStates.value = { ...heicConversionStates.value, [photo.name]: 'error' }
-    throw error
-  }
-}
-
-const convertHeicImageOnDemand = async (photo) => {
-  // If already converted or in progress, don't start again
-  if (heicConversionStates.value[photo.name] === 'success' || 
-      heicConversionStates.value[photo.name] === 'loading') {
-    return
-  }
-  
-  // Set to loading state  
-  heicConversionStates.value = { 
-    ...heicConversionStates.value, 
-    [photo.name]: 'loading' 
-  }
-  
-  // Use the shared conversion function
-  await convertHeicFile(photo)
-}
-
-const isHeicFile = (filename) => {
-  return /\.(heic|heif)$/i.test(filename)
 }
 
 const downloadPhoto = (photo) => {
@@ -564,24 +410,20 @@ const downloadPhoto = (photo) => {
 }
 
 const getPhotoUrl = (photo) => {
-  // For HEIC files, use converted image if available
-  if (isHeicFile(photo.name) && convertedImages.value[photo.name]) {
-    return convertedImages.value[photo.name]
-  }
-  
-  // For all other cases, return the original file URL
+  // Backend only serves AVIF files, no HEIC files exist
   return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
 const getOptimizedPhotoUrl = (photo) => {
-  // For thumbnail files, use them directly (they're already optimized)
-  if (/_thumbnail\.jpeg$/i.test(photo.name)) {
-    return apiService.getObjectUrl(BUCKET_NAME, photo.name)
+  // Backend only serves AVIF files, use them directly
+  const baseUrl = apiService.getObjectUrl(BUCKET_NAME, photo.name)
+  
+  // For AVIF files, use them directly (they are already optimized)
+  if (/_full\.avif$/i.test(photo.name)) {
+    return baseUrl
   }
   
-  // For other image files, add optimization hints
-  const baseUrl = apiService.getObjectUrl(BUCKET_NAME, photo.name)
-  // Add thumbnail parameters (backend can implement these later)
+  // For other image files, add optimization hints (backend can implement these later)
   return `${baseUrl}&thumbnail=true&size=300x300&quality=70`
 }
 
@@ -628,88 +470,20 @@ const handleImageError = (event) => {
 }
 
 const handleHeicImageError = async (event, photo) => {
-  // If server variant failed to load, try client-side conversion as fallback
-  
-  // Start client-side conversion
-  await convertHeicImageOnDemand(photo)
-  
-  // If conversion was successful, update the image source
-  if (heicConversionStates.value[photo.name] === 'success' && convertedImages.value[photo.name]) {
-    event.target.src = convertedImages.value[photo.name]
-  } else {
-    // Show placeholder if all conversion attempts failed
-    event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkhFSUMgdW5hdmFpbGFibGU8L3RleHQ+PC9zdmc+'
-  }
+  // Since backend converts everything to AVIF, show fallback image
+  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIHVuYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg=='
 }
 
 const openPhoto = async (photo) => {
-  let targetPhotoIndex = -1
-  let targetPhoto = photo
-  
-  // If this is a thumbnail file, find the corresponding original HEIC file
-  if (/_thumbnail\.jpeg$/i.test(photo.name)) {
-    // Extract the base name and reconstruct the original HEIC filename
-    const baseName = photo.name.replace(/_thumbnail\.jpeg$/i, '')
-    
-    // Try different case variations for HEIC extension
-    const possibleHeicNames = [
-      `${baseName}.HEIC`,
-      `${baseName}.heic`,
-      `${baseName}.HEIF`,
-      `${baseName}.heif`
-    ]
-    
-    // Find the original HEIC file in the lightbox photos array
-    for (const heicName of possibleHeicNames) {
-      const foundIndex = lightboxPhotos.value.findIndex(p => p.name === heicName)
-      if (foundIndex !== -1) {
-        targetPhotoIndex = foundIndex
-        targetPhoto = lightboxPhotos.value[foundIndex]
-        break
-      }
-    }
-    
-    if (targetPhotoIndex === -1) {
-      console.warn(`⚠️ Original HEIC file not found for thumbnail: ${photo.name}`)
-      return // Don't open lightbox if we can't find the original
-    }
-  } else {
-    // For non-thumbnail files, find directly in lightbox array
-    targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
-    targetPhoto = photo
-  }
+  // Since backend converts everything to AVIF, work directly with the AVIF files
+  const targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
   
   if (targetPhotoIndex === -1) {
     console.error(`❌ Could not find photo in lightbox array: ${photo.name}`)
     return
   }
   
-  // For HEIC files, ensure conversion is complete before opening lightbox
-  if (isHeicFile(targetPhoto.name)) {
-    const conversionState = heicConversionStates.value[targetPhoto.name]
-    
-    // If conversion is in progress, wait for it to complete
-    if (conversionState === 'loading') {
-      console.log(`⏳ Waiting for HEIC conversion to complete: ${targetPhoto.name}`)
-      
-      // Wait for conversion to complete (with timeout)
-      let attempts = 0
-      const maxAttempts = 50 // 5 seconds max wait
-      
-      while (heicConversionStates.value[targetPhoto.name] === 'loading' && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 100))
-        attempts++
-      }
-    }
-    
-    // If still not converted and not failed, try converting now
-    if (conversionState !== 'success' && conversionState !== 'error') {
-      console.log(`🔄 Starting on-demand conversion for: ${targetPhoto.name}`)
-      await convertHeicImageOnDemand(targetPhoto)
-    }
-  }
-  
-  // Open the lightbox
+  // Open the lightbox directly with AVIF file
   currentPhotoIndex.value = targetPhotoIndex
   showLightbox.value = true
   
@@ -752,38 +526,8 @@ const handleLightboxKeyboard = (event) => {
 }
 
 const handleLightboxImageError = async (event) => {
-  // If this is a HEIC file, try conversion
-  const photo = currentPhoto.value
-  if (photo && isHeicFile(photo.name)) {
-    // Start client-side conversion
-    await convertHeicImageOnDemand(photo)
-    
-    // If conversion was successful, update the image source
-    if (heicConversionStates.value[photo.name] === 'success' && convertedImages.value[photo.name]) {
-      event.target.src = convertedImages.value[photo.name]
-    } else {
-      // Show placeholder if conversion failed
-      event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkhFSUMgZmlsZSBjYW5ub3QgYmUgZGlzcGxheWVkPC90ZXh0Pjwvc3ZnPg=='
-    }
-  } else {
-    // For non-HEIC files, show generic error
-    event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIGNhbm5vdCBiZSBsb2FkZWQ8L3RleHQ+PC9zdmc+'
-  }
-}
-
-const handleLightboxHeicError = async (event, photo) => {
-  // If server variant failed to load in lightbox, try client-side conversion
-  
-  // Start client-side conversion
-  await convertHeicImageOnDemand(photo)
-  
-  // If conversion was successful, update the image source
-  if (heicConversionStates.value[photo.name] === 'success' && convertedImages.value[photo.name]) {
-    event.target.src = convertedImages.value[photo.name]
-  } else {
-    // Hide image if all conversion attempts failed
-    event.target.style.display = 'none'
-  }
+  // Since backend handles all conversions to AVIF, show generic error
+  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIGNhbm5vdCBiZSBsb2FkZWQ8L3RleHQ+PC9zdmc+'
 }
 
 const triggerFileInput = () => {
@@ -966,14 +710,9 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// Cleanup function for blob URLs
+// Cleanup function for blob URLs (now mostly unused since backend handles conversions)
 const cleanupBlobUrls = () => {
-  Object.values(convertedImages.value).forEach(url => {
-    if (url && url.startsWith('blob:')) {
-      URL.revokeObjectURL(url)
-    }
-  })
-  convertedImages.value = {}
+  // Function kept for compatibility but mostly unused now
 }
 
 // Performance monitoring
@@ -1020,55 +759,29 @@ const handleLightboxImageLoad = (event) => {
   }
 }
 
-// Create filtered photos for grid display (thumbnails for HEIC, originals for others)
+// Show ALL files from backend without any filtering
 const visiblePhotos = computed(() => {
-  const filtered = photos.value.filter(photo => {
-    // For HEIC files, only show thumbnails in the grid
-    if (isHeicFile(photo.name)) {
-      return false // Don't show original HEIC files in grid
-    }
-    
-    // For thumbnail files, show them in the grid
-    if (/_thumbnail\.jpeg$/i.test(photo.name)) {
-      return true
-    }
-    
-    // For other image files (JPG, PNG, etc), show originals
-    return true
-  })
-  
-  // DEBUG: Log files displayed in grid
-  console.log('🖼️ Files displayed in grid:', filtered.map(f => ({
+  // DEBUG: Log ALL files received from backend
+  console.log('🖼️ ALL files from backend (NO FILTERING):', photos.value.map(f => ({
     name: f.name,
     size: f.size,
     type: f.name.split('.').pop().toUpperCase(),
-    isThumbnail: /_thumbnail\.jpeg$/i.test(f.name)
+    isAvif: /_full\.avif$/i.test(f.name)
   })))
   
-  return filtered
+  return photos.value
 })
 
-// Create array for lightbox navigation (only originals/displayable files)
+// Use ALL files for lightbox navigation (no filtering)
 const lightboxPhotos = computed(() => {
-  const filtered = photos.value.filter(photo => {
-    // For processed variant files, don't include in lightbox navigation
-    if (/_(?:thumbnail|medium|large)\.jpeg$/i.test(photo.name)) {
-      return false
-    }
-    
-    // Include original HEIC files and other regular files
-    return true
-  })
-  
-  // DEBUG: Log files available for lightbox navigation
-  console.log('🔍 Files available for lightbox navigation:', filtered.map(f => ({
+  // DEBUG: Log ALL files available for lightbox navigation
+  console.log('🔍 ALL files for lightbox navigation (NO FILTERING):', photos.value.map(f => ({
     name: f.name,
     size: f.size,
-    type: f.name.split('.').pop().toUpperCase(),
-    isHEIC: isHeicFile(f.name)
+    type: f.name.split('.').pop().toUpperCase()
   })))
   
-  return filtered
+  return photos.value
 })
 
 // Virtual scrolling is now based on visiblePhotos computed property

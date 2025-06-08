@@ -21,6 +21,9 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`
     
+    // DEBUG: Log the actual API URL being called
+    console.log('🌐 API Call:', url)
+    
     // Add authentication headers
     const headers = {
       'Content-Type': 'application/json',
