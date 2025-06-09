@@ -281,6 +281,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
+import { debugLightbox, debugGallery, debugApi, debugPerformance, debugError } from '../services/debug.js'
 
 // Props
 const props = defineProps({
@@ -324,7 +325,7 @@ const currentPhoto = computed(() => {
   
   // DEBUG: Log current file showing in lightbox
   if (photo) {
-    console.log('👁️ Current file showing in lightbox:', {
+    debugLightbox('Current file showing in lightbox', {
       name: photo.name,
       size: photo.size,
       type: photo.name.split('.').pop().toUpperCase(),
@@ -368,7 +369,7 @@ const loadPhotos = async () => {
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
     
     // DEBUG: Log the exact response received from backend
-    console.log('🔍 RAW RESPONSE FROM BACKEND:', JSON.stringify(response, null, 2))
+    debugApi('response', 'RAW RESPONSE FROM BACKEND', response)
     
     if (response.success && response.data) {
       
@@ -379,7 +380,7 @@ const loadPhotos = async () => {
       })
       
       // DEBUG: Log files received from backend
-      console.log('📁 Files received from backend:', allFiles.map(f => ({
+      debugGallery('Files received from backend', allFiles.map(f => ({
         name: f.name,
         size: f.size,
         type: f.name.split('.').pop().toUpperCase()
@@ -479,7 +480,7 @@ const openPhoto = async (photo) => {
   const targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
   
   if (targetPhotoIndex === -1) {
-    console.error(`❌ Could not find photo in lightbox array: ${photo.name}`)
+    debugError('lightbox', `Could not find photo in lightbox array: ${photo.name}`)
     return
   }
   
@@ -626,7 +627,7 @@ const uploadPhotos = async () => {
           ...fileUploadProgress.value,
           [file.name]: -1 // -1 indicates error
         }
-        console.error(`Failed to upload ${file.name}:`, err)
+        debugError('upload', `Failed to upload ${file.name}`, err)
       }
     }
     
@@ -721,7 +722,7 @@ const trackImageLoadTime = (photoName, startTime) => {
   
   // Track slow loading images (>2 seconds) - could be used for analytics
   if (loadTime > 2000) {
-    // Slow image load detected
+    debugPerformance('Slow image load detected', { photoName, loadTime })
   }
 }
 
@@ -762,7 +763,7 @@ const handleLightboxImageLoad = (event) => {
 // Show ALL files from backend without any filtering
 const visiblePhotos = computed(() => {
   // DEBUG: Log ALL files received from backend
-  console.log('🖼️ ALL files from backend (NO FILTERING):', photos.value.map(f => ({
+  debugGallery('ALL files from backend (NO FILTERING)', photos.value.map(f => ({
     name: f.name,
     size: f.size,
     type: f.name.split('.').pop().toUpperCase(),
@@ -775,7 +776,7 @@ const visiblePhotos = computed(() => {
 // Use ALL files for lightbox navigation (no filtering)
 const lightboxPhotos = computed(() => {
   // DEBUG: Log ALL files available for lightbox navigation
-  console.log('🔍 ALL files for lightbox navigation (NO FILTERING):', photos.value.map(f => ({
+  debugLightbox('ALL files for lightbox navigation (NO FILTERING)', photos.value.map(f => ({
     name: f.name,
     size: f.size,
     type: f.name.split('.').pop().toUpperCase()
@@ -809,6 +810,10 @@ const setupInfiniteScroll = () => {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting && paginatedVisiblePhotos.value.length < visiblePhotos.value.length) {
+        debugGallery('Loading more photos', { 
+          currentCount: paginatedVisiblePhotos.value.length, 
+          totalCount: visiblePhotos.value.length 
+        })
         loadMorePhotos()
       }
     })

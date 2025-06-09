@@ -39,6 +39,11 @@ spec:
         # Authentication Mode: demo for development, api for production
         - name: VITE_AUTH_MODE
           value: "demo"
+        # Debug Configuration
+        - name: VITE_DEBUG
+          value: "false"  # Set to "true" or "hbvu:*" to enable debug logging
+        - name: VITE_DEBUG_PATTERN
+          value: "hbvu:*"  # Debug pattern when debugging is enabled
         # Load non-sensitive config from ConfigMap
         envFrom:
         - configMapRef:

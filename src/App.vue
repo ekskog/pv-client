@@ -49,6 +49,9 @@
         />
       </main>
     </div>
+    
+    <!-- Debug Panel (Development Only) -->
+    <DebugPanel />
   </div>
 </template>
 
@@ -62,7 +65,9 @@ import AlbumDetail from './components/AlbumDetail.vue'
 import BucketExplorer from './components/BucketExplorer.vue'
 import Login from './components/Login.vue'
 import UserManagement from './components/UserManagement.vue'
+import DebugPanel from './components/DebugPanel.vue'
 import authService from './services/auth.js'
+import { debugApp } from './services/debug.js'
 
 // Reactive state
 const currentView = ref('home')
@@ -75,8 +80,20 @@ const userRole = computed(() => currentUser.value?.role || 'user')
 
 // Initialize auth service
 onMounted(async () => {
+  debugApp('🚀 HBVU Photos Frontend starting...', {
+    timestamp: new Date().toISOString(),
+    environment: import.meta.env.MODE,
+    debugEnabled: import.meta.env.VITE_DEBUG === 'true'
+  })
+  
   await authService.init()
   updateAuthState()
+  
+  debugApp('✅ App initialization complete', {
+    isAuthenticated: isAuthenticated.value,
+    currentUser: currentUser.value?.username || 'anonymous',
+    currentView: currentView.value
+  })
   
   // Listen for storage events (e.g., logout in another tab)
   window.addEventListener('storage', handleStorageChange)
@@ -102,29 +119,35 @@ const updateAuthState = () => {
 
 // Methods
 const handleNavigation = (view) => {
+  debugApp('🧭 Navigation', { from: currentView.value, to: view })
   currentView.value = view
 }
 
 const handleAlbumOpen = (album) => {
+  debugApp('📂 Opening album', { albumName: album.name })
   selectedAlbumName.value = album.name
   currentView.value = 'album-detail'
 }
 
 const handleBackToAlbums = () => {
+  debugApp('⬅️ Back to albums')
   currentView.value = 'albums'
   selectedAlbumName.value = ''
 }
 
 const handlePhotoOpen = (photo) => {
+  debugApp('🖼️ Photo opened', { photoName: photo.name })
   // TODO: Implement photo lightbox/viewer
 }
 
 const handleLoginSuccess = (user) => {
+  debugApp('🔐 Login successful', { username: user.username, role: user.role })
   updateAuthState()
   currentView.value = 'home'
 }
 
 const handleLogout = () => {
+  debugApp('🚪 Logout')
   authService.logout()
   updateAuthState()
   currentView.value = 'home'
