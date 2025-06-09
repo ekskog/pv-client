@@ -84,6 +84,52 @@
       </div>
     </div>
 
+    <!-- Preloading Progress Indicator -->
+    <div v-if="!loading && !error && visiblePhotos.length > 0" class="preload-status">
+      <div class="preload-header">
+        <i class="fas fa-download"></i>
+        <span>Lightbox Ready: {{ preloadStats.preloaded }}/{{ preloadStats.thumbnails }}</span>
+        <div class="preload-percentage">{{ preloadStats.percentage }}%</div>
+      </div>
+      <div class="preload-progress-bar">
+        <div 
+          class="preload-progress-fill" 
+          :style="{ width: preloadStats.percentage + '%' }"
+        ></div>
+      </div>
+      <div class="preload-details">
+        <!-- Currently Fetching Display -->
+        <span v-if="preloadStats.currentlyFetchingFullSize" class="preload-current-file">
+          <i class="fas fa-download fa-pulse"></i>
+          Fetching full-size AVIF: {{ getPhotoDisplayName(preloadStats.currentlyFetchingFullSize) }}
+        </span>
+        <span v-else-if="preloadStats.percentage < 100" class="preload-status-text">
+          <i class="fas fa-sync fa-spin"></i> Background preloading full-size images for instant lightbox...
+        </span>
+        <span v-else-if="preloadStats.percentage >= 100" class="preload-complete-text">
+          <i class="fas fa-check-circle"></i> All images ready! Lightbox will be instant.
+        </span>
+        
+        <!-- Ready Images List -->
+        <div v-if="preloadStats.readyImages.length > 0" class="preload-ready-list">
+          <div class="ready-list-header">
+            <i class="fas fa-check-circle"></i>
+            <span>Full-size images ready for instant lightbox ({{ preloadStats.readyImages.length }}):</span>
+          </div>
+          <div class="ready-images-grid">
+            <span 
+              v-for="readyImage in preloadStats.readyImages" 
+              :key="readyImage"
+              class="ready-image-item"
+              :title="readyImage"
+            >
+              {{ getPhotoDisplayName(readyImage) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Upload Dialog -->
     <div v-if="showUploadDialog" class="dialog-overlay" @click="closeUploadDialog">
       <div class="dialog upload-dialog" @click.stop>
@@ -321,6 +367,18 @@ const currentPhotoIndex = ref(0)
 const lightboxLoading = ref(false)
 const currentImageInfo = ref('')
 
+// Progressive loading stats
+const preloadStats = ref({
+  thumbnails: 0,
+  preloaded: 0,
+  percentage: 0,
+  currentlyFetchingFullSize: null, // Track full-size filename currently being fetched
+  readyImages: [] // List of full-size filenames ready for instant lightbox
+})
+
+// Progress tracker interval reference for cleanup
+const progressTracker = ref(null)
+
 // Computed properties
 const currentPhoto = computed(() => {
   const photo = lightboxPhotos.value[currentPhotoIndex.value] || null
@@ -476,26 +534,50 @@ const loadImageProgressively = async (photo, imgElement) => {
     // Step 2: Start preloading full resolution in background for instant lightbox (slow ~4.5MB)
     const fullSrc = getPhotoUrl(photo)
     if (fullSrc !== optimizedSrc) {
+      // Convert thumbnail filename to full-size filename for display
+      const fullSizeFilename = photo.name.replace(/_thumbnail\.avif$/i, '_full.avif')
+      
       debugGallery('BACKGROUND_PRELOAD_START', `Starting background preload for ${photo.name}`, {
         thumbnailUrl: optimizedSrc,
         fullUrl: fullSrc,
+        fullSizeFilename: fullSizeFilename,
         strategy: 'parallel-loading'
       })
+      
+      // Set currently fetching full-size filename (not thumbnail)
+      preloadStats.value.currentlyFetchingFullSize = fullSizeFilename
       
       preloadImage(fullSrc).then(() => {
         // Step 3: Mark as ready for instant lightbox display
         imgElement.dataset.fullLoaded = 'true'
+        
+        // Add to ready images list if not already there
+        if (!preloadStats.value.readyImages.includes(fullSizeFilename)) {
+          preloadStats.value.readyImages.push(fullSizeFilename)
+        }
+        
         debugGallery('BACKGROUND_PRELOAD_SUCCESS', `Background preload complete for ${photo.name}`, {
           fullUrl: fullSrc,
+          fullSizeFilename: fullSizeFilename,
           lightboxReady: true,
           estimatedSavings: '5-89 seconds'
         })
+        
+        // Clear currently fetching status
+        preloadStats.value.currentlyFetchingFullSize = null
+        
+        // Update progress immediately when a preload completes
+        trackProgressiveLoadingStats()
       }).catch((error) => {
         // Failed to preload full resolution, but thumbnail is still available
         debugGallery('BACKGROUND_PRELOAD_FAILED', `Background preload failed for ${photo.name}`, {
           error: error.message,
+          fullSizeFilename: fullSizeFilename,
           fallbackAvailable: true
         })
+        
+        // Clear currently fetching status on error
+        preloadStats.value.currentlyFetchingFullSize = null
       })
     } else {
       // No separate full-size version available
@@ -544,7 +626,7 @@ const handleHeicImageError = async (event, photo) => {
 
 const openPhoto = async (photo) => {
   // photo.name is a thumbnail file (e.g., "IMG_8848_thumbnail.avif")
-  // We need to find the corresponding full-size file in lightboxPhotos
+  // We need to find the corresponding full-size file in lightbox
   
   let targetPhotoIndex = -1
   
@@ -875,6 +957,15 @@ const trackProgressiveLoadingStats = () => {
   const preloadedCount = preloadedImages.length
   const preloadPercentage = thumbnailImages > 0 ? Math.round((preloadedCount / thumbnailImages) * 100) : 0
   
+  // Update reactive stats for UI display - preserve existing tracking properties
+  preloadStats.value = {
+    thumbnails: thumbnailImages,
+    preloaded: preloadedCount,
+    percentage: preloadPercentage,
+    currentlyFetchingFullSize: preloadStats.value.currentlyFetchingFullSize, // Preserve current file being fetched
+    readyImages: preloadStats.value.readyImages // Preserve ready images list
+  }
+  
   debugPerformance('PROGRESSIVE_LOADING_STATS', 'Current progressive loading statistics', {
     totalThumbnails: thumbnailImages,
     preloadedFullSize: preloadedCount,
@@ -888,6 +979,29 @@ const trackProgressiveLoadingStats = () => {
     preloaded: preloadedCount,
     percentage: preloadPercentage
   }
+}
+
+// Aggressive background preloading: Start immediately after thumbnails load
+const startAggressivePreloading = () => {
+  const imageElements = document.querySelectorAll('.photo-image')
+  
+  debugGallery('AGGRESSIVE_PRELOAD_START', `Starting aggressive background preloading for ${imageElements.length} images`, {
+    strategy: 'immediate-background-preload',
+    expectedImprovement: 'instant-lightbox-for-all-images'
+  })
+  
+  imageElements.forEach((img, index) => {
+    const photoName = img.alt
+    const photo = visiblePhotos.value.find(p => p.name === photoName)
+    
+    if (photo) {
+      // Add small delay between images to avoid overwhelming the browser
+      setTimeout(() => {
+        debugGallery('AGGRESSIVE_PRELOAD_ITEM', `Starting preload ${index + 1}/${imageElements.length}: ${photoName}`)
+        loadImageProgressively(photo, img)
+      }, index * 100) // 100ms delay between each image
+    }
+  })
 }
 
 // Batch image preloading for visible images with enhanced progressive loading
@@ -1059,6 +1173,10 @@ onMounted(async () => {
   
   // Setup 3-step progressive loading system after images are loaded
   setTimeout(() => {
+    // Start aggressive background preloading immediately
+    startAggressivePreloading()
+    
+    // Also setup intersection observer for additional optimizations
     preloadVisibleImages()
     setupInfiniteScroll()
     setupHeicLazyConversion() // Setup HEIC lazy conversion
@@ -1066,22 +1184,24 @@ onMounted(async () => {
     // Track initial progressive loading statistics
     trackProgressiveLoadingStats()
     
-    // Set up periodic tracking every 5 seconds to monitor progress
-    const progressTracker = setInterval(() => {
+    // Set up periodic tracking every 2 seconds to monitor progress
+    progressTracker.value = setInterval(() => {
       const stats = trackProgressiveLoadingStats()
       
-      // Stop tracking when we reach high preload percentage or component unmounts
-      if (stats.percentage > 80 || !showLightbox.value) {
-        clearInterval(progressTracker)
+      // Stop tracking when we reach 100% preload percentage
+      if (stats.percentage >= 100) {
+        clearInterval(progressTracker.value)
+        progressTracker.value = null
+        debugPerformance('PRELOAD_COMPLETE', 'All images preloaded - stopping progress tracker')
       }
-    }, 5000)
+    }, 2000)
     
-    debugPerformance('SETUP_COMPLETE', 'Completed 3-step progressive loading setup', {
-      strategy: 'thumbnails-first-preload-background',
+    debugPerformance('SETUP_COMPLETE', 'Completed AGGRESSIVE 3-step progressive loading setup', {
+      strategy: 'immediate-background-preload-all-images',
       expectedImprovements: {
         gridLoadTime: '90x faster (from 5-89s to <1s)',
-        lightboxLoadTime: 'Instant for preloaded images',
-        userExperience: 'Seamless progressive loading'
+        lightboxLoadTime: 'INSTANT for ALL images (aggressive preloading)',
+        userExperience: 'Seamless progressive loading with immediate background preload'
       }
     })
   }, 100)
@@ -2033,6 +2153,171 @@ onUnmounted(() => {
   
   .lightbox-image-container {
     height: calc(100% - 100px); /* Adjust for mobile info bar */
+  }
+}
+
+/* Preload Status Styles */
+.preload-status {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.preload-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.preload-header i {
+  color: #2196f3;
+  font-size: 1rem;
+}
+
+.preload-percentage {
+  margin-left: auto;
+  font-weight: 600;
+  color: #2196f3;
+}
+
+.preload-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.preload-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #2196f3, #21cbf3);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.preload-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.preload-status-text {
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.preload-status-text i {
+  color: #2196f3;
+}
+
+.preload-current-file {
+  color: #333;
+  font-weight: 500;
+  background: #e3f2fd;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  border-left: 3px solid #2196f3;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.85rem;
+}
+
+.preload-complete-text {
+  color: #4caf50;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.preload-complete-text i {
+  color: #4caf50;
+}
+
+.preload-ready-list {
+  margin-top: 0.75rem;
+  border-top: 1px solid #e9ecef;
+  padding-top: 0.75rem;
+}
+
+.ready-list-header {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.ready-list-header i {
+  color: #4caf50;
+  font-size: 0.9rem;
+}
+
+.ready-images-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.ready-image-item {
+  background: #e8f5e8;
+  color: #2e7d32;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  border: 1px solid #a5d6a7;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ready-image-item i {
+  color: #4caf50;
+  font-size: 0.7rem;
+}
+
+@media (max-width: 768px) {
+  .preload-status {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .preload-header {
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .preload-current-file {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  .ready-list-header {
+    font-size: 0.85rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .ready-images-grid {
+    gap: 0.4rem;
+    max-height: 100px;
+  }
+  
+  .ready-image-item {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
   }
 }
 </style>
