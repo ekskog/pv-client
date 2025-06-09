@@ -179,6 +179,13 @@ export const debugImageLoading = (message, data = null) => {
 }
 
 /**
+ * App-level debugging for main application events
+ */
+export const debugApp = (message, data = null) => {
+  debugLog('GENERAL', message, data)
+}
+
+/**
  * Check if a specific debug namespace is enabled
  */
 export const isDebugNamespaceEnabled = (namespace) => {
@@ -221,6 +228,7 @@ export default {
   debugError,
   debugWarn,
   debugImageLoading,
+  debugApp,
   isDebugNamespaceEnabled,
   getDebugInfo
 }

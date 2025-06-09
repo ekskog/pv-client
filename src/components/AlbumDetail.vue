@@ -411,21 +411,23 @@ const downloadPhoto = (photo) => {
 }
 
 const getPhotoUrl = (photo) => {
-  // Backend only serves AVIF files, no HEIC files exist
+  // For AVIF files, use them directly
+  if (/_full\.avif$/i.test(photo.name)) {
+    return apiService.getObjectUrl(BUCKET_NAME, photo.name)
+  }
+  
+  // For original files (that don't have AVIF versions), use them directly
   return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
 const getOptimizedPhotoUrl = (photo) => {
-  // Backend only serves AVIF files, use them directly
-  const baseUrl = apiService.getObjectUrl(BUCKET_NAME, photo.name)
-  
-  // For AVIF files, use them directly (they are already optimized)
+  // For AVIF files, they are already optimized - use them directly
   if (/_full\.avif$/i.test(photo.name)) {
-    return baseUrl
+    return apiService.getObjectUrl(BUCKET_NAME, photo.name)
   }
   
-  // For other image files, add optimization hints (backend can implement these later)
-  return `${baseUrl}&thumbnail=true&size=300x300&quality=70`
+  // For other image files, use them directly (no optimization available yet)
+  return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
 const preloadImage = (src) => {
@@ -760,29 +762,23 @@ const handleLightboxImageLoad = (event) => {
   }
 }
 
-// Show ALL files from backend without any filtering
+// Show all files from backend (backend only stores AVIF files, no filtering needed)
 const visiblePhotos = computed(() => {
   // DEBUG: Log ALL files received from backend
-  debugGallery('ALL files from backend (NO FILTERING)', photos.value.map(f => ({
+  debugGallery('ALL files from backend (all are AVIF - no filtering needed)', photos.value.map(f => ({
     name: f.name,
     size: f.size,
     type: f.name.split('.').pop().toUpperCase(),
     isAvif: /_full\.avif$/i.test(f.name)
   })))
-  
+
+  // Backend only returns AVIF files, so show them all
   return photos.value
 })
 
-// Use ALL files for lightbox navigation (no filtering)
+// Use same files for lightbox navigation
 const lightboxPhotos = computed(() => {
-  // DEBUG: Log ALL files available for lightbox navigation
-  debugLightbox('ALL files for lightbox navigation (NO FILTERING)', photos.value.map(f => ({
-    name: f.name,
-    size: f.size,
-    type: f.name.split('.').pop().toUpperCase()
-  })))
-  
-  return photos.value
+  return visiblePhotos.value
 })
 
 // Virtual scrolling is now based on visiblePhotos computed property
