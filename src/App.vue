@@ -85,7 +85,8 @@ onMounted(async () => {
     timestamp: new Date().toISOString(),
     environment: import.meta.env.MODE,
     debugEnabled: import.meta.env.VITE_DEBUG === 'true',
-    version: 'v1.0.1' // Added version for deployment testing
+    version: 'v1.0.2', // Updated version to trigger workflow
+    buildDate: new Date().toISOString()
   })
   
   await authService.init()
