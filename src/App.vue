@@ -84,7 +84,8 @@ onMounted(async () => {
   debugApp('🚀 HBVU Photos Frontend starting...', {
     timestamp: new Date().toISOString(),
     environment: import.meta.env.MODE,
-    debugEnabled: import.meta.env.VITE_DEBUG === 'true'
+    debugEnabled: import.meta.env.VITE_DEBUG === 'true',
+    version: 'v1.0.1' // Added version for deployment testing
   })
   
   await authService.init()
