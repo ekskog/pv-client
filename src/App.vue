@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <!-- Show login screen if not authenticated -->
+    <!-- Testing GitHub Actions workflow deployment -->
     <Login 
       v-if="!isAuthenticated"
       @login-success="handleLoginSuccess"
