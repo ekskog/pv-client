@@ -232,6 +232,66 @@ class ApiService {
   getObjectUrl(bucketName, objectName) {
     return `${API_BASE_URL}/buckets/${bucketName}/download?object=${encodeURIComponent(objectName)}`
   }
+
+  // Job status polling for async uploads
+  async getJobStatus(jobId) {
+    return this.request(`/upload/status/${jobId}`)
+  }
+
+  // Poll job status until completion
+  async pollJobUntilComplete(jobId, onProgress = null, maxWaitTime = 300000) { // 5 minutes max
+    const startTime = Date.now()
+    const pollInterval = 1000 // 1 second
+    
+    return new Promise((resolve, reject) => {
+      const poll = async () => {
+        try {
+          const result = await this.getJobStatus(jobId)
+          
+          if (!result.success) {
+            reject(new Error(result.error || 'Failed to get job status'))
+            return
+          }
+          
+          const job = result.data
+          
+          // Call progress callback if provided
+          if (onProgress) {
+            onProgress(job)
+          }
+          
+          // Check if job is complete
+          if (job.status === 'completed') {
+            resolve(job)
+            return
+          }
+          
+          if (job.status === 'failed') {
+            reject(new Error(job.error || 'Upload job failed'))
+            return
+          }
+          
+          // Check timeout
+          if (Date.now() - startTime > maxWaitTime) {
+            reject(new Error('Job polling timeout'))
+            return
+          }
+          
+          // Continue polling if job is still processing
+          if (job.status === 'queued' || job.status === 'processing') {
+            setTimeout(poll, pollInterval)
+          } else {
+            reject(new Error(`Unknown job status: ${job.status}`))
+          }
+          
+        } catch (error) {
+          reject(error)
+        }
+      }
+      
+      poll()
+    })
+  }
 }
 
 export default new ApiService()

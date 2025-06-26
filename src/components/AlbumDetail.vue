@@ -799,70 +799,103 @@ const uploadPhotos = async () => {
   })
   
   try {
-    uploadStatus.value = `Uploading ${selectedFiles.value.length} files...`
+    uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
     
-    let completedUploads = 0
-    const totalFiles = selectedFiles.value.length
+    // Use the async upload system that returns a job ID
+    const response = await apiService.uploadFile(
+      BUCKET_NAME, 
+      selectedFiles.value, 
+      props.albumName
+    )
     
-    // Upload files one by one to track individual progress
-    for (const file of selectedFiles.value) {
-      try {
-        uploadStatus.value = `Uploading ${file.name}...`
-        
-        const response = await apiService.uploadSingleFile(
-          BUCKET_NAME, 
-          file, 
-          props.albumName,
-          (progress) => {
-            // Update individual file progress
-            fileUploadProgress.value = {
-              ...fileUploadProgress.value,
-              [file.name]: progress
-            }
-            
-            // Calculate overall progress
-            const totalProgress = Object.values(fileUploadProgress.value).reduce((sum, prog) => sum + prog, 0)
-            const completedFilesProgress = completedUploads * 100
-            uploadProgress.value = Math.round((totalProgress + completedFilesProgress) / totalFiles)
+    if (!response.success) {
+      throw new Error(response.error || 'Upload failed')
+    }
+    
+    // Check if we got a job ID (async processing)
+    if (response.data.jobId) {
+      const jobId = response.data.jobId
+      uploadStatus.value = 'Upload queued for processing...'
+      
+      debugApi('ASYNC_UPLOAD', `Started async upload job: ${jobId}`, {
+        totalFiles: selectedFiles.value.length,
+        jobId: jobId
+      })
+      
+      // Poll job status until completion with conversion progress tracking
+      await apiService.pollJobUntilComplete(
+        jobId,
+        (job) => {
+          // Update progress based on job status
+          const processed = job.progress?.processed || 0
+          const total = job.progress?.total || selectedFiles.value.length
+          const progressPercentage = Math.round((processed / total) * 100)
+          
+          uploadProgress.value = progressPercentage
+          
+          switch (job.status) {
+            case 'queued':
+              uploadStatus.value = 'Upload queued for processing...'
+              break
+            case 'processing':
+              uploadStatus.value = `Converting images... ${processed}/${total} files processed`
+              break
+            default:
+              uploadStatus.value = `Processing... ${progressPercentage}%`
           }
-        )
-        
-        if (response.success) {
-          uploadedFiles.value.add(file.name)
-          fileUploadProgress.value = {
-            ...fileUploadProgress.value,
-            [file.name]: 100
-          }
-          completedUploads++
-        } else {
-          throw new Error(response.error || 'Upload failed')
+          
+          debugApi('JOB_PROGRESS', `Job ${jobId} progress update`, {
+            status: job.status,
+            processed: processed,
+            total: total,
+            percentage: progressPercentage
+          })
         }
-      } catch (err) {
-        failedFiles.value.add(file.name)
-        fileUploadProgress.value = {
-          ...fileUploadProgress.value,
-          [file.name]: -1 // -1 indicates error
-        }
-        debugError('upload', `Failed to upload ${file.name}`, err)
+      )
+      
+      uploadProgress.value = 100
+      uploadStatus.value = 'All files processed successfully!'
+      
+      debugApi('ASYNC_UPLOAD_COMPLETE', `Upload job ${jobId} completed successfully`, {
+        totalFiles: selectedFiles.value.length
+      })
+      
+    } else {
+      // Synchronous upload (fallback) - handle as before
+      const uploaded = response.data.uploaded || []
+      const errors = response.errors || []
+      
+      uploaded.forEach(file => {
+        uploadedFiles.value.add(file.originalName)
+        fileUploadProgress.value[file.originalName] = 100
+      })
+      
+      if (errors.length > 0) {
+        errors.forEach(error => {
+          failedFiles.value.add(error.filename)
+          fileUploadProgress.value[error.filename] = -1
+        })
+      }
+      
+      uploadProgress.value = 100
+      
+      if (errors.length > 0) {
+        uploadStatus.value = `${uploaded.length} files uploaded, ${errors.length} failed`
+      } else {
+        uploadStatus.value = 'All files uploaded successfully!'
       }
     }
     
-    uploadProgress.value = 100
-    
-    if (failedFiles.value.size > 0) {
-      uploadStatus.value = `${uploadedFiles.value.size} files uploaded, ${failedFiles.value.size} failed`
-    } else {
-      uploadStatus.value = 'All files uploaded successfully!'
-    }
-    
-    // Close dialog and refresh photos after a delay
-    setTimeout(() => {
+    // Auto-refresh the photo list after successful upload
+    setTimeout(async () => {
+      debugApi('AUTO_REFRESH', 'Refreshing photo list after upload completion')
+      await loadPhotos()
       closeUploadDialog()
-      loadPhotos()
     }, 2000)
     
   } catch (err) {
     error.value = `Upload failed: ${err.message}`
+    debugError('upload', 'Upload failed', err)
   } finally {
     uploading.value = false
   }
