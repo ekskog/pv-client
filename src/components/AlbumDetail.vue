@@ -382,9 +382,9 @@ const progressTracker = ref(null)
 const currentPhoto = computed(() => {
   const photo = lightboxPhotos.value[currentPhotoIndex.value] || null
   
-  // DEBUG: Log current file showing in lightbox
+  // Log current file showing in lightbox for debugging
   if (photo) {
-    debugLightbox('Current file showing in lightbox', {
+    console.log('Current file showing in lightbox:', {
       name: photo.name,
       size: photo.size,
       type: photo.name.split('.').pop().toUpperCase(),
@@ -474,25 +474,11 @@ const getPhotoUrl = (photo) => {
     const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
     const url = apiService.getObjectUrl(BUCKET_NAME, fullSizeFilename)
     
-    debugGallery('FULL_URL_FROM_THUMBNAIL', `Generated full-size URL from thumbnail ${photo.name}:`, {
-      thumbnailFile: photo.name,
-      fullSizeFile: fullSizeFilename,
-      generatedUrl: url,
-      expectedSize: '~4.5MB',
-      purpose: 'lightbox-and-preloading'
-    })
-    
     return url
   }
   
   // If this is already a full-size file, use it directly
   const url = apiService.getObjectUrl(BUCKET_NAME, photo.name)
-  
-  debugGallery('FULL_URL_DIRECT', `Using file directly for ${photo.name}:`, {
-    fileName: photo.name,
-    generatedUrl: url,
-    fileSize: photo.size
-  })
   
   return url
 }
@@ -500,12 +486,6 @@ const getPhotoUrl = (photo) => {
 const getOptimizedPhotoUrl = (photo) => {
   // Since visiblePhotos now contains only thumbnail files, use them directly
   const url = apiService.getObjectUrl(BUCKET_NAME, photo.name)
-  debugGallery('THUMBNAIL_URL_DIRECT', `Using thumbnail file directly for ${photo.name}:`, {
-    fileName: photo.name,
-    generatedUrl: url,
-    expectedSize: '~50KB',
-    strategy: 'direct-thumbnail-usage'
-  })
   return url
 }
 
@@ -520,11 +500,6 @@ const preloadImage = (src) => {
 
 const loadImageProgressively = async (photo, imgElement) => {
   try {
-    debugGallery('PROGRESSIVE_LOADING_START', `Starting progressive load for ${photo.name}`, {
-      photoName: photo.name,
-      elementId: imgElement.dataset.id || 'unknown'
-    })
-    
     // Step 1: Thumbnail is already loading via img src attribute (fast ~50KB)
     const optimizedSrc = getOptimizedPhotoUrl(photo)
     
@@ -533,13 +508,6 @@ const loadImageProgressively = async (photo, imgElement) => {
     if (fullSrc !== optimizedSrc) {
       // Convert thumbnail filename to full-size filename for display
       const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
-      
-      debugGallery('BACKGROUND_PRELOAD_START', `Starting background preload for ${photo.name}`, {
-        thumbnailUrl: optimizedSrc,
-        fullUrl: fullSrc,
-        fullSizeFilename: fullSizeFilename,
-        strategy: 'parallel-loading'
-      })
       
       // Set currently fetching full-size filename (not thumbnail)
       preloadStats.value.currentlyFetchingFullSize = fullSizeFilename
@@ -553,13 +521,6 @@ const loadImageProgressively = async (photo, imgElement) => {
           preloadStats.value.readyImages.push(fullSizeFilename)
         }
         
-        debugGallery('BACKGROUND_PRELOAD_SUCCESS', `Background preload complete for ${photo.name}`, {
-          fullUrl: fullSrc,
-          fullSizeFilename: fullSizeFilename,
-          lightboxReady: true,
-          estimatedSavings: '5-89 seconds'
-        })
-        
         // Clear currently fetching status
         preloadStats.value.currentlyFetchingFullSize = null
         
@@ -567,11 +528,7 @@ const loadImageProgressively = async (photo, imgElement) => {
         trackProgressiveLoadingStats()
       }).catch((error) => {
         // Failed to preload full resolution, but thumbnail is still available
-        debugGallery('BACKGROUND_PRELOAD_FAILED', `Background preload failed for ${photo.name}`, {
-          error: error.message,
-          fullSizeFilename: fullSizeFilename,
-          fallbackAvailable: true
-        })
+        console.warn(`Background preload failed for ${photo.name}:`, error.message)
         
         // Clear currently fetching status on error
         preloadStats.value.currentlyFetchingFullSize = null
@@ -583,7 +540,7 @@ const loadImageProgressively = async (photo, imgElement) => {
     
   } catch (error) {
     // Failed to load optimized image
-    debugError('progressive-loading', `Failed to load thumbnail for ${photo.name}`, error)
+    console.error(`Failed to load thumbnail for ${photo.name}:`, error)
   }
 }
 
@@ -631,34 +588,19 @@ const openPhoto = async (photo) => {
     // Convert thumbnail name to full-size name
     const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
     targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === fullSizeFilename)
-    
-    debugLightbox('LIGHTBOX_MAPPING', `Mapping thumbnail to full-size for lightbox`, {
-      clickedThumbnail: photo.name,
-      correspondingFullSize: fullSizeFilename,
-      foundIndex: targetPhotoIndex
-    })
   } else {
     // If it's already a full-size file, search directly
     targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
   }
   
   if (targetPhotoIndex === -1) {
-    debugError('lightbox', `Could not find corresponding full-size photo for: ${photo.name}`, {
-      lightboxPhotos: lightboxPhotos.value.map(p => p.name)
-    })
+    console.error(`Could not find corresponding full-size photo for: ${photo.name}`)
     return
   }
   
   // Check if full-size image was already preloaded in background
   const gridImage = document.querySelector(`img[alt="${photo.name}"][data-full-loaded="true"]`)
   const isPreloaded = gridImage && gridImage.dataset.fullLoaded === 'true'
-  
-  debugLightbox('LIGHTBOX_OPENING', `Opening lightbox for ${photo.name}`, {
-    photoIndex: targetPhotoIndex,
-    totalPhotos: lightboxPhotos.value.length,
-    preloadedInBackground: isPreloaded,
-    expectedLoadTime: isPreloaded ? 'instant' : '5-89 seconds'
-  })
   
   // Open the lightbox directly with AVIF file
   currentPhotoIndex.value = targetPhotoIndex
@@ -688,13 +630,6 @@ const nextPhoto = () => {
     const nextGridImage = document.querySelector(`img[alt="${nextPhoto.name}"][data-full-loaded="true"]`)
     const isNextPreloaded = nextGridImage && nextGridImage.dataset.fullLoaded === 'true'
     
-    debugLightbox('LIGHTBOX_NAVIGATION', `Navigating to next photo: ${nextPhoto.name}`, {
-      currentIndex: currentPhotoIndex.value,
-      nextIndex: currentPhotoIndex.value + 1,
-      preloadedInBackground: isNextPreloaded,
-      expectedLoadTime: isNextPreloaded ? 'instant' : '5-89 seconds'
-    })
-    
     // Show loading state if next image wasn't preloaded
     if (!isNextPreloaded) {
       lightboxLoading.value = true
@@ -710,13 +645,6 @@ const previousPhoto = () => {
     const prevPhoto = lightboxPhotos.value[currentPhotoIndex.value - 1]
     const prevGridImage = document.querySelector(`img[alt="${prevPhoto.name}"][data-full-loaded="true"]`)
     const isPrevPreloaded = prevGridImage && prevGridImage.dataset.fullLoaded === 'true'
-    
-    debugLightbox('LIGHTBOX_NAVIGATION', `Navigating to previous photo: ${prevPhoto.name}`, {
-      currentIndex: currentPhotoIndex.value,
-      prevIndex: currentPhotoIndex.value - 1,
-      preloadedInBackground: isPrevPreloaded,
-      expectedLoadTime: isPrevPreloaded ? 'instant' : '5-89 seconds'
-    })
     
     // Show loading state if previous image wasn't preloaded
     if (!isPrevPreloaded) {
@@ -816,11 +744,6 @@ const uploadPhotos = async () => {
       const jobId = response.data.jobId
       uploadStatus.value = 'Upload queued for processing...'
       
-      debugApi('ASYNC_UPLOAD', `Started async upload job: ${jobId}`, {
-        totalFiles: selectedFiles.value.length,
-        jobId: jobId
-      })
-      
       // Poll job status until completion with conversion progress tracking
       await apiService.pollJobUntilComplete(
         jobId,
@@ -842,22 +765,11 @@ const uploadPhotos = async () => {
             default:
               uploadStatus.value = `Processing... ${progressPercentage}%`
           }
-          
-          debugApi('JOB_PROGRESS', `Job ${jobId} progress update`, {
-            status: job.status,
-            processed: processed,
-            total: total,
-            percentage: progressPercentage
-          })
         }
       )
       
       uploadProgress.value = 100
       uploadStatus.value = 'All files processed successfully!'
-      
-      debugApi('ASYNC_UPLOAD_COMPLETE', `Upload job ${jobId} completed successfully`, {
-        totalFiles: selectedFiles.value.length
-      })
       
     } else {
       // Synchronous upload (fallback) - handle as before
@@ -887,14 +799,13 @@ const uploadPhotos = async () => {
     
     // Auto-refresh the photo list after successful upload
     setTimeout(async () => {
-      debugApi('AUTO_REFRESH', 'Refreshing photo list after upload completion')
       await loadPhotos()
       closeUploadDialog()
     }, 2000)
     
   } catch (err) {
     error.value = `Upload failed: ${err.message}`
-    debugError('upload', 'Upload failed', err)
+    console.error('Upload failed:', err)
   } finally {
     uploading.value = false
   }
@@ -970,12 +881,7 @@ const trackImageLoadTime = (photoName, startTime) => {
   
   // Track slow loading images (>2 seconds) - could be used for analytics
   if (loadTime > 2000) {
-    debugPerformance('Slow image load detected', { photoName, loadTime })
-  }
-  
-  // Track thumbnail loading performance (should be <1 second)
-  if (loadTime < 1000) {
-    debugPerformance('Fast thumbnail load', { photoName, loadTime, type: 'thumbnail' })
+    console.warn('Slow image load detected:', { photoName, loadTime })
   }
 }
 
@@ -996,14 +902,6 @@ const trackProgressiveLoadingStats = () => {
     readyImages: preloadStats.value.readyImages // Preserve ready images list
   }
   
-  debugPerformance('PROGRESSIVE_LOADING_STATS', 'Current progressive loading statistics', {
-    totalThumbnails: thumbnailImages,
-    preloadedFullSize: preloadedCount,
-    preloadPercentage: `${preloadPercentage}%`,
-    strategy: '3-step-progressive',
-    expectedSpeedup: 'Up to 90x faster lightbox loading'
-  })
-  
   return {
     thumbnails: thumbnailImages,
     preloaded: preloadedCount,
@@ -1015,11 +913,6 @@ const trackProgressiveLoadingStats = () => {
 const startAggressivePreloading = () => {
   const imageElements = document.querySelectorAll('.photo-image')
   
-  debugGallery('AGGRESSIVE_PRELOAD_START', `Starting aggressive background preloading for ${imageElements.length} images`, {
-    strategy: 'immediate-background-preload',
-    expectedImprovement: 'instant-lightbox-for-all-images'
-  })
-  
   imageElements.forEach((img, index) => {
     const photoName = img.alt
     const photo = visiblePhotos.value.find(p => p.name === photoName)
@@ -1027,7 +920,6 @@ const startAggressivePreloading = () => {
     if (photo) {
       // Add small delay between images to avoid overwhelming the browser
       setTimeout(() => {
-        debugGallery('AGGRESSIVE_PRELOAD_ITEM', `Starting preload ${index + 1}/${imageElements.length}: ${photoName}`)
         loadImageProgressively(photo, img)
       }, index * 100) // 100ms delay between each image
     }
@@ -1051,10 +943,6 @@ const preloadVisibleImages = () => {
         const photoName = img.alt
         const photo = visiblePhotos.value.find(p => p.name === photoName)
         if (photo) {
-          debugGallery('VISIBLE_IMAGE_DETECTED', `Image became visible: ${photoName}`, {
-            element: img.className,
-            progressive: 'starting'
-          })
           loadImageProgressively(photo, img)
         }
         
@@ -1067,12 +955,6 @@ const preloadVisibleImages = () => {
   })
   
   imageElements.forEach(img => observer.observe(img))
-  
-  debugGallery('INTERSECTION_OBSERVER_SETUP', `Observing ${imageElements.length} images for progressive loading`, {
-    strategy: '3-step-progressive',
-    rootMargin: '100px',
-    threshold: 0.1
-  })
 }
 
 // Simplified HEIC setup - no longer needed since we use server variants first
@@ -1089,28 +971,10 @@ const handleLightboxImageLoad = (event) => {
   
   // Hide loading state once image loads
   lightboxLoading.value = false
-  
-  debugLightbox('LIGHTBOX_IMAGE_LOADED', `Lightbox image loaded successfully`, {
-    photoName: currentPhoto.value?.name,
-    resolution: currentImageInfo.value,
-    loadingTime: 'completed'
-  })
 }
 
 // Show thumbnail files and regular files (for backward compatibility)
 const visiblePhotos = computed(() => {
-  // DEBUG: Log ALL files received from backend
-  debugGallery('VISIBLE_PHOTOS_COMPUTED', `Computing visible photos from ${photos.value.length} total files:`, {
-    totalFiles: photos.value.length,
-    files: photos.value.map(f => ({
-      name: f.name,
-      size: f.size,
-      type: f.name.split('.').pop().toUpperCase(),
-      isThumbnail: /_thumb\.avif$/i.test(f.name),
-      isFullSize: /\.avif$/i.test(f.name) && !/_thumb\.avif$/i.test(f.name)
-    }))
-  })
-
   // Show thumbnail files preferentially, but fall back to regular files if no thumbnail exists
   const thumbnails = photos.value.filter(photo => /_thumb\.avif$/i.test(photo.name))
   
@@ -1126,12 +990,6 @@ const visiblePhotos = computed(() => {
   })
 
   const result = [...thumbnails, ...regularFiles]
-  
-  debugGallery('VISIBLE_PHOTOS_RESULT', `Filtered to ${result.length} photos for grid display (${thumbnails.length} thumbnails + ${regularFiles.length} regular)`, {
-    thumbnails: thumbnails.map(f => f.name),
-    regularFiles: regularFiles.map(f => f.name),
-    strategy: 'thumbnails-first-with-fallback'
-  })
   return result
 })
 
@@ -1147,30 +1005,17 @@ const lightboxPhotos = computed(() => {
       const fullSizePhoto = photos.value.find(p => p.name === fullSizeFilename)
       
       if (fullSizePhoto) {
-        debugLightbox('LIGHTBOX_MAPPING', `Mapped thumbnail to full-size for lightbox`, {
-          thumbnail: photo.name,
-          fullSize: fullSizePhoto.name,
-          thumbnailSize: photo.size,
-          fullSizeSize: fullSizePhoto.size
-        })
         return fullSizePhoto
       } else {
         // Fallback to thumbnail if no full-size version found
-        debugLightbox('LIGHTBOX_FALLBACK', `No full-size found, using thumbnail for lightbox`, {
-          thumbnail: photo.name
-        })
         return photo
       }
     } else {
       // If it's already a regular file, use it as-is for lightbox
-      debugLightbox('LIGHTBOX_REGULAR', `Using regular file for lightbox`, {
-        filename: photo.name
-      })
       return photo
     }
   })
   
-  debugLightbox('LIGHTBOX_PHOTOS_COMPUTED', `Computed ${result.length} lightbox photos from visible photos`)
   return result
 })
 
@@ -1179,8 +1024,6 @@ const currentPage = ref(1)
 const paginatedVisiblePhotos = computed(() => {
   const endIndex = currentPage.value * ITEMS_PER_PAGE
   const result = visiblePhotos.value.slice(0, endIndex)
-  
-  debugPerformance('PAGINATION', `Page ${currentPage.value}: Showing ${result.length} of ${visiblePhotos.value.length} photos (${ITEMS_PER_PAGE} per page)`)
   
   return result
 })
@@ -1203,10 +1046,6 @@ const setupInfiniteScroll = () => {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting && paginatedVisiblePhotos.value.length < visiblePhotos.value.length) {
-        debugGallery('Loading more photos', { 
-          currentCount: paginatedVisiblePhotos.value.length, 
-          totalCount: visiblePhotos.value.length 
-        })
         loadMorePhotos()
       }
     })
@@ -1217,11 +1056,7 @@ const setupInfiniteScroll = () => {
 
 // Lifecycle
 onMounted(async () => {
-  debugPerformance('COMPONENT_MOUNTED', `AlbumDetail component mounted for album: ${props.albumName}`)
-  
   await loadPhotos()
-  
-  debugPerformance('POST_LOAD_SETUP', 'Setting up 3-step progressive loading system')
   
   // Setup 3-step progressive loading system after images are loaded
   setTimeout(() => {
@@ -1244,18 +1079,8 @@ onMounted(async () => {
       if (stats.percentage >= 100) {
         clearInterval(progressTracker.value)
         progressTracker.value = null
-        debugPerformance('PRELOAD_COMPLETE', 'All images preloaded - stopping progress tracker')
       }
     }, 2000)
-    
-    debugPerformance('SETUP_COMPLETE', 'Completed AGGRESSIVE 3-step progressive loading setup', {
-      strategy: 'immediate-background-preload-all-images',
-      expectedImprovements: {
-        gridLoadTime: '90x faster (from 5-89s to <1s)',
-        lightboxLoadTime: 'INSTANT for ALL images (aggressive preloading)',
-        userExperience: 'Seamless progressive loading with immediate background preload'
-      }
-    })
   }, 100)
 })
 
