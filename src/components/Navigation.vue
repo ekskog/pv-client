@@ -16,13 +16,6 @@
         >
           <i class="fas fa-layer-group"></i> Albums
         </button>
-        <button 
-          class="nav-link"
-          :class="{ active: currentView === 'buckets' }"
-          @click="$emit('navigate', 'buckets')"
-        >
-          <i class="fas fa-database"></i> Storage Buckets
-        </button>
         
         <!-- Admin only navigation -->
         <button 

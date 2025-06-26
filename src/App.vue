@@ -39,20 +39,12 @@
           @photoOpened="handlePhotoOpen"
         />
 
-        <!-- Bucket Explorer View -->
-        <BucketExplorer 
-          v-else-if="currentView === 'buckets'"
-        />
-
         <!-- User Management View (Admin Only) -->
         <UserManagement 
           v-else-if="currentView === 'users'"
         />
       </main>
     </div>
-    
-    <!-- Debug Panel (Development Only) -->
-    <DebugPanel />
   </div>
 </template>
 
@@ -63,12 +55,9 @@ import Navigation from './components/Navigation.vue'
 import Home from './components/Home.vue'
 import Albums from './components/Albums.vue'
 import AlbumDetail from './components/AlbumDetail.vue'
-import BucketExplorer from './components/BucketExplorer.vue'
 import Login from './components/Login.vue'
 import UserManagement from './components/UserManagement.vue'
-import DebugPanel from './components/DebugPanel.vue'
 import authService from './services/auth.js'
-import { debugApp } from './services/debug.js'
 
 // Reactive state
 const currentView = ref('home')
@@ -81,22 +70,8 @@ const userRole = computed(() => currentUser.value?.role || 'user')
 
 // Initialize auth service
 onMounted(async () => {
-  debugApp('🚀 HBVU Photos Frontend starting...', {
-    timestamp: new Date().toISOString(),
-    environment: import.meta.env.MODE,
-    debugEnabled: import.meta.env.VITE_DEBUG === 'true',
-    version: 'v1.0.2', // Updated version to trigger workflow
-    buildDate: new Date().toISOString()
-  })
-  
   await authService.init()
   updateAuthState()
-  
-  debugApp('✅ App initialization complete', {
-    isAuthenticated: isAuthenticated.value,
-    currentUser: currentUser.value?.username || 'anonymous',
-    currentView: currentView.value
-  })
   
   // Listen for storage events (e.g., logout in another tab)
   window.addEventListener('storage', handleStorageChange)
@@ -122,35 +97,29 @@ const updateAuthState = () => {
 
 // Methods
 const handleNavigation = (view) => {
-  debugApp('🧭 Navigation', { from: currentView.value, to: view })
   currentView.value = view
 }
 
 const handleAlbumOpen = (album) => {
-  debugApp('📂 Opening album', { albumName: album.name })
   selectedAlbumName.value = album.name
   currentView.value = 'album-detail'
 }
 
 const handleBackToAlbums = () => {
-  debugApp('⬅️ Back to albums')
   currentView.value = 'albums'
   selectedAlbumName.value = ''
 }
 
 const handlePhotoOpen = (photo) => {
-  debugApp('🖼️ Photo opened', { photoName: photo.name })
   // TODO: Implement photo lightbox/viewer
 }
 
 const handleLoginSuccess = (user) => {
-  debugApp('🔐 Login successful', { username: user.username, role: user.role })
   updateAuthState()
   currentView.value = 'home'
 }
 
 const handleLogout = () => {
-  debugApp('🚪 Logout')
   authService.logout()
   updateAuthState()
   currentView.value = 'home'
@@ -221,87 +190,6 @@ const handleLogout = () => {
   display: flex;
   flex-direction: column;
   gap: 2rem;
-}
-
-.buckets-section h2 {
-  margin-bottom: 1rem;
-  color: #333;
-  font-weight: 500;
-}
-
-.buckets-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-}
-
-.bucket-card {
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.bucket-card:hover {
-  border-color: #2196f3;
-  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.1);
-}
-
-.bucket-card.active {
-  border-color: #2196f3;
-  background: #f3f9ff;
-}
-
-.bucket-icon {
-  font-size: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.bucket-name {
-  font-weight: 500;
-  margin-bottom: 0.25rem;
-}
-
-.bucket-date {
-  font-size: 0.875rem;
-  color: #666;
-}
-
-.bucket-stats {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #f0f0f0;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.25rem;
-}
-
-.stat-label {
-  font-size: 0.75rem;
-  color: #888;
-  font-weight: 500;
-}
-
-.stat-value {
-  font-size: 0.75rem;
-  color: #333;
-  font-weight: 600;
-}
-
-.stat-item.loading .stat-label {
-  color: #bbb;
-  font-style: italic;
-}
-
-.stat-item.error .stat-label {
-  color: #d32f2f;
-  font-style: italic;
 }
 
 .contents-section {

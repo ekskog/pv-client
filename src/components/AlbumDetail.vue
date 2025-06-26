@@ -329,7 +329,6 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
-import { debugLightbox, debugGallery, debugApi, debugPerformance, debugError } from '../services/debug.js'
 
 // Props
 const props = defineProps({

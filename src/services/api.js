@@ -21,7 +21,6 @@ class ApiService {
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`
     
-    // DEBUG: Log the actual API URL being called
     console.log('🌐 API Call:', url)
     
     // Add authentication headers
@@ -79,22 +78,6 @@ class ApiService {
   // Health check
   async getHealth() {
     return this.request('/health')
-  }
-
-  // Bucket operations
-  async getBuckets() {
-    return this.request('/buckets')
-  }
-
-  async getBucketStats(bucketName) {
-    return this.request(`/buckets/${bucketName}/stats`)
-  }
-
-  async createBucket(bucketName) {
-    return this.request('/buckets', {
-      method: 'POST',
-      body: JSON.stringify({ bucketName })
-    })
   }
 
   // Folder/Object operations

@@ -1,15 +1,27 @@
 <template>
   <div class="albums">
     <div class="albums-header">
-      <h1>Photo Albums</h1>
-      <p class="subtitle">Organize your photos into albums</p>
-      <button 
-        v-if="canCreateAlbum"
-        class="btn-primary" 
-        @click="showCreateDialog = true"
-      >
-        <i class="fas fa-plus"></i> Create New Album
-      </button>
+      <div class="header-content">
+        <h1>Photo Albums</h1>
+        <p class="subtitle">Organize your photos into albums</p>
+      </div>
+      <div class="header-actions">
+        <button 
+          class="btn-secondary"
+          @click="refreshAlbums" 
+          :disabled="loading"
+          title="Refresh albums"
+        >
+          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i> Refresh
+        </button>
+        <button 
+          v-if="canCreateAlbum"
+          class="btn-primary" 
+          @click="showCreateDialog = true"
+        >
+          <i class="fas fa-plus"></i> Create New Album
+        </button>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -22,7 +34,6 @@
     <div v-if="error" class="error">
       <p><i class="fas fa-exclamation-triangle"></i> {{ error }}</p>
       <button class="btn-secondary" @click="loadAlbums">Try Again</button>
-      <button class="btn-secondary" @click="checkBuckets">Check Available Buckets</button>
     </div>
 
     <!-- Albums Grid -->
@@ -36,6 +47,9 @@
         <div class="album-icon"><i class="fas fa-folder"></i></div>
         <h3>{{ getAlbumDisplayName(album.name) }}</h3>
         <p class="album-info">
+          {{ album.fileCount || 0 }} photos
+        </p>
+        <p class="album-date">
           Created {{ formatDate(album.lastModified) }}
         </p>
         <div class="album-actions">
@@ -168,7 +182,48 @@ const loadAlbums = async () => {
       }))
       
       const foundAlbums = [...foldersFromFolders, ...foldersFromObjects]
-      albums.value = foundAlbums
+      
+      // For each album, fetch the files inside to get the earliest creation date
+      const albumsWithDates = await Promise.all(foundAlbums.map(async (album) => {
+        try {
+          // Use the album name directly like AlbumDetail does
+          let cleanAlbumName = album.name.trim()
+          cleanAlbumName = cleanAlbumName.replace(/\/+$/, '')
+          const prefix = cleanAlbumName + '/'
+          
+          const albumResponse = await apiService.getBucketContents(BUCKET_NAME, prefix)
+          if (albumResponse.success && albumResponse.data && albumResponse.data.objects) {
+            const files = albumResponse.data.objects.filter(obj => 
+              obj.name && !obj.name.endsWith('/')
+            )
+            
+            // Find the earliest file date (album creation date)
+            if (files.length > 0) {
+              const earliestDate = files.reduce((earliest, file) => {
+                if (!file.lastModified) return earliest
+                const fileDate = new Date(file.lastModified)
+                return !earliest || fileDate < earliest ? fileDate : earliest
+              }, null)
+              
+              // Count actual photos: each photo has 2 files (full-size + thumbnail)
+              // So divide total files by 2 to get actual photo count
+              const actualPhotoCount = Math.floor(files.length / 2)
+              
+              return {
+                ...album,
+                lastModified: earliestDate?.toISOString(),
+                fileCount: actualPhotoCount
+              }
+            }
+          }
+          return { ...album, lastModified: null, fileCount: 0 }
+        } catch (err) {
+          console.warn(`Failed to get file dates for album ${album.name}:`, err)
+          return { ...album, lastModified: null, fileCount: 0 }
+        }
+      }))
+      
+      albums.value = albumsWithDates
     } else {
       throw new Error(response.error || 'Failed to load albums - API returned unsuccessful response')
     }
@@ -243,15 +298,6 @@ const deleteAlbum = async () => {
   }
 }
 
-const checkBuckets = async () => {
-  try {
-    const response = await apiService.getBuckets()
-    alert(`Available buckets: ${JSON.stringify(response.data || response, null, 2)}`)
-  } catch (err) {
-    alert(`Error checking buckets: ${err.message}`)
-  }
-}
-
 const openAlbum = (album) => {
   emit('openAlbum', album)
 }
@@ -276,6 +322,10 @@ const getAlbumDisplayName = (folderName) => {
 const formatDate = (dateString) => {
   if (!dateString) return 'Unknown'
   return new Date(dateString).toLocaleDateString()
+}
+
+const refreshAlbums = async () => {
+  await loadAlbums()
 }
 
 // Focus input when dialog opens
@@ -307,8 +357,22 @@ onMounted(() => {
 }
 
 .albums-header {
-  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 3rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.header-content {
+  text-align: left;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
 }
 
 .albums-header h1 {
@@ -328,10 +392,10 @@ onMounted(() => {
   background: #2196f3;
   color: white;
   border: none;
-  padding: 1rem 2rem;
-  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   transition: all 0.2s ease;
   box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
@@ -361,6 +425,20 @@ onMounted(() => {
 
 .btn-secondary:hover {
   background: #e0e0e0;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fa-spin {
+  animation: fa-spin 1s infinite linear;
+}
+
+@keyframes fa-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .btn-danger {
@@ -461,7 +539,14 @@ onMounted(() => {
 
 .album-info {
   font-size: 0.9rem;
-  color: #666;
+  color: #2196f3;
+  font-weight: 500;
+  margin: 0 0 0.5rem 0;
+}
+
+.album-date {
+  font-size: 0.8rem;
+  color: #999;
   margin: 0 0 1rem 0;
 }
 
@@ -567,6 +652,21 @@ onMounted(() => {
 @media (max-width: 768px) {
   .albums {
     padding: 1rem;
+  }
+  
+  .albums-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  
+  .header-content {
+    text-align: center;
+  }
+  
+  .header-actions {
+    justify-content: center;
+    flex-wrap: wrap;
   }
   
   .albums-header h1 {
