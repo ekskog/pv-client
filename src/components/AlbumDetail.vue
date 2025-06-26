@@ -471,8 +471,8 @@ const downloadPhoto = (photo) => {
 
 const getPhotoUrl = (photo) => {
   // If this is a thumbnail file, get the corresponding full-size file for lightbox
-  if (/_thumbnail\.avif$/i.test(photo.name)) {
-    const fullSizeFilename = photo.name.replace(/_thumbnail\.avif$/i, '_full.avif')
+  if (/_thumb\.avif$/i.test(photo.name)) {
+    const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
     const url = apiService.getObjectUrl(BUCKET_NAME, fullSizeFilename)
     
     debugGallery('FULL_URL_FROM_THUMBNAIL', `Generated full-size URL from thumbnail ${photo.name}:`, {
@@ -487,12 +487,10 @@ const getPhotoUrl = (photo) => {
   }
   
   // If this is already a full-size file, use it directly
-  const isFullSizeAvif = /_full\.avif$/i.test(photo.name)
   const url = apiService.getObjectUrl(BUCKET_NAME, photo.name)
   
-  debugGallery('FULL_URL_DIRECT', `Using full-size file directly for ${photo.name}:`, {
+  debugGallery('FULL_URL_DIRECT', `Using file directly for ${photo.name}:`, {
     fileName: photo.name,
-    isFullSizeAvif: isFullSizeAvif,
     generatedUrl: url,
     fileSize: photo.size
   })
@@ -535,7 +533,7 @@ const loadImageProgressively = async (photo, imgElement) => {
     const fullSrc = getPhotoUrl(photo)
     if (fullSrc !== optimizedSrc) {
       // Convert thumbnail filename to full-size filename for display
-      const fullSizeFilename = photo.name.replace(/_thumbnail\.avif$/i, '_full.avif')
+      const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
       
       debugGallery('BACKGROUND_PRELOAD_START', `Starting background preload for ${photo.name}`, {
         thumbnailUrl: optimizedSrc,
@@ -625,14 +623,14 @@ const handleHeicImageError = async (event, photo) => {
 }
 
 const openPhoto = async (photo) => {
-  // photo.name is a thumbnail file (e.g., "IMG_8848_thumbnail.avif")
-  // We need to find the corresponding full-size file in lightbox
+  // photo.name could be a thumbnail file (e.g., "IMG_8848_thumb.avif") or regular file
+  // We need to find the corresponding photo in lightbox
   
   let targetPhotoIndex = -1
   
-  if (/_thumbnail\.avif$/i.test(photo.name)) {
+  if (/_thumb\.avif$/i.test(photo.name)) {
     // Convert thumbnail name to full-size name
-    const fullSizeFilename = photo.name.replace(/_thumbnail\.avif$/i, '_full.avif')
+    const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
     targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === fullSizeFilename)
     
     debugLightbox('LIGHTBOX_MAPPING', `Mapping thumbnail to full-size for lightbox`, {
@@ -1067,7 +1065,7 @@ const handleLightboxImageLoad = (event) => {
   })
 }
 
-// Show only thumbnail files in grid (filter out full-size files)
+// Show thumbnail files and regular files (for backward compatibility)
 const visiblePhotos = computed(() => {
   // DEBUG: Log ALL files received from backend
   debugGallery('VISIBLE_PHOTOS_COMPUTED', `Computing visible photos from ${photos.value.length} total files:`, {
@@ -1076,49 +1074,75 @@ const visiblePhotos = computed(() => {
       name: f.name,
       size: f.size,
       type: f.name.split('.').pop().toUpperCase(),
-      isThumbnail: /_thumbnail\.avif$/i.test(f.name),
-      isFullSize: /_full\.avif$/i.test(f.name)
+      isThumbnail: /_thumb\.avif$/i.test(f.name),
+      isFullSize: /\.avif$/i.test(f.name) && !/_thumb\.avif$/i.test(f.name)
     }))
   })
 
-  // Show only thumbnail files in grid for fast loading
-  const result = photos.value.filter(photo => /_thumbnail\.avif$/i.test(photo.name))
+  // Show thumbnail files preferentially, but fall back to regular files if no thumbnail exists
+  const thumbnails = photos.value.filter(photo => /_thumb\.avif$/i.test(photo.name))
   
-  debugGallery('VISIBLE_PHOTOS_RESULT', `Filtered to ${result.length} thumbnail photos for grid display`, {
-    thumbnails: result.map(f => f.name),
-    strategy: 'thumbnails-only-in-grid'
+  const regularFiles = photos.value.filter(photo => {
+    // Include regular images that don't have a corresponding thumbnail
+    const isRegularImage = /\.(avif|jpg|jpeg|png|gif|heic)$/i.test(photo.name) && !/_thumb\.avif$/i.test(photo.name)
+    if (!isRegularImage) return false
+    
+    // Check if there's a corresponding thumbnail
+    const baseName = photo.name.replace(/\.(avif|jpg|jpeg|png|heic)$/i, '')
+    const hasThumbnail = photos.value.some(p => p.name === `${baseName}_thumb.avif`)
+    return !hasThumbnail // Only include if no thumbnail exists
+  })
+
+  const result = [...thumbnails, ...regularFiles]
+  
+  debugGallery('VISIBLE_PHOTOS_RESULT', `Filtered to ${result.length} photos for grid display (${thumbnails.length} thumbnails + ${regularFiles.length} regular)`, {
+    thumbnails: thumbnails.map(f => f.name),
+    regularFiles: regularFiles.map(f => f.name),
+    strategy: 'thumbnails-first-with-fallback'
   })
   return result
 })
 
 // Map thumbnails to full-size files for lightbox navigation
 const lightboxPhotos = computed(() => {
-  // For each thumbnail in the grid, find the corresponding full-size file
-  const result = visiblePhotos.value.map(thumbnail => {
-    // Convert thumbnail filename to full-size filename
-    const fullSizeFilename = thumbnail.name.replace(/_thumbnail\.avif$/i, '_full.avif')
-    
-    // Find the full-size file in the photos array
-    const fullSizePhoto = photos.value.find(photo => photo.name === fullSizeFilename)
-    
-    if (fullSizePhoto) {
-      debugLightbox('LIGHTBOX_MAPPING', `Mapped thumbnail to full-size for lightbox`, {
-        thumbnail: thumbnail.name,
-        fullSize: fullSizePhoto.name,
-        thumbnailSize: thumbnail.size,
-        fullSizeSize: fullSizePhoto.size
-      })
-      return fullSizePhoto
+// Map thumbnails to full-size files for lightbox navigation
+const lightboxPhotos = computed(() => {
+  // For each photo in the grid, find the corresponding full-size file
+  const result = visiblePhotos.value.map(photo => {
+    // If it's a thumbnail, convert to full-size filename
+    if (/_thumb\.avif$/i.test(photo.name)) {
+      const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
+      
+      // Find the full-size file in the photos array
+      const fullSizePhoto = photos.value.find(p => p.name === fullSizeFilename)
+      
+      if (fullSizePhoto) {
+        debugLightbox('LIGHTBOX_MAPPING', `Mapped thumbnail to full-size for lightbox`, {
+          thumbnail: photo.name,
+          fullSize: fullSizePhoto.name,
+          thumbnailSize: photo.size,
+          fullSizeSize: fullSizePhoto.size
+        })
+        return fullSizePhoto
+      } else {
+        // Fallback to thumbnail if no full-size version found
+        debugLightbox('LIGHTBOX_FALLBACK', `No full-size found, using thumbnail for lightbox`, {
+          thumbnail: photo.name
+        })
+        return photo
+      }
     } else {
-      // Fallback to thumbnail if no full-size version found
-      debugLightbox('LIGHTBOX_FALLBACK', `No full-size found, using thumbnail for lightbox`, {
-        thumbnail: thumbnail.name
+      // If it's already a regular file, use it as-is for lightbox
+      debugLightbox('LIGHTBOX_REGULAR', `Using regular file for lightbox`, {
+        filename: photo.name
       })
-      return thumbnail
+      return photo
     }
   })
   
-  debugLightbox('LIGHTBOX_PHOTOS_COMPUTED', `Computed ${result.length} lightbox photos from thumbnails`)
+  debugLightbox('LIGHTBOX_PHOTOS_COMPUTED', `Computed ${result.length} lightbox photos from visible photos`)
+  return result
+})
   return result
 })
 
