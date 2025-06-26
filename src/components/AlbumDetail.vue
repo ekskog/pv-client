@@ -1105,8 +1105,6 @@ const visiblePhotos = computed(() => {
 
 // Map thumbnails to full-size files for lightbox navigation
 const lightboxPhotos = computed(() => {
-// Map thumbnails to full-size files for lightbox navigation
-const lightboxPhotos = computed(() => {
   // For each photo in the grid, find the corresponding full-size file
   const result = visiblePhotos.value.map(photo => {
     // If it's a thumbnail, convert to full-size filename
@@ -1141,8 +1139,6 @@ const lightboxPhotos = computed(() => {
   })
   
   debugLightbox('LIGHTBOX_PHOTOS_COMPUTED', `Computed ${result.length} lightbox photos from visible photos`)
-  return result
-})
   return result
 })
 
