@@ -133,7 +133,27 @@
     <!-- Upload Dialog -->
     <div v-if="showUploadDialog" class="dialog-overlay" @click="closeUploadDialog">
       <div class="dialog upload-dialog" @click.stop>
-        <h3><i class="fas fa-cloud-upload-alt"></i> Upload Photos</h3>
+        <h3><i class="fas fa-cloud-upload-alt"></i> Upload Media</h3>
+        
+        <!-- Upload Type Selector -->
+        <div class="upload-type-selector">
+          <button 
+            class="btn-upload-type" 
+            :class="{ active: uploadType === 'photos' }"
+            @click="setUploadType('photos')"
+          >
+            <i class="fas fa-image"></i>
+            Photos
+          </button>
+          <button 
+            class="btn-upload-type" 
+            :class="{ active: uploadType === 'videos' }"
+            @click="setUploadType('videos')"
+          >
+            <i class="fas fa-video"></i>
+            Videos
+          </button>
+        </div>
         
         <!-- File Drop Zone -->
         <div 
@@ -148,18 +168,18 @@
           <input
             ref="fileInput"
             type="file"
-            accept="image/*"
+            :accept="uploadType === 'photos' ? 'image/*' : 'video/*'"
             multiple
             @change="handleFileSelect"
             style="display: none;"
           />
           <div class="upload-content">
-            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+            <i :class="uploadType === 'photos' ? 'fas fa-cloud-upload-alt' : 'fas fa-video'" class="upload-icon"></i>
             <p class="upload-text">
-              Drag and drop photos here or click to select
+              {{ uploadType === 'photos' ? 'Drag and drop photos here or click to select' : 'Drag and drop videos here or click to select' }}
             </p>
             <p class="upload-hint">
-              Supports JPG, PNG, GIF, HEIC files (optimized for fast display)
+              {{ uploadType === 'photos' ? 'Supports JPG, PNG, GIF, HEIC files (optimized for fast display)' : 'Supports MOV, MP4 and other video formats (up to 2GB each)' }}
             </p>
           </div>
         </div>
@@ -217,10 +237,10 @@
           </button>
           <button 
             class="btn-primary" 
-            @click="uploadPhotos"
+            @click="uploadFiles"
             :disabled="selectedFiles.length === 0 || uploading"
           >
-            {{ uploading ? 'Uploading...' : `Upload ${selectedFiles.length} Photo${selectedFiles.length !== 1 ? 's' : ''}` }}
+            {{ uploading ? 'Uploading...' : `Upload ${selectedFiles.length} ${uploadType === 'photos' ? 'Photo' : 'Video'}${selectedFiles.length !== 1 ? 's' : ''}` }}
           </button>
         </div>
       </div>
@@ -348,6 +368,7 @@ const photos = ref([])
 // Removed HEIC conversion variables - backend handles all conversions
 const showUploadDialog = ref(false)
 const showDeletePhotoDialog = ref(false)
+const uploadType = ref('photos') // 'photos' or 'videos'
 const selectedFiles = ref([])
 const uploading = ref(false)
 const uploadProgress = ref(0)
@@ -691,24 +712,40 @@ const handleDrop = (event) => {
 }
 
 const addFiles = (files) => {
-  const imageFiles = files.filter(file => file.type.startsWith('image/'))
-  selectedFiles.value.push(...imageFiles)
+  let validFiles
+  let fileTypeDescription
   
-  if (imageFiles.length !== files.length) {
-    alert(`${files.length - imageFiles.length} files were skipped (only image files are allowed)`)
+  if (uploadType.value === 'photos') {
+    validFiles = files.filter(file => file.type.startsWith('image/'))
+    fileTypeDescription = 'image files'
+  } else {
+    validFiles = files.filter(file => file.type.startsWith('video/'))
+    fileTypeDescription = 'video files'
   }
+  
+  selectedFiles.value.push(...validFiles)
+  
+  if (validFiles.length !== files.length) {
+    alert(`${files.length - validFiles.length} files were skipped (only ${fileTypeDescription} are allowed)`)
+  }
+}
+
+const setUploadType = (type) => {
+  uploadType.value = type
+  selectedFiles.value = [] // Clear selected files when switching type
 }
 
 const removeFile = (index) => {
   selectedFiles.value.splice(index, 1)
 }
 
-const uploadPhotos = async () => {
+const uploadFiles = async () => {
   if (selectedFiles.value.length === 0) return
   
   // Check permission before proceeding
-  if (!authService.canPerformAction('upload_photos')) {
-    error.value = 'You do not have permission to upload photos'
+  const actionType = uploadType.value === 'photos' ? 'upload_photos' : 'upload_photos' // For now using same permission
+  if (!authService.canPerformAction(actionType)) {
+    error.value = `You do not have permission to upload ${uploadType.value}`
     return
   }
   
@@ -1505,6 +1542,44 @@ onUnmounted(() => {
 
 .upload-dialog {
   min-width: 500px;
+}
+
+.upload-type-selector {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.btn-upload-type {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-upload-type:hover {
+  border-color: #2196f3;
+  color: #2196f3;
+}
+
+.btn-upload-type.active {
+  border-color: #2196f3;
+  background: #2196f3;
+  color: #fff;
+}
+
+.btn-upload-type i {
+  font-size: 1rem;
 }
 
 .dialog h3 {
