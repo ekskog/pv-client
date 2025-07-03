@@ -26,6 +26,15 @@
         >
           <i class="fas fa-users"></i> Users
         </button>
+        
+        <button 
+          v-if="isAdmin"
+          class="nav-link"
+          :class="{ active: currentView === 'settings' }"
+          @click="$emit('navigate', 'settings')"
+        >
+          <i class="fas fa-cog"></i> Settings
+        </button>
       </div>
 
       <!-- User menu -->

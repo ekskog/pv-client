@@ -43,6 +43,11 @@
         <UserManagement 
           v-else-if="currentView === 'users'"
         />
+
+        <!-- Settings View (Admin Only) -->
+        <Settings 
+          v-else-if="currentView === 'settings'"
+        />
       </main>
     </div>
   </div>
@@ -57,6 +62,7 @@ import Albums from './components/Albums.vue'
 import AlbumDetail from './components/AlbumDetail.vue'
 import Login from './components/Login.vue'
 import UserManagement from './components/UserManagement.vue'
+import Settings from './components/Settings.vue'
 import authService from './services/auth.js'
 
 // Reactive state
@@ -83,10 +89,13 @@ onUnmounted(() => {
 
 // Handle storage changes (logout in another tab)
 const handleStorageChange = (event) => {
+  // Only handle auth token changes
   if (event.key === 'hbvu_auth_token' && !event.newValue) {
     // Token was removed, update auth state
     updateAuthState()
   }
+  
+  // Ignore other storage changes (like config updates)
 }
 
 // Update authentication state

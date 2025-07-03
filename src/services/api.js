@@ -1,11 +1,16 @@
 // HBVU PHOTOS API Service
 // Handles all communication with the HBVU PHOTOS Express API
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://vault-api.hbvu.su'
+import configService from './config.js'
 
 class ApiService {
   constructor() {
     this.authService = null // Will be set by auth service
+  }
+
+  // Get current API base URL
+  getApiBaseUrl() {
+    return configService.getApiUrl()
   }
 
   // Set auth service reference (to avoid circular imports)
@@ -19,6 +24,7 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
+    const API_BASE_URL = this.getApiBaseUrl()
     const url = `${API_BASE_URL}${endpoint}`
     
     console.log('🌐 API Call:', url)

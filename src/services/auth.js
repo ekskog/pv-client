@@ -1,17 +1,19 @@
 // HBVU PHOTOS Authentication Service
 // Supports both demo and database authentication modes
 
+import configService from './config.js'
+
 const AUTH_TOKEN_KEY = 'hbvu_auth_token';
 const USER_DATA_KEY = 'hbvu_user_data';
 
 // Configuration with dual-mode authentication support
-const config = {
-  apiUrl: import.meta.env.VITE_API_URL || 'https://vault-api.hbvu.su',
-  authMode: import.meta.env.VITE_AUTH_MODE || 'demo', // 'demo' or 'api'
+const getConfig = () => ({
+  apiUrl: configService.getApiUrl(),
+  authMode: configService.get('authMode') || 'demo', // 'demo' or 'api'
   authEndpoint: '/auth/login',
   userEndpoint: '/auth/me',
   statusEndpoint: '/auth/status'
-};
+});
 
 // Demo users with hardcoded credentials (for demo mode)
 const demoUsers = {
@@ -40,6 +42,7 @@ const demoUsers = {
 // Demo authentication function (development only)
 async function demoLogin(username, password) {
   // Use the backend API for demo authentication to ensure consistency
+  const config = getConfig()
   const response = await fetch(`${config.apiUrl}${config.authEndpoint}`, {
     method: 'POST',
     headers: {
@@ -77,6 +80,7 @@ async function demoLogin(username, password) {
 
 // API authentication function (production)
 async function apiLogin(username, password) {
+  const config = getConfig()
   const response = await fetch(`${config.apiUrl}${config.authEndpoint}`, {
     method: 'POST',
     headers: {
@@ -114,6 +118,8 @@ async function apiLogin(username, password) {
 
 // Validate token with backend
 async function validateToken(token) {
+  const config = getConfig()
+  
   if (config.authMode === 'demo') {
     // For demo mode, validate against the backend to ensure consistency
     try {
@@ -154,6 +160,7 @@ class AuthService {
     this.currentUser = null;
     this.token = localStorage.getItem(AUTH_TOKEN_KEY);
     this.isInitialized = false;
+    this.isValidating = false; // Prevent concurrent validations
     
     // Set up API service reference after import
     this.setupApiService();
@@ -167,7 +174,12 @@ class AuthService {
 
   // Initialize auth service and restore session
   async init() {
+    if (this.isValidating) {
+      return
+    }
+    
     if (this.token) {
+      this.isValidating = true
       try {
         // Validate token with backend
         const isValid = await validateToken(this.token);
@@ -187,6 +199,8 @@ class AuthService {
       } catch (error) {
         console.warn('Token validation failed, clearing auth:', error);
         this.clearAuth();
+      } finally {
+        this.isValidating = false
       }
     }
     this.isInitialized = true;
@@ -194,6 +208,7 @@ class AuthService {
 
   // Fetch current user from backend
   async fetchCurrentUser() {
+    const config = getConfig()
     try {
       const response = await fetch(`${config.apiUrl}${config.userEndpoint}`, {
         headers: {
@@ -229,6 +244,7 @@ class AuthService {
 
   // Login with username and password
   async login(username, password) {
+    const config = getConfig()
     try {
       let response;
       
@@ -307,7 +323,8 @@ class AuthService {
 
   // User management methods (for demo mode)
   async getUsers() {
-    if (config.demoMode) {
+    const config = getConfig()
+    if (config.authMode === 'demo') {
       return Object.values(demoUsers).map(user => ({
         id: user.id,
         username: user.username,
@@ -319,6 +336,7 @@ class AuthService {
       }));
     } else {
       // Production: fetch from backend
+      const config = getConfig()
       const response = await fetch(`${config.apiUrl}${config.userEndpoint}`, {
         headers: {
           'Authorization': `Bearer ${this.token}`
@@ -334,11 +352,13 @@ class AuthService {
   }
 
   async createUser(userData) {
-    if (config.demoMode) {
+    const config = getConfig()
+    if (config.authMode === 'demo') {
       // Demo mode: simulate user creation
       throw new Error('User creation not available in demo mode');
     } else {
       // Production: create user via backend
+      const config = getConfig()
       const response = await fetch(`${config.apiUrl}${config.userEndpoint}`, {
         method: 'POST',
         headers: {
@@ -358,11 +378,13 @@ class AuthService {
   }
 
   async updateUser(userId, userData) {
-    if (config.demoMode) {
+    const config = getConfig()
+    if (config.authMode === 'demo') {
       // Demo mode: simulate user update
       throw new Error('User updates not available in demo mode');
     } else {
       // Production: update user via backend
+      const config = getConfig()
       const response = await fetch(`${config.apiUrl}${config.userEndpoint}/${userId}`, {
         method: 'PUT',
         headers: {
@@ -382,11 +404,13 @@ class AuthService {
   }
 
   async deleteUser(userId) {
-    if (config.demoMode) {
+    const config = getConfig()
+    if (config.authMode === 'demo') {
       // Demo mode: simulate user deletion
       throw new Error('User deletion not available in demo mode');
     } else {
       // Production: delete user via backend
+      const config = getConfig()
       const response = await fetch(`${config.apiUrl}${config.userEndpoint}/${userId}`, {
         method: 'DELETE',
         headers: {
@@ -405,7 +429,8 @@ class AuthService {
 
   // Password change method
   async changePassword({ userId, currentPassword, newPassword }) {
-    if (config.demoMode) {
+    const config = getConfig()
+    if (config.authMode === 'demo') {
       // Demo mode: simulate password change
       await new Promise(resolve => setTimeout(resolve, 500));
       
@@ -427,6 +452,7 @@ class AuthService {
       return { success: true, message: 'Password changed successfully (demo mode)' };
     } else {
       // Production: change password via backend
+      const config = getConfig()
       const response = await fetch(`${config.apiUrl}${config.userEndpoint}/${userId}/password`, {
         method: 'PUT',
         headers: {
@@ -450,9 +476,10 @@ class AuthService {
 
   // Get configuration info (useful for displaying mode in UI)
   getConfig() {
+    const config = getConfig()
     return {
-      demoMode: config.demoMode,
-      hasBackendAuth: !config.demoMode
+      demoMode: config.authMode === 'demo',
+      hasBackendAuth: config.authMode !== 'demo'
     };
   }
 }
