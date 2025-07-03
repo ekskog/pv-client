@@ -239,11 +239,11 @@
         </div>
 
         <div class="dialog-actions">
-          <button class="btn-secondary" @click="closeUploadDialog" :disabled="uploading">
+          <button class="btn-secondary" @click="closeUploadDialog">
             {{ uploadProgress === 100 && !uploading ? 'Done' : 'Cancel' }}
           </button>
           <button 
-            v-if="!uploading || uploadProgress < 100"
+            v-if="uploadProgress < 100"
             class="btn-primary" 
             @click="uploadFiles"
             :disabled="selectedFiles.length === 0 || uploading"
