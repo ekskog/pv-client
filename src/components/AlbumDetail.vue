@@ -240,9 +240,10 @@
 
         <div class="dialog-actions">
           <button class="btn-secondary" @click="closeUploadDialog" :disabled="uploading">
-            Cancel
+            {{ uploadProgress === 100 && !uploading ? 'Done' : 'Cancel' }}
           </button>
           <button 
+            v-if="!uploading || uploadProgress < 100"
             class="btn-primary" 
             @click="uploadFiles"
             :disabled="selectedFiles.length === 0 || uploading"
@@ -917,12 +918,38 @@ const uploadFiles = async () => {
           
           uploadProgress.value = progressPercentage
           
+          // Update individual file progress
+          if (job.results && Array.isArray(job.results)) {
+            job.results.forEach(result => {
+              if (result.originalName) {
+                uploadedFiles.value.add(result.originalName)
+                fileUploadProgress.value[result.originalName] = 100
+              }
+            })
+          }
+          
+          // Update failed files
+          if (job.errors && Array.isArray(job.errors)) {
+            job.errors.forEach(error => {
+              if (error.filename) {
+                failedFiles.value.add(error.filename)
+                fileUploadProgress.value[error.filename] = -1
+              }
+            })
+          }
+          
           switch (job.status) {
             case 'queued':
               uploadStatus.value = 'Upload queued for processing...'
               break
             case 'processing':
               uploadStatus.value = `Converting images... ${processed}/${total} files processed`
+              // Update progress for currently processing files
+              selectedFiles.value.forEach(file => {
+                if (!uploadedFiles.value.has(file.name) && !failedFiles.value.has(file.name)) {
+                  fileUploadProgress.value[file.name] = processed < total ? 50 : 100
+                }
+              })
               break
             default:
               uploadStatus.value = `Processing... ${progressPercentage}%`
@@ -932,6 +959,9 @@ const uploadFiles = async () => {
       
       uploadProgress.value = 100
       uploadStatus.value = 'All files processed successfully!'
+      
+      // Don't auto-close dialog - let user see completion status
+      await loadPhotos() // Refresh the photo list
       
     } else {
       // Synchronous upload (fallback) - handle as before
@@ -958,12 +988,6 @@ const uploadFiles = async () => {
         uploadStatus.value = 'All files uploaded successfully!'
       }
     }
-    
-    // Auto-refresh the photo list after successful upload
-    setTimeout(async () => {
-      await loadPhotos()
-      closeUploadDialog()
-    }, 2000)
     
   } catch (err) {
     error.value = `Upload failed: ${err.message}`
