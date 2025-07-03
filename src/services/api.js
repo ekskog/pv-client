@@ -126,6 +126,7 @@ class ApiService {
       formData.append('folderPath', folderPath)
     }
     
+    const API_BASE_URL = this.getApiBaseUrl()
     const url = `${API_BASE_URL}/buckets/${bucketName}/upload`
     
     // Prepare headers (don't set Content-Type for FormData)
@@ -163,6 +164,7 @@ class ApiService {
       formData.append('folderPath', folderPath)
     }
     
+    const API_BASE_URL = this.getApiBaseUrl()
     const url = `${API_BASE_URL}/buckets/${bucketName}/upload`
     
     return new Promise((resolve, reject) => {
@@ -219,6 +221,7 @@ class ApiService {
 
   // Object URL generation for downloading/viewing files
   getObjectUrl(bucketName, objectName) {
+    const API_BASE_URL = this.getApiBaseUrl()
     return `${API_BASE_URL}/buckets/${bucketName}/download?object=${encodeURIComponent(objectName)}`
   }
 
