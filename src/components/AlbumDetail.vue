@@ -75,7 +75,14 @@
             </div>
           </div>
           <div class="photo-info">
-            <span class="photo-size">{{ formatFileSize(photo.size) }}</span>
+            <div class="photo-timestamp">
+              <i class="fas fa-clock"></i>
+              {{ formatPhotoTimestamp(photo) }}
+            </div>
+            <div class="photo-gps">
+              <i class="fas fa-map-marker-alt"></i>
+              {{ formatPhotoGPS(photo) }}
+            </div>
           </div>
         </div>
 
@@ -365,6 +372,8 @@ const emit = defineEmits(['back', 'photoOpened'])
 const loading = ref(false)
 const error = ref(null)
 const photos = ref([])
+const albumMetadata = ref(null)
+const photoMetadataLookup = ref({})
 // Removed HEIC conversion variables - backend handles all conversions
 const showUploadDialog = ref(false)
 const showDeletePhotoDialog = ref(false)
@@ -464,6 +473,9 @@ const loadPhotos = async () => {
       
       photos.value = allFiles
       
+      // Load album metadata
+      await loadAlbumMetadata(cleanAlbumName)
+      
       // Reset pagination
       resetVirtualScrolling()
       
@@ -477,6 +489,119 @@ const loadPhotos = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// Load album metadata JSON file
+const loadAlbumMetadata = async (albumName) => {
+  try {
+    const metadataFileName = `${albumName}/${albumName}.json`
+    const metadataUrl = apiService.getObjectUrl(BUCKET_NAME, metadataFileName)
+    
+    console.log('📄 Loading metadata from:', metadataUrl)
+    const response = await fetch(metadataUrl)
+    if (response.ok) {
+      const metadata = await response.json()
+      albumMetadata.value = metadata
+      
+      // Create lookup table for quick access - use the correct structure
+      const lookup = {}
+      if (metadata.images && Array.isArray(metadata.images)) {
+        metadata.images.forEach(imageMeta => {
+          if (imageMeta.sourceImage) {
+            // Extract just the filename from the full path
+            const filename = imageMeta.sourceImage.split('/').pop()
+            lookup[filename] = imageMeta
+            // Also store with full path for exact matches
+            lookup[imageMeta.sourceImage] = imageMeta
+          }
+        })
+      }
+      photoMetadataLookup.value = lookup
+      console.log('📄 Metadata loaded successfully for', Object.keys(lookup).length, 'images')
+      console.log('📄 Available metadata keys:', Object.keys(lookup))
+    } else {
+      console.warn('📄 Metadata file not found:', metadataFileName)
+    }
+  } catch (err) {
+    console.warn('📄 Could not load album metadata:', err.message)
+  }
+}
+
+// Format timestamp for display
+const formatPhotoTimestamp = (photo) => {
+  // Try to get metadata for the current photo name or its original version
+  const filename = photo.name.split('/').pop() // Get just the filename
+  let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
+  
+  // If not found and this is an AVIF variant, try to find the original
+  if (!metadata && photo.name.includes('.avif')) {
+    // Try to match with original filename patterns
+    const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(key => {
+      // Extract base name without extension and compare
+      const baseName = filename.replace(/(_thumb)?\.avif$/i, '')
+      const originalBase = key.replace(/\.[^.]+$/, '')
+      return baseName.includes(originalBase) || originalBase.includes(baseName)
+    })
+    
+    if (possibleOriginals.length > 0) {
+      metadata = photoMetadataLookup.value[possibleOriginals[0]]
+    }
+  }
+  
+  console.log('🕒 Timestamp lookup for', filename, ':', metadata?.exif?.dateTaken)
+  
+  if (!metadata || !metadata.exif || !metadata.exif.dateTaken) {
+    return 'No date'
+  }
+  
+  try {
+    const date = new Date(metadata.exif.dateTaken)
+    return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+  } catch {
+    return 'Invalid date'
+  }
+}
+
+// Format GPS coordinates for display
+const formatPhotoGPS = (photo) => {
+  // Try to get metadata for the current photo name or its original version
+  const filename = photo.name.split('/').pop() // Get just the filename
+  let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
+  
+  // If not found and this is an AVIF variant, try to find the original
+  if (!metadata && photo.name.includes('.avif')) {
+    // Try to match with original filename patterns
+    const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(key => {
+      // Extract base name without extension and compare
+      const baseName = filename.replace(/(_thumb)?\.avif$/i, '')
+      const originalBase = key.replace(/\.[^.]+$/, '')
+      return baseName.includes(originalBase) || originalBase.includes(baseName)
+    })
+    
+    if (possibleOriginals.length > 0) {
+      metadata = photoMetadataLookup.value[possibleOriginals[0]]
+    }
+  }
+  
+  console.log('📍 GPS lookup for', filename, ':', metadata?.exif?.gpsCoordinates)
+  
+  if (!metadata || !metadata.exif || !metadata.exif.gpsCoordinates) {
+    return 'No location'
+  }
+  
+  try {
+    // Parse GPS coordinates from string format "lat,lng"
+    const coords = metadata.exif.gpsCoordinates.split(',')
+    if (coords.length === 2) {
+      const lat = parseFloat(coords[0]).toFixed(4)
+      const lng = parseFloat(coords[1]).toFixed(4)
+      return `${lat}, ${lng}`
+    }
+  } catch (err) {
+    console.warn('Error parsing GPS coordinates:', err)
+  }
+  
+  return 'Invalid location'
 }
 
 const downloadPhoto = (photo) => {
@@ -1504,16 +1629,27 @@ onUnmounted(() => {
   gap: 0.25rem;
 }
 
+.photo-timestamp,
+.photo-gps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.photo-timestamp i,
+.photo-gps i {
+  width: 12px;
+  font-size: 0.75rem;
+  color: #888;
+}
+
 .photo-name {
   font-weight: 500;
   color: #333;
   font-size: 0.9rem;
   word-break: break-word;
-}
-
-.photo-size {
-  font-size: 0.8rem;
-  color: #666;
 }
 
 .dialog-overlay {
