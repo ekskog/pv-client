@@ -9,13 +9,23 @@
         <h1><i class="fas fa-folder-open"></i> {{ albumName }}</h1>
         <p class="subtitle">{{ visiblePhotos.length }} photos</p>
       </div>
-      <button 
-        v-if="canUploadPhotos"
-        class="btn-primary" 
-        @click="showUploadDialog = true"
-      >
-        <i class="fas fa-plus"></i> Add Photos
-      </button>
+      <div class="header-actions">
+        <button 
+          class="btn-secondary btn-refresh" 
+          @click="refreshAlbum"
+          :disabled="loading"
+          title="Refresh album"
+        >
+          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
+        </button>
+        <button 
+          v-if="canUploadPhotos"
+          class="btn-primary" 
+          @click="showUploadDialog = true"
+        >
+          <i class="fas fa-plus"></i> Add Photos
+        </button>
+      </div>
     </div>
 
     <!-- Loading State -->
@@ -160,6 +170,12 @@
             <i class="fas fa-video"></i>
             Videos
           </button>
+        </div>
+        
+        <!-- Mobile Warning -->
+        <div v-if="isMobileDevice" class="mobile-warning">
+          <i class="fas fa-mobile-alt"></i>
+          <span>Keep this app open during upload for progress updates</span>
         </div>
         
         <!-- File Drop Zone -->
@@ -432,6 +448,11 @@ const canUploadPhotos = computed(() => {
   return authService.canPerformAction('upload_photos')
 })
 
+// Mobile device detection
+const isMobileDevice = computed(() => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+})
+
 const canDeletePhoto = computed(() => {
   return authService.canPerformAction('delete_photo')
 })
@@ -490,6 +511,12 @@ const loadPhotos = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// Refresh album data
+const refreshAlbum = async () => {
+  console.log('🔄 Refreshing album:', props.albumName)
+  await loadPhotos()
 }
 
 // Load album metadata JSON file
@@ -891,6 +918,21 @@ const uploadFiles = async () => {
   try {
     uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
     
+    // Detect mobile device for specific handling
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    console.log('📱 Mobile device detected:', isMobile)
+    
+    // Mobile-specific: Add visibility change listener to warn about backgrounding
+    let visibilityChangeHandler = null
+    if (isMobile) {
+      visibilityChangeHandler = () => {
+        if (document.hidden && uploading.value) {
+          console.warn('📱 App backgrounded during upload - may affect progress updates')
+        }
+      }
+      document.addEventListener('visibilitychange', visibilityChangeHandler)
+    }
+    
     // Use the async upload system that returns a job ID
     const response = await apiService.uploadFile(
       BUCKET_NAME, 
@@ -905,7 +947,12 @@ const uploadFiles = async () => {
     // Check if we got a job ID (async processing)
     if (response.data.jobId) {
       const jobId = response.data.jobId
-      uploadStatus.value = 'Upload queued for processing...'
+      uploadStatus.value = isMobile ? 'Upload queued... (Keep app open)' : 'Upload queued for processing...'
+      
+      // Mobile-specific: Show warning about keeping app open
+      if (isMobile) {
+        console.log('📱 Mobile upload started - advising user to keep app open')
+      }
       
       // Poll job status until completion with conversion progress tracking
       await apiService.pollJobUntilComplete(
@@ -940,10 +987,12 @@ const uploadFiles = async () => {
           
           switch (job.status) {
             case 'queued':
-              uploadStatus.value = 'Upload queued for processing...'
+              uploadStatus.value = isMobile ? 'Queued... (Keep app open)' : 'Upload queued for processing...'
               break
             case 'processing':
-              uploadStatus.value = `Converting images... ${processed}/${total} files processed`
+              uploadStatus.value = isMobile 
+                ? `Converting... ${processed}/${total} (Keep app open)`
+                : `Converting images... ${processed}/${total} files processed`
               // Update progress for currently processing files
               selectedFiles.value.forEach(file => {
                 if (!uploadedFiles.value.has(file.name) && !failedFiles.value.has(file.name)) {
@@ -956,6 +1005,11 @@ const uploadFiles = async () => {
           }
         }
       )
+      
+      // Clean up visibility listener
+      if (visibilityChangeHandler) {
+        document.removeEventListener('visibilitychange', visibilityChangeHandler)
+      }
       
       uploadProgress.value = 100
       uploadStatus.value = 'All files processed successfully!'
@@ -994,6 +1048,11 @@ const uploadFiles = async () => {
     console.error('Upload failed:', err)
   } finally {
     uploading.value = false
+    
+    // Clean up any event listeners (mobile-specific)
+    if (typeof visibilityChangeHandler !== 'undefined' && visibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', visibilityChangeHandler)
+    }
   }
 }
 
@@ -1011,19 +1070,30 @@ const confirmDeletePhoto = (photo) => {
 const deletePhoto = async () => {
   if (!photoToDelete.value) return
   
+  // Debug alert to confirm function is called
+  alert(`About to delete: ${photoToDelete.value.name}`)
+  
   deletingPhoto.value = true
   error.value = null
   
   try {
+    console.log('🗑️ Deleting photo:', photoToDelete.value.name, 'from bucket:', BUCKET_NAME)
     const response = await apiService.deleteObject(BUCKET_NAME, photoToDelete.value.name)
+    console.log('🗑️ Delete response:', response)
     
     if (response.success) {
+      // Close lightbox if the deleted photo was being viewed
+      if (showLightbox.value && currentPhoto.value && currentPhoto.value.name === photoToDelete.value.name) {
+        closeLightbox()
+      }
+      
       await loadPhotos() // Refresh the list
       closeDeletePhotoDialog()
     } else {
       throw new Error(response.error || 'Failed to delete photo')
     }
   } catch (err) {
+    console.error('🗑️ Delete error:', err)
     error.value = `Failed to delete photo: ${err.message}`
   } finally {
     deletingPhoto.value = false
@@ -1319,6 +1389,34 @@ onUnmounted(() => {
   font-size: 1rem;
   color: #666;
   margin: 0.25rem 0 0 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.btn-refresh {
+  min-width: 44px;
+  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-refresh .fas.fa-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .btn-primary {
@@ -1686,7 +1784,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 3000;
 }
 
 .dialog {
@@ -1739,6 +1837,24 @@ onUnmounted(() => {
 }
 
 .btn-upload-type i {
+  font-size: 1rem;
+}
+
+.mobile-warning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #856404;
+}
+
+.mobile-warning i {
+  color: #f39c12;
   font-size: 1rem;
 }
 

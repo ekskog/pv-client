@@ -108,6 +108,14 @@ class ApiService {
     })
   }
 
+  // Delete object
+  async deleteObject(bucketName, objectName) {
+    return this.request(`/buckets/${bucketName}/objects`, {
+      method: 'DELETE',
+      body: JSON.stringify({ objectName })
+    })
+  }
+
   // File upload - Updated to match API spec
   async uploadFile(bucketName, files, folderPath = '') {
     const formData = new FormData()
@@ -212,13 +220,6 @@ class ApiService {
     })
   }
 
-  // Delete object - This endpoint doesn't exist in your API
-  // async deleteObject(bucketName, objectName) {
-  //   return this.request(`/buckets/${bucketName}/objects/${encodeURIComponent(objectName)}`, {
-  //     method: 'DELETE'
-  //   })
-  // }
-
   // Object URL generation for downloading/viewing files
   getObjectUrl(bucketName, objectName) {
     const API_BASE_URL = this.getApiBaseUrl()
@@ -233,12 +234,25 @@ class ApiService {
   // Poll job status until completion
   async pollJobUntilComplete(jobId, onProgress = null, maxWaitTime = 300000) { // 5 minutes max
     const startTime = Date.now()
-    const pollInterval = 1000 // 1 second
+    let pollInterval = 1000 // Start with 1 second
+    
+    // Mobile optimization: detect if mobile and adjust polling
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    if (isMobile) {
+      pollInterval = 2000 // Slower polling on mobile to reduce battery/data usage
+      maxWaitTime = Math.min(maxWaitTime, 600000) // Max 10 minutes on mobile
+    }
     
     return new Promise((resolve, reject) => {
+      let consecutiveErrors = 0
+      const maxConsecutiveErrors = 3
+      
       const poll = async () => {
         try {
           const result = await this.getJobStatus(jobId)
+          
+          // Reset error counter on successful request
+          consecutiveErrors = 0
           
           if (!result.success) {
             reject(new Error(result.error || 'Failed to get job status'))
@@ -249,7 +263,11 @@ class ApiService {
           
           // Call progress callback if provided
           if (onProgress) {
-            onProgress(job)
+            try {
+              onProgress(job)
+            } catch (progressError) {
+              console.warn('Progress callback error:', progressError)
+            }
           }
           
           // Check if job is complete
@@ -271,13 +289,27 @@ class ApiService {
           
           // Continue polling if job is still processing
           if (job.status === 'queued' || job.status === 'processing') {
+            // Adaptive polling: increase interval on mobile to save battery
+            if (isMobile && Date.now() - startTime > 30000) { // After 30s on mobile
+              pollInterval = Math.min(pollInterval * 1.2, 5000) // Max 5s interval
+            }
             setTimeout(poll, pollInterval)
           } else {
             reject(new Error(`Unknown job status: ${job.status}`))
           }
           
         } catch (error) {
-          reject(error)
+          consecutiveErrors++
+          console.warn(`Polling error ${consecutiveErrors}/${maxConsecutiveErrors}:`, error.message)
+          
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            reject(new Error(`Too many consecutive polling errors: ${error.message}`))
+            return
+          }
+          
+          // Exponential backoff on errors, especially important for mobile
+          const errorBackoff = Math.min(pollInterval * Math.pow(2, consecutiveErrors), 10000)
+          setTimeout(poll, errorBackoff)
         }
       }
       

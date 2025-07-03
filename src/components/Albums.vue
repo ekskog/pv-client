@@ -205,9 +205,31 @@ const loadAlbums = async () => {
                 return !earliest || fileDate < earliest ? fileDate : earliest
               }, null)
               
-              // Count actual photos: each photo has 2 files (full-size + thumbnail)
-              // So divide total files by 2 to get actual photo count
-              const actualPhotoCount = Math.floor(files.length / 2)
+              // Count actual photos using the same logic as AlbumDetail
+              // Filter out folders and JSON metadata files, then count all image files
+              const imageFiles = files.filter(obj => {
+                // Only exclude folders (names ending with '/')
+                if (obj.name && obj.name.endsWith('/')) return false
+                
+                // Skip metadata JSON files from the count
+                if (obj.name.endsWith('.json') && obj.name.includes('/')) {
+                  const pathParts = obj.name.split('/')
+                  const fileName = pathParts[pathParts.length - 1]
+                  const folderName = pathParts[pathParts.length - 2]
+                  if (fileName === `${folderName}.json`) {
+                    return false
+                  }
+                }
+                
+                // Skip thumbnail files from the count
+                if (obj.name.includes('_thumb.')) {
+                  return false
+                }
+                
+                return true
+              })
+              
+              const actualPhotoCount = imageFiles.length
               
               return {
                 ...album,
