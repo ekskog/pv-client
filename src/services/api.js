@@ -238,77 +238,110 @@ class ApiService {
     
     // Mobile optimization: detect if mobile and adjust polling
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    console.log(`📱 [POLLING] Starting job polling - Mobile: ${isMobile}, JobID: ${jobId}`)
+    
     if (isMobile) {
-      pollInterval = 2000 // Slower polling on mobile to reduce battery/data usage
+      pollInterval = 1500 // Slightly slower on mobile but not too slow
       maxWaitTime = Math.min(maxWaitTime, 600000) // Max 10 minutes on mobile
+      console.log(`📱 [POLLING] Mobile settings - Interval: ${pollInterval}ms, MaxWait: ${maxWaitTime}ms`)
     }
     
     return new Promise((resolve, reject) => {
       let consecutiveErrors = 0
+      let pollCount = 0
       const maxConsecutiveErrors = 3
       
       const poll = async () => {
+        pollCount++
+        console.log(`📱 [POLLING] Poll attempt #${pollCount} for job ${jobId}`)
+        
         try {
           const result = await this.getJobStatus(jobId)
+          console.log(`📱 [POLLING] Poll #${pollCount} response:`, result)
           
           // Reset error counter on successful request
           consecutiveErrors = 0
           
           if (!result.success) {
+            console.error(`📱 [POLLING] Poll #${pollCount} failed:`, result.error)
             reject(new Error(result.error || 'Failed to get job status'))
             return
           }
           
           const job = result.data
+          console.log(`📱 [POLLING] Job status: ${job.status}, Progress: ${job.progress?.processed}/${job.progress?.total}`)
           
           // Call progress callback if provided
           if (onProgress) {
             try {
               onProgress(job)
             } catch (progressError) {
-              console.warn('Progress callback error:', progressError)
+              console.warn('📱 [POLLING] Progress callback error:', progressError)
             }
           }
           
           // Check if job is complete
           if (job.status === 'completed') {
+            console.log(`📱 [POLLING] Job ${jobId} completed after ${pollCount} polls`)
             resolve(job)
             return
           }
           
           if (job.status === 'failed') {
+            console.error(`📱 [POLLING] Job ${jobId} failed:`, job.error)
             reject(new Error(job.error || 'Upload job failed'))
             return
           }
           
           // Check timeout
-          if (Date.now() - startTime > maxWaitTime) {
+          const elapsedTime = Date.now() - startTime
+          if (elapsedTime > maxWaitTime) {
+            console.error(`📱 [POLLING] Job ${jobId} timed out after ${elapsedTime}ms (${pollCount} polls)`)
             reject(new Error('Job polling timeout'))
             return
           }
           
           // Continue polling if job is still processing
           if (job.status === 'queued' || job.status === 'processing') {
-            // Adaptive polling: increase interval on mobile to save battery
-            if (isMobile && Date.now() - startTime > 30000) { // After 30s on mobile
-              pollInterval = Math.min(pollInterval * 1.2, 5000) // Max 5s interval
+            // Mobile-specific: Use requestAnimationFrame for better mobile compatibility
+            const scheduleNextPoll = () => {
+              console.log(`📱 [POLLING] Scheduling next poll in ${pollInterval}ms`)
+              if (isMobile && 'requestIdleCallback' in window) {
+                // Use idle callback on mobile when available
+                requestIdleCallback(() => setTimeout(poll, pollInterval), { timeout: pollInterval + 1000 })
+              } else {
+                setTimeout(poll, pollInterval)
+              }
             }
-            setTimeout(poll, pollInterval)
+            
+            // Adaptive polling: increase interval on mobile to save battery
+            if (isMobile && elapsedTime > 30000) { // After 30s on mobile
+              const oldInterval = pollInterval
+              pollInterval = Math.min(pollInterval * 1.1, 3000) // Max 3s interval, gentler increase
+              if (oldInterval !== pollInterval) {
+                console.log(`📱 [POLLING] Adjusted mobile polling interval to ${pollInterval}ms`)
+              }
+            }
+            
+            scheduleNextPoll()
           } else {
+            console.error(`📱 [POLLING] Unknown job status: ${job.status}`)
             reject(new Error(`Unknown job status: ${job.status}`))
           }
           
         } catch (error) {
           consecutiveErrors++
-          console.warn(`Polling error ${consecutiveErrors}/${maxConsecutiveErrors}:`, error.message)
+          console.warn(`📱 [POLLING] Error ${consecutiveErrors}/${maxConsecutiveErrors} for job ${jobId}:`, error.message)
           
           if (consecutiveErrors >= maxConsecutiveErrors) {
+            console.error(`📱 [POLLING] Too many errors, giving up on job ${jobId}`)
             reject(new Error(`Too many consecutive polling errors: ${error.message}`))
             return
           }
           
           // Exponential backoff on errors, especially important for mobile
           const errorBackoff = Math.min(pollInterval * Math.pow(2, consecutiveErrors), 10000)
+          console.log(`📱 [POLLING] Error backoff: waiting ${errorBackoff}ms before retry`)
           setTimeout(poll, errorBackoff)
         }
       }

@@ -258,6 +258,15 @@
           <button class="btn-secondary" @click="closeUploadDialog">
             {{ uploadProgress === 100 && !uploading ? 'Done' : 'Cancel' }}
           </button>
+          <!-- Mobile manual refresh button -->
+          <button 
+            v-if="isMobileDevice && uploading && uploadProgress < 100"
+            class="btn-secondary btn-refresh-mobile" 
+            @click="manualRefreshProgress"
+            title="Refresh progress status"
+          >
+            <i class="fas fa-sync-alt"></i>
+          </button>
           <button 
             v-if="uploadProgress < 100"
             class="btn-primary" 
@@ -399,6 +408,7 @@ const selectedFiles = ref([])
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadStatus = ref('')
+const currentJobId = ref(null) // Track current upload job ID for manual refresh
 const fileUploadProgress = ref({}) // Track individual file progress
 const uploadedFiles = ref(new Set()) // Track completed uploads
 const failedFiles = ref(new Set()) // Track failed uploads
@@ -517,6 +527,54 @@ const loadPhotos = async () => {
 const refreshAlbum = async () => {
   console.log('🔄 Refreshing album:', props.albumName)
   await loadPhotos()
+}
+
+// Manual refresh for mobile progress tracking
+const manualRefreshProgress = async () => {
+  console.log('📱 Manual progress refresh requested')
+  if (!currentJobId.value) {
+    console.warn('📱 No active job ID for manual refresh')
+    return
+  }
+  
+  try {
+    console.log(`📱 Manually checking job status: ${currentJobId.value}`)
+    const result = await apiService.getJobStatus(currentJobId.value)
+    
+    if (result.success) {
+      const job = result.data
+      console.log(`📱 Manual refresh - Job status: ${job.status}, Progress: ${job.progress?.processed}/${job.progress?.total}`)
+      
+      // Update progress manually
+      const processed = job.progress?.processed || 0
+      const total = job.progress?.total || selectedFiles.value.length
+      const progressPercentage = Math.round((processed / total) * 100)
+      
+      uploadProgress.value = progressPercentage
+      
+      // Update status message
+      switch (job.status) {
+        case 'completed':
+          uploadProgress.value = 100
+          uploadStatus.value = 'All files processed successfully!'
+          uploading.value = false
+          await loadPhotos()
+          break
+        case 'failed':
+          uploadStatus.value = `Upload failed: ${job.error || 'Unknown error'}`
+          uploading.value = false
+          break
+        default:
+          uploadStatus.value = `Processing... ${progressPercentage}% (${processed}/${total})`
+      }
+    } else {
+      console.error('📱 Manual refresh failed:', result.error)
+      uploadStatus.value = `Status check failed: ${result.error}`
+    }
+  } catch (error) {
+    console.error('📱 Manual refresh error:', error)
+    uploadStatus.value = `Status check error: ${error.message}`
+  }
 }
 
 // Load album metadata JSON file
