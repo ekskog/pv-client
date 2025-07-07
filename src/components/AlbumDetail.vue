@@ -172,6 +172,12 @@
           </button>
         </div>
         
+        <!-- Processing Info -->
+        <div class="processing-info">
+          <i class="fas fa-info-circle"></i>
+          <span>Images are processed in the background after upload. Use the refresh button to check progress.</span>
+        </div>
+        
         <!-- Mobile Warning -->
         <div v-if="isMobileDevice" class="mobile-warning">
           <i class="fas fa-mobile-alt"></i>
@@ -807,7 +813,7 @@ const handleImageLoad = (event) => {
 
 const handleHeicImageError = async (event, photo) => {
   // Since backend converts everything to AVIF, show fallback image
-  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIHVuYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg=='
+  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIHVuYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg=='
 }
 
 const openPhoto = async (photo) => {
@@ -903,7 +909,7 @@ const handleLightboxKeyboard = (event) => {
 
 const handleLightboxImageError = async (event) => {
   // Since backend handles all conversions to AVIF, show generic error
-  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIGNhbm5vdCBiZSBsb2FkZWQ8L3RleHQ+PC9zdmc+'
+  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIGNhbm5vdCBiZSBsb2FkZWQ8L3RleHQ+PC9zdmc+'
 }
 
 const triggerFileInput = () => {
@@ -1076,28 +1082,48 @@ const uploadFiles = async () => {
       await loadPhotos() // Refresh the photo list
       
     } else {
-      // Synchronous upload (fallback) - handle as before
-      const uploaded = response.data.uploaded || []
-      const errors = response.errors || []
-      
-      uploaded.forEach(file => {
-        uploadedFiles.value.add(file.originalName)
-        fileUploadProgress.value[file.originalName] = 100
-      })
-      
-      if (errors.length > 0) {
-        errors.forEach(error => {
-          failedFiles.value.add(error.filename)
-          fileUploadProgress.value[error.filename] = -1
+      // Immediate response (new async system) - files are being processed in background
+      if (response.data.status === 'processing') {
+        // Mark all files as being processed
+        selectedFiles.value.forEach(file => {
+          fileUploadProgress.value[file.name] = 50 // Show as "in progress"
         })
-      }
-      
-      uploadProgress.value = 100
-      
-      if (errors.length > 0) {
-        uploadStatus.value = `${uploaded.length} files uploaded, ${errors.length} failed`
+        
+        uploadProgress.value = 100
+        uploadStatus.value = `${response.data.filesReceived} files received and are being converted in the background. Use the refresh button to check progress.`
+        
+        // Show a more informative message
+        console.log('📤 Files sent for background processing:', response.data.filesReceived)
+        
+        // Auto-refresh after a short delay to show immediate feedback
+        setTimeout(async () => {
+          await loadPhotos()
+        }, 2000)
+        
       } else {
-        uploadStatus.value = 'All files uploaded successfully!'
+        // Legacy synchronous upload (fallback) - handle as before
+        const uploaded = response.data.uploaded || []
+        const errors = response.errors || []
+        
+        uploaded.forEach(file => {
+          uploadedFiles.value.add(file.originalName)
+          fileUploadProgress.value[file.originalName] = 100
+        })
+        
+        if (errors.length > 0) {
+          errors.forEach(error => {
+            failedFiles.value.add(error.filename)
+            fileUploadProgress.value[error.filename] = -1
+          })
+        }
+        
+        uploadProgress.value = 100
+        
+        if (errors.length > 0) {
+          uploadStatus.value = `${uploaded.length} files uploaded, ${errors.length} failed`
+        } else {
+          uploadStatus.value = 'All files uploaded successfully!'
+        }
       }
     }
     
@@ -2108,6 +2134,24 @@ onUnmounted(() => {
   color: #ff9800;
   font-size: 0.9rem;
   margin: 1rem 0;
+}
+
+.processing-info {
+  background: #e8f5e8;
+  border: 1px solid #b8e6b8;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #2d6a2d;
+}
+
+.processing-info i {
+  color: #28a745;
+  font-size: 1rem;
 }
 
 @media (max-width: 768px) {
