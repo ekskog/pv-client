@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: photovault-vue-service
+  name: photovault-fe-service
   namespace: webapps
   labels:
     app: photovault-fe
