@@ -65,7 +65,6 @@
           @click="openPhoto(photo)"
         >
           <div class="photo-item">
-            <!-- All images in grid are now full-size photos (no thumbnail optimization) -->
             <img 
               :src="getOptimizedPhotoUrl(photo)" 
               :alt="photo.name" 
