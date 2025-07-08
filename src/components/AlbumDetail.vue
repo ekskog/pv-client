@@ -64,8 +64,8 @@
           class="photo-card"
           @click="openPhoto(photo)"
         >
-          <div class="photo-thumbnail">
-            <!-- All images in grid are now pre-processed (thumbnails for HEIC, originals for others) -->
+          <div class="photo-item">
+            <!-- All images in grid are now full-size photos (no thumbnail optimization) -->
             <img 
               :src="getOptimizedPhotoUrl(photo)" 
               :alt="photo.name" 
@@ -105,7 +105,7 @@
     <div v-if="!loading && !error && visiblePhotos.length > 0" class="preload-status">
       <div class="preload-header">
         <i class="fas fa-download"></i>
-        <span>Lightbox Ready: {{ preloadStats.preloaded }}/{{ preloadStats.thumbnails }}</span>
+        <span>Lightbox Ready: {{ preloadStats.preloaded }}/{{ preloadStats.total }}</span>
         <div class="preload-percentage">{{ preloadStats.percentage }}%</div>
       </div>
       <div class="preload-progress-bar">
@@ -172,28 +172,30 @@
           </button>
         </div>
         
-        <!-- Processing Info -->
-        <div class="processing-info">
+        <!-- Processing Info - only shown after upload completes -->
+        <div v-if="uploadProgress === 100 && !uploading" class="processing-info">
           <i class="fas fa-info-circle"></i>
           <span>Images are processed in the background after upload. Use the refresh button to check progress.</span>
         </div>
         
-        <!-- Mobile Warning -->
-        <div v-if="isMobileDevice" class="mobile-warning">
-          <i class="fas fa-mobile-alt"></i>
-          <span>Keep this app open during upload for progress updates</span>
-        </div>
-        
-        <!-- File Drop Zone -->
-        <div 
-          class="upload-zone"
-          :class="{ 'dragging': isDragging }"
-          @drop="handleDrop"
-          @dragover.prevent
-          @dragenter="isDragging = true"
-          @dragleave="isDragging = false"
-          @click="triggerFileInput"
-        >
+        <!-- Upload UI - hidden after upload completes -->
+        <div v-if="!(uploadProgress === 100 && !uploading)">
+          <!-- Mobile Warning -->
+          <div v-if="isMobileDevice" class="mobile-warning">
+            <i class="fas fa-mobile-alt"></i>
+            <span>Keep this app open during upload for progress updates</span>
+          </div>
+          
+          <!-- File Drop Zone -->
+          <div 
+            class="upload-zone"
+            :class="{ 'dragging': isDragging }"
+            @drop="handleDrop"
+            @dragover.prevent
+            @dragenter="isDragging = true"
+            @dragleave="isDragging = false"
+            @click="triggerFileInput"
+          >
           <input
             ref="fileInput"
             type="file"
@@ -231,47 +233,17 @@
                 <span class="file-size">{{ formatFileSize(file.size) }}</span>
               </div>
               
-              <!-- Individual file progress -->
-              <div v-if="uploading" class="file-progress">
-                <div v-if="fileUploadProgress[file.name] === -1" class="file-status error">
-                  <i class="fas fa-exclamation-triangle"></i>
-                  <span>Failed</span>
-                </div>
-                <div v-else-if="uploadedFiles.has(file.name)" class="file-status success">
-                  <i class="fas fa-check"></i>
-                  <span>Complete</span>
-                </div>
-                <div v-else-if="fileUploadProgress[file.name] > 0" class="file-status uploading">
-                  <div class="mini-progress-bar">
-                    <div class="mini-progress-fill" :style="{ width: `${fileUploadProgress[file.name]}%` }"></div>
-                  </div>
-                  <span>{{ Math.round(fileUploadProgress[file.name]) }}%</span>
-                </div>
-                <div v-else class="file-status waiting">
-                  <i class="fas fa-clock"></i>
-                  <span>Waiting</span>
-                </div>
-              </div>
-              
               <button v-if="!uploading" @click="removeFile(index)" class="btn-remove">
                 <i class="fas fa-times"></i>
               </button>
             </div>
           </div>
         </div>
+        </div> <!-- End of upload UI conditional -->
 
         <div class="dialog-actions">
           <button class="btn-secondary" @click="closeUploadDialog">
             {{ uploadProgress === 100 && !uploading ? 'Done' : 'Cancel' }}
-          </button>
-          <!-- Mobile manual refresh button -->
-          <button 
-            v-if="isMobileDevice && uploading && uploadProgress < 100"
-            class="btn-secondary btn-refresh-mobile" 
-            @click="manualRefreshProgress"
-            title="Refresh progress status"
-          >
-            <i class="fas fa-sync-alt"></i>
           </button>
           <button 
             v-if="uploadProgress < 100"
@@ -415,7 +387,6 @@ const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadStatus = ref('')
 const currentJobId = ref(null) // Track current upload job ID for manual refresh
-const fileUploadProgress = ref({}) // Track individual file progress
 const uploadedFiles = ref(new Set()) // Track completed uploads
 const failedFiles = ref(new Set()) // Track failed uploads
 const isDragging = ref(false)
@@ -431,7 +402,7 @@ const currentImageInfo = ref('')
 
 // Progressive loading stats
 const preloadStats = ref({
-  thumbnails: 0,
+  total: 0,
   preloaded: 0,
   percentage: 0,
   currentlyFetchingFullSize: null, // Track full-size filename currently being fetched
@@ -535,54 +506,6 @@ const refreshAlbum = async () => {
   await loadPhotos()
 }
 
-// Manual refresh for mobile progress tracking
-const manualRefreshProgress = async () => {
-  console.log('📱 Manual progress refresh requested')
-  if (!currentJobId.value) {
-    console.warn('📱 No active job ID for manual refresh')
-    return
-  }
-  
-  try {
-    console.log(`📱 Manually checking job status: ${currentJobId.value}`)
-    const result = await apiService.getJobStatus(currentJobId.value)
-    
-    if (result.success) {
-      const job = result.data
-      console.log(`📱 Manual refresh - Job status: ${job.status}, Progress: ${job.progress?.processed}/${job.progress?.total}`)
-      
-      // Update progress manually
-      const processed = job.progress?.processed || 0
-      const total = job.progress?.total || selectedFiles.value.length
-      const progressPercentage = Math.round((processed / total) * 100)
-      
-      uploadProgress.value = progressPercentage
-      
-      // Update status message
-      switch (job.status) {
-        case 'completed':
-          uploadProgress.value = 100
-          uploadStatus.value = 'All files processed successfully!'
-          uploading.value = false
-          await loadPhotos()
-          break
-        case 'failed':
-          uploadStatus.value = `Upload failed: ${job.error || 'Unknown error'}`
-          uploading.value = false
-          break
-        default:
-          uploadStatus.value = `Processing... ${progressPercentage}% (${processed}/${total})`
-      }
-    } else {
-      console.error('📱 Manual refresh failed:', result.error)
-      uploadStatus.value = `Status check failed: ${result.error}`
-    }
-  } catch (error) {
-    console.error('📱 Manual refresh error:', error)
-    uploadStatus.value = `Status check error: ${error.message}`
-  }
-}
-
 // Load album metadata JSON file
 const loadAlbumMetadata = async (albumName) => {
   try {
@@ -621,7 +544,7 @@ const loadAlbumMetadata = async (albumName) => {
 
 // Format timestamp for display
 const formatPhotoTimestamp = (photo) => {
-  // Try to get metadata for the current photo name or its original version
+  // Get metadata for the photo
   const filename = photo.name.split('/').pop() // Get just the filename
   let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
   
@@ -630,7 +553,7 @@ const formatPhotoTimestamp = (photo) => {
     // Try to match with original filename patterns
     const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(key => {
       // Extract base name without extension and compare
-      const baseName = filename.replace(/(_thumb)?\.avif$/i, '')
+      const baseName = filename.replace(/\.avif$/i, '')
       const originalBase = key.replace(/\.[^.]+$/, '')
       return baseName.includes(originalBase) || originalBase.includes(baseName)
     })
@@ -656,7 +579,7 @@ const formatPhotoTimestamp = (photo) => {
 
 // Format GPS coordinates for display
 const formatPhotoGPS = (photo) => {
-  // Try to get metadata for the current photo name or its original version
+  // Get metadata for the photo
   const filename = photo.name.split('/').pop() // Get just the filename
   let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
   
@@ -665,7 +588,7 @@ const formatPhotoGPS = (photo) => {
     // Try to match with original filename patterns
     const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(key => {
       // Extract base name without extension and compare
-      const baseName = filename.replace(/(_thumb)?\.avif$/i, '')
+      const baseName = filename.replace(/\.avif$/i, '')
       const originalBase = key.replace(/\.[^.]+$/, '')
       return baseName.includes(originalBase) || originalBase.includes(baseName)
     })
@@ -707,24 +630,13 @@ const downloadPhoto = (photo) => {
 }
 
 const getPhotoUrl = (photo) => {
-  // If this is a thumbnail file, get the corresponding full-size file for lightbox
-  if (/_thumb\.avif$/i.test(photo.name)) {
-    const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
-    const url = apiService.getObjectUrl(BUCKET_NAME, fullSizeFilename)
-    
-    return url
-  }
-  
-  // If this is already a full-size file, use it directly
-  const url = apiService.getObjectUrl(BUCKET_NAME, photo.name)
-  
-  return url
+  // Use the photo directly since we no longer have thumbnails
+  return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
 const getOptimizedPhotoUrl = (photo) => {
-  // Since visiblePhotos now contains only thumbnail files, use them directly
-  const url = apiService.getObjectUrl(BUCKET_NAME, photo.name)
-  return url
+  // Use the same photo since we no longer have separate thumbnails
+  return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
 const preloadImage = (src) => {
@@ -738,47 +650,37 @@ const preloadImage = (src) => {
 
 const loadImageProgressively = async (photo, imgElement) => {
   try {
-    // Step 1: Thumbnail is already loading via img src attribute (fast ~50KB)
-    const optimizedSrc = getOptimizedPhotoUrl(photo)
+    // Since we no longer have thumbnails, we load the full-size image directly
+    const photoSrc = getPhotoUrl(photo)
     
-    // Step 2: Start preloading full resolution in background for instant lightbox (slow ~4.5MB)
-    const fullSrc = getPhotoUrl(photo)
-    if (fullSrc !== optimizedSrc) {
-      // Convert thumbnail filename to full-size filename for display
-      const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
-      
-      // Set currently fetching full-size filename (not thumbnail)
-      preloadStats.value.currentlyFetchingFullSize = fullSizeFilename
-      
-      preloadImage(fullSrc).then(() => {
-        // Step 3: Mark as ready for instant lightbox display
-        imgElement.dataset.fullLoaded = 'true'
-        
-        // Add to ready images list if not already there
-        if (!preloadStats.value.readyImages.includes(fullSizeFilename)) {
-          preloadStats.value.readyImages.push(fullSizeFilename)
-        }
-        
-        // Clear currently fetching status
-        preloadStats.value.currentlyFetchingFullSize = null
-        
-        // Update progress immediately when a preload completes
-        trackProgressiveLoadingStats()
-      }).catch((error) => {
-        // Failed to preload full resolution, but thumbnail is still available
-        console.warn(`Background preload failed for ${photo.name}:`, error.message)
-        
-        // Clear currently fetching status on error
-        preloadStats.value.currentlyFetchingFullSize = null
-      })
-    } else {
-      // No separate full-size version available
+    // Set currently loading
+    preloadStats.value.currentlyFetchingFullSize = photo.name
+    
+    preloadImage(photoSrc).then(() => {
+      // Mark as ready for lightbox display
       imgElement.dataset.fullLoaded = 'true'
-    }
+      
+      // Add to ready images list if not already there
+      if (!preloadStats.value.readyImages.includes(photo.name)) {
+        preloadStats.value.readyImages.push(photo.name)
+      }
+        
+      // Clear currently fetching status
+      preloadStats.value.currentlyFetchingFullSize = null
+      
+      // Update progress immediately when a preload completes
+      trackProgressiveLoadingStats()
+    }).catch((error) => {
+      // Failed to preload, but image may still be available
+      console.warn(`Preload failed for ${photo.name}:`, error.message)
+      
+      // Clear currently fetching status on error
+      preloadStats.value.currentlyFetchingFullSize = null
+    })
     
   } catch (error) {
-    // Failed to load optimized image
-    console.error(`Failed to load thumbnail for ${photo.name}:`, error)
+    // Failed to load image
+    console.error(`Failed to load image for ${photo.name}:`, error)
   }
 }
 
@@ -817,30 +719,19 @@ const handleHeicImageError = async (event, photo) => {
 }
 
 const openPhoto = async (photo) => {
-  // photo.name could be a thumbnail file (e.g., "IMG_8848_thumb.avif") or regular file
-  // We need to find the corresponding photo in lightbox
-  
-  let targetPhotoIndex = -1
-  
-  if (/_thumb\.avif$/i.test(photo.name)) {
-    // Convert thumbnail name to full-size name
-    const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
-    targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === fullSizeFilename)
-  } else {
-    // If it's already a full-size file, search directly
-    targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
-  }
+  // Find the photo in lightbox array (now simplified since no thumbnail conversion needed)
+  const targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
   
   if (targetPhotoIndex === -1) {
-    console.error(`Could not find corresponding full-size photo for: ${photo.name}`)
+    console.error(`Could not find photo in lightbox array: ${photo.name}`)
     return
   }
   
-  // Check if full-size image was already preloaded in background
+  // Check if image was already preloaded
   const gridImage = document.querySelector(`img[alt="${photo.name}"][data-full-loaded="true"]`)
   const isPreloaded = gridImage && gridImage.dataset.fullLoaded === 'true'
   
-  // Open the lightbox directly with AVIF file
+  // Open the lightbox
   currentPhotoIndex.value = targetPhotoIndex
   showLightbox.value = true
   
@@ -970,14 +861,9 @@ const uploadFiles = async () => {
   uploadProgress.value = 0
   error.value = null
   
-  // Initialize progress tracking for each file
-  fileUploadProgress.value = {}
+  // Reset upload tracking
   uploadedFiles.value = new Set()
   failedFiles.value = new Set()
-  
-  selectedFiles.value.forEach(file => {
-    fileUploadProgress.value[file.name] = 0
-  })
   
   try {
     uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
@@ -1029,22 +915,19 @@ const uploadFiles = async () => {
           
           uploadProgress.value = progressPercentage
           
-          // Update individual file progress
+          // Track completed and failed files
           if (job.results && Array.isArray(job.results)) {
             job.results.forEach(result => {
               if (result.originalName) {
                 uploadedFiles.value.add(result.originalName)
-                fileUploadProgress.value[result.originalName] = 100
               }
             })
           }
           
-          // Update failed files
           if (job.errors && Array.isArray(job.errors)) {
             job.errors.forEach(error => {
               if (error.filename) {
                 failedFiles.value.add(error.filename)
-                fileUploadProgress.value[error.filename] = -1
               }
             })
           }
@@ -1057,12 +940,6 @@ const uploadFiles = async () => {
               uploadStatus.value = isMobile 
                 ? `Converting... ${processed}/${total} (Keep app open)`
                 : `Converting images... ${processed}/${total} files processed`
-              // Update progress for currently processing files
-              selectedFiles.value.forEach(file => {
-                if (!uploadedFiles.value.has(file.name) && !failedFiles.value.has(file.name)) {
-                  fileUploadProgress.value[file.name] = processed < total ? 50 : 100
-                }
-              })
               break
             default:
               uploadStatus.value = `Processing... ${progressPercentage}%`
@@ -1084,11 +961,6 @@ const uploadFiles = async () => {
     } else {
       // Immediate response (new async system) - files are being processed in background
       if (response.data.status === 'processing') {
-        // Mark all files as being processed
-        selectedFiles.value.forEach(file => {
-          fileUploadProgress.value[file.name] = 50 // Show as "in progress"
-        })
-        
         uploadProgress.value = 100
         uploadStatus.value = `${response.data.filesReceived} files received and are being converted in the background. Use the refresh button to check progress.`
         
@@ -1107,13 +979,11 @@ const uploadFiles = async () => {
         
         uploaded.forEach(file => {
           uploadedFiles.value.add(file.originalName)
-          fileUploadProgress.value[file.originalName] = 100
         })
         
         if (errors.length > 0) {
           errors.forEach(error => {
             failedFiles.value.add(error.filename)
-            fileUploadProgress.value[error.filename] = -1
           })
         }
         
@@ -1191,7 +1061,6 @@ const closeUploadDialog = () => {
   uploadProgress.value = 0
   uploadStatus.value = ''
   isDragging.value = false
-  fileUploadProgress.value = {}
   uploadedFiles.value = new Set()
   failedFiles.value = new Set()
 }
@@ -1229,13 +1098,13 @@ const trackImageLoadTime = (photoName, startTime) => {
 const trackProgressiveLoadingStats = () => {
   const allImages = document.querySelectorAll('.photo-image')
   const preloadedImages = document.querySelectorAll('.photo-image[data-full-loaded="true"]')
-  const thumbnailImages = allImages.length
+  const totalImages = allImages.length
   const preloadedCount = preloadedImages.length
-  const preloadPercentage = thumbnailImages > 0 ? Math.round((preloadedCount / thumbnailImages) * 100) : 0
+  const preloadPercentage = totalImages > 0 ? Math.round((preloadedCount / totalImages) * 100) : 0
   
   // Update reactive stats for UI display - preserve existing tracking properties
   preloadStats.value = {
-    thumbnails: thumbnailImages,
+    total: totalImages,
     preloaded: preloadedCount,
     percentage: preloadPercentage,
     currentlyFetchingFullSize: preloadStats.value.currentlyFetchingFullSize, // Preserve current file being fetched
@@ -1243,13 +1112,13 @@ const trackProgressiveLoadingStats = () => {
   }
   
   return {
-    thumbnails: thumbnailImages,
+    total: totalImages,
     preloaded: preloadedCount,
     percentage: preloadPercentage
   }
 }
 
-// Aggressive background preloading: Start immediately after thumbnails load
+// Aggressive background preloading: Start immediately after images load
 const startAggressivePreloading = () => {
   const imageElements = document.querySelectorAll('.photo-image')
   
@@ -1279,7 +1148,7 @@ const preloadVisibleImages = () => {
           trackImageLoadTime(img.alt, startTime)
         }, { once: true })
         
-        // Enhanced: Start progressive loading for visible thumbnails
+        // Enhanced: Start progressive loading for visible images
         const photoName = img.alt
         const photo = visiblePhotos.value.find(p => p.name === photoName)
         if (photo) {
@@ -1313,50 +1182,19 @@ const handleLightboxImageLoad = (event) => {
   lightboxLoading.value = false
 }
 
-// Show thumbnail files and regular files (for backward compatibility)
+// Show all regular image files (no thumbnail filtering)
 const visiblePhotos = computed(() => {
-  // Show thumbnail files preferentially, but fall back to regular files if no thumbnail exists
-  const thumbnails = photos.value.filter(photo => /_thumb\.avif$/i.test(photo.name))
-  
-  const regularFiles = photos.value.filter(photo => {
-    // Include regular images that don't have a corresponding thumbnail
-    const isRegularImage = /\.(avif|jpg|jpeg|png|gif|heic)$/i.test(photo.name) && !/_thumb\.avif$/i.test(photo.name)
-    if (!isRegularImage) return false
-    
-    // Check if there's a corresponding thumbnail
-    const baseName = photo.name.replace(/\.(avif|jpg|jpeg|png|heic)$/i, '')
-    const hasThumbnail = photos.value.some(p => p.name === `${baseName}_thumb.avif`)
-    return !hasThumbnail // Only include if no thumbnail exists
+  // Filter to show only regular image files, excluding any thumbnail files
+  return photos.value.filter(photo => {
+    const isRegularImage = /\.(avif|jpg|jpeg|png|gif|heic)$/i.test(photo.name)
+    const isThumbnail = /_thumb\./i.test(photo.name)
+    return isRegularImage && !isThumbnail
   })
-
-  const result = [...thumbnails, ...regularFiles]
-  return result
 })
 
-// Map thumbnails to full-size files for lightbox navigation
+// Use the same photos for lightbox navigation
 const lightboxPhotos = computed(() => {
-  // For each photo in the grid, find the corresponding full-size file
-  const result = visiblePhotos.value.map(photo => {
-    // If it's a thumbnail, convert to full-size filename
-    if (/_thumb\.avif$/i.test(photo.name)) {
-      const fullSizeFilename = photo.name.replace(/_thumb\.avif$/i, '.avif')
-      
-      // Find the full-size file in the photos array
-      const fullSizePhoto = photos.value.find(p => p.name === fullSizeFilename)
-      
-      if (fullSizePhoto) {
-        return fullSizePhoto
-      } else {
-        // Fallback to thumbnail if no full-size version found
-        return photo
-      }
-    } else {
-      // If it's already a regular file, use it as-is for lightbox
-      return photo
-    }
-  })
-  
-  return result
+  return visiblePhotos.value
 })
 
 // Virtual scrolling is now based on visiblePhotos computed property
@@ -1645,7 +1483,7 @@ onUnmounted(() => {
   /* Improve image rendering */
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
-  /* Optimize for thumbnails */
+  /* Optimize for full-size images */
   filter: contrast(1.02) saturate(1.05);
 }
 
@@ -1660,7 +1498,7 @@ onUnmounted(() => {
   filter: none;
 }
 
-.photo-thumbnail {
+.photo-item {
   position: relative;
   width: 100%;
   aspect-ratio: 1;
@@ -2057,51 +1895,6 @@ onUnmounted(() => {
   font-size: 0.8rem;
   color: #666;
   margin-top: 0.25rem;
-}
-
-.file-progress {
-  display: flex;
-  align-items: center;
-  min-width: 120px;
-  justify-content: flex-end;
-}
-
-.file-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.file-status.success {
-  color: #4caf50;
-}
-
-.file-status.error {
-  color: #f44336;
-}
-
-.file-status.uploading {
-  color: #2196f3;
-}
-
-.file-status.waiting {
-  color: #666;
-}
-
-.mini-progress-bar {
-  width: 60px;
-  height: 4px;
-  background: #f0f0f0;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.mini-progress-fill {
-  height: 100%;
-  background: #2196f3;
-  transition: width 0.3s ease;
 }
 
 .btn-remove {
