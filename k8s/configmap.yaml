@@ -1,14 +1,10 @@
-apmetadata:
-  name: photovault-vue-config
-  namespace: webapps
-  labels:
-    app: photovaultion: v1
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: photovault-frontend-config
   namespace: webapps
   labels:
-    app: photovault-vue
+    app: photovault-fe
     component: frontend
 data:
   # Non-sensitive configuration values

@@ -4,7 +4,7 @@ metadata:
   name: photovault-vue-service
   namespace: webapps
   labels:
-    app: photovault
+    app: photovault-fe
     component: frontend
 spec:
   type: LoadBalancer
@@ -15,4 +15,5 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: photovault
+    app: photovault-fe
+    

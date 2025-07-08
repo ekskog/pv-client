@@ -1,10 +1,10 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: photovault-vue
+  name: photovault-fe
   namespace: webapps
   labels:
-    app: photovault
+    app: photovault-fe
     component: frontend
 spec:
   replicas: 2
@@ -15,19 +15,19 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      app: photovault
+      app: photovault-fe
   template:
     metadata:
       labels:
-        app: photovault
+        app: photovault-fe
         component: frontend
       annotations:
         # This annotation will be updated by the CI/CD pipeline to force pod recreation
         deployment.kubernetes.io/revision: "1"
     spec:
       containers:
-      - name: photovault-vue
-        image: ghcr.io/ekskog/photovault-vue:latest
+      - name: photovault-fe
+        image: ghcr.io/ekskog/photovault-fe:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 80
