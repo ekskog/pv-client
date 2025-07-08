@@ -1,4 +1,8 @@
-apiVersion: v1
+apmetadata:
+  name: photovault-vue-config
+  namespace: webapps
+  labels:
+    app: photovaultion: v1
 kind: ConfigMap
 metadata:
   name: photovault-frontend-config

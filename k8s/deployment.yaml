@@ -4,7 +4,7 @@ metadata:
   name: photovault-vue
   namespace: webapps
   labels:
-    app: photovault-vue
+    app: photovault
     component: frontend
 spec:
   replicas: 2
@@ -15,11 +15,11 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      app: photovault-vue
+      app: photovault
   template:
     metadata:
       labels:
-        app: photovault-vue
+        app: photovault
         component: frontend
       annotations:
         # This annotation will be updated by the CI/CD pipeline to force pod recreation
