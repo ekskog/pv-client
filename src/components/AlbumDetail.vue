@@ -100,7 +100,7 @@
       </div>
     </div>
 
-    <!-- Preloading Progress Indicator -->
+    <!-- Preloading Progress Indicator 
     <div v-if="!loading && !error && visiblePhotos.length > 0" class="preload-status">
       <div class="preload-header">
         <i class="fas fa-download"></i>
@@ -114,7 +114,6 @@
         ></div>
       </div>
       <div class="preload-details">
-        <!-- Currently Fetching Display -->
         <span v-if="preloadStats.currentlyFetchingFullSize" class="preload-current-file">
           <i class="fas fa-download fa-pulse"></i>
           Fetching full-size AVIF: {{ getPhotoDisplayName(preloadStats.currentlyFetchingFullSize) }}
@@ -126,7 +125,6 @@
           <i class="fas fa-check-circle"></i> All images ready! Lightbox will be instant.
         </span>
         
-        <!-- Ready Images List -->
         <div v-if="preloadStats.readyImages.length > 0" class="preload-ready-list">
           <div class="ready-list-header">
             <i class="fas fa-check-circle"></i>
@@ -145,7 +143,7 @@
         </div>
       </div>
     </div>
-
+-->
     <!-- Upload Dialog -->
     <div v-if="showUploadDialog" class="dialog-overlay" @click="closeUploadDialog">
       <div class="dialog upload-dialog" @click.stop>
@@ -360,6 +358,12 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
 
+// ADDED FOR SSE BY CLAUDE
+const processingNotifications = ref(false)
+const eventSource = ref(null)
+const processingStatus = ref('')
+const processingJobId = ref(null)
+
 // Props
 const props = defineProps({
   albumName: {
@@ -368,6 +372,10 @@ const props = defineProps({
   }
 })
 
+// ADDED FOR SSE BY CLAUDE
+const showProcessingIndicator = computed(() => {
+  return processingNotifications.value || processingStatus.value
+})
 // Emits
 const emit = defineEmits(['back', 'photoOpened'])
 
@@ -385,7 +393,6 @@ const selectedFiles = ref([])
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadStatus = ref('')
-const currentJobId = ref(null) // Track current upload job ID for manual refresh
 const uploadedFiles = ref(new Set()) // Track completed uploads
 const failedFiles = ref(new Set()) // Track failed uploads
 const isDragging = ref(false)
@@ -464,10 +471,10 @@ const loadPhotos = async () => {
     // Add exactly one trailing slash
     const prefix = cleanAlbumName + '/'
     
-    console.log('📡 API request for prefix:', prefix)
+    // console.log('📡 API request for prefix:', prefix)
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
     
-    console.log('📥 API response:', response)
+    // console.log('📥 API response:', response)
     
     if (response.success && response.data) {
       
@@ -561,9 +568,7 @@ const formatPhotoTimestamp = (photo) => {
       metadata = photoMetadataLookup.value[possibleOriginals[0]]
     }
   }
-  
-  console.log('🕒 Timestamp lookup for', filename, ':', metadata?.exif?.dateTaken)
-  
+    
   if (!metadata || !metadata.exif || !metadata.exif.dateTaken) {
     return 'No date'
   }
@@ -596,9 +601,7 @@ const formatPhotoGPS = (photo) => {
       metadata = photoMetadataLookup.value[possibleOriginals[0]]
     }
   }
-  
-  console.log('📍 GPS lookup for', filename, ':', metadata?.exif?.gpsCoordinates)
-  
+    
   if (!metadata || !metadata.exif || !metadata.exif.gpsCoordinates) {
     return 'No location'
   }
@@ -709,7 +712,6 @@ const handleImageLoad = (event) => {
   const imgElement = event.target
   const photoName = imgElement.alt || 'unknown'
   
-  console.log('✅ Image loaded successfully:', photoName)
 }
 
 const handleHeicImageError = async (event, photo) => {
@@ -844,169 +846,6 @@ const setUploadType = (type) => {
 
 const removeFile = (index) => {
   selectedFiles.value.splice(index, 1)
-}
-
-const uploadFiles = async () => {
-  if (selectedFiles.value.length === 0) return
-  
-  // Check permission before proceeding
-  const actionType = uploadType.value === 'photos' ? 'upload_photos' : 'upload_photos' // For now using same permission
-  if (!authService.canPerformAction(actionType)) {
-    error.value = `You do not have permission to upload ${uploadType.value}`
-    return
-  }
-  
-  uploading.value = true
-  uploadProgress.value = 0
-  error.value = null
-  
-  // Reset upload tracking
-  uploadedFiles.value = new Set()
-  failedFiles.value = new Set()
-  
-  try {
-    uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
-    
-    // Detect mobile device for specific handling
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    console.log('📱 Mobile device detected:', isMobile)
-    
-    // Mobile-specific: Add visibility change listener to warn about backgrounding
-    let visibilityChangeHandler = null
-    if (isMobile) {
-      visibilityChangeHandler = () => {
-        if (document.hidden && uploading.value) {
-          console.warn('📱 App backgrounded during upload - may affect progress updates')
-        }
-      }
-      document.addEventListener('visibilitychange', visibilityChangeHandler)
-    }
-    
-    // Use the async upload system that returns a job ID
-    const response = await apiService.uploadFile(
-      BUCKET_NAME, 
-      selectedFiles.value, 
-      props.albumName
-    )
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Upload failed')
-    }
-    
-    // Check if we got a job ID (async processing)
-    if (response.data.jobId) {
-      const jobId = response.data.jobId
-      uploadStatus.value = isMobile ? 'Upload queued... (Keep app open)' : 'Upload queued for processing...'
-      
-      // Mobile-specific: Show warning about keeping app open
-      if (isMobile) {
-        console.log('📱 Mobile upload started - advising user to keep app open')
-      }
-      
-      // Poll job status until completion with conversion progress tracking
-      await apiService.pollJobUntilComplete(
-        jobId,
-        (job) => {
-          // Update progress based on job status
-          const processed = job.progress?.processed || 0
-          const total = job.progress?.total || selectedFiles.value.length
-          const progressPercentage = Math.round((processed / total) * 100)
-          
-          uploadProgress.value = progressPercentage
-          
-          // Track completed and failed files
-          if (job.results && Array.isArray(job.results)) {
-            job.results.forEach(result => {
-              if (result.originalName) {
-                uploadedFiles.value.add(result.originalName)
-              }
-            })
-          }
-          
-          if (job.errors && Array.isArray(job.errors)) {
-            job.errors.forEach(error => {
-              if (error.filename) {
-                failedFiles.value.add(error.filename)
-              }
-            })
-          }
-          
-          switch (job.status) {
-            case 'queued':
-              uploadStatus.value = isMobile ? 'Queued... (Keep app open)' : 'Upload queued for processing...'
-              break
-            case 'processing':
-              uploadStatus.value = isMobile 
-                ? `Converting... ${processed}/${total} (Keep app open)`
-                : `Converting images... ${processed}/${total} files processed`
-              break
-            default:
-              uploadStatus.value = `Processing... ${progressPercentage}%`
-          }
-        }
-      )
-      
-      // Clean up visibility listener
-      if (visibilityChangeHandler) {
-        document.removeEventListener('visibilitychange', visibilityChangeHandler)
-      }
-      
-      uploadProgress.value = 100
-      uploadStatus.value = 'All files processed successfully!'
-      
-      // Don't auto-close dialog - let user see completion status
-      await loadPhotos() // Refresh the photo list
-      
-    } else {
-      // Immediate response (new async system) - files are being processed in background
-      if (response.data.status === 'processing') {
-        uploadProgress.value = 100
-        uploadStatus.value = `${response.data.filesReceived} files received and are being converted in the background. Use the refresh button to check progress.`
-        
-        // Show a more informative message
-        console.log('📤 Files sent for background processing:', response.data.filesReceived)
-        
-        // Auto-refresh after a short delay to show immediate feedback
-        setTimeout(async () => {
-          await loadPhotos()
-        }, 2000)
-        
-      } else {
-        // Legacy synchronous upload (fallback) - handle as before
-        const uploaded = response.data.uploaded || []
-        const errors = response.errors || []
-        
-        uploaded.forEach(file => {
-          uploadedFiles.value.add(file.originalName)
-        })
-        
-        if (errors.length > 0) {
-          errors.forEach(error => {
-            failedFiles.value.add(error.filename)
-          })
-        }
-        
-        uploadProgress.value = 100
-        
-        if (errors.length > 0) {
-          uploadStatus.value = `${uploaded.length} files uploaded, ${errors.length} failed`
-        } else {
-          uploadStatus.value = 'All files uploaded successfully!'
-        }
-      }
-    }
-    
-  } catch (err) {
-    error.value = `Upload failed: ${err.message}`
-    console.error('Upload failed:', err)
-  } finally {
-    uploading.value = false
-    
-    // Clean up any event listeners (mobile-specific)
-    if (typeof visibilityChangeHandler !== 'undefined' && visibilityChangeHandler) {
-      document.removeEventListener('visibilitychange', visibilityChangeHandler)
-    }
-  }
 }
 
 const confirmDeletePhoto = (photo) => {
@@ -1261,10 +1100,242 @@ onMounted(async () => {
   }, 100)
 })
 
+// ADDED BY CLAUDE FOR SSE
+const startProcessingListener = (jobId) => {
+  if (eventSource.value) {
+    eventSource.value.close()
+  }
+  
+  processingJobId.value = jobId
+  processingNotifications.value = true
+  processingStatus.value = 'Starting photo processing...'
+  
+  // Create SSE connection
+  const sseUrl = apiService.getProcessingStatusUrl(jobId)
+  eventSource.value = new EventSource(sseUrl)
+  
+  eventSource.value.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+      console.log('SSE message received:', data)
+      handleProcessingUpdate(data)
+    } catch (error) {
+      console.error('Error parsing SSE message:', error)
+    }
+  }
+  
+  eventSource.value.onerror = (error) => {
+    console.error('SSE connection error:', error)
+    // Retry connection after 5 seconds
+    setTimeout(() => {
+      if (processingNotifications.value) {
+        startProcessingListener(jobId)
+      }
+    }, 5000)
+  }
+  
+  // Auto-close after 10 minutes to prevent long-running connections
+  setTimeout(() => {
+    if (eventSource.value) {
+      stopProcessingListener()
+    }
+  }, 600000) // 10 minutes
+}
+
+const handleProcessingUpdate = (data) => {  
+  console.log('Processing update:', data.type, data.message)
+  switch (data.type) {      
+    case 'connected':
+      processingStatus.value = 'Connected to photo processing service...'
+      break
+
+    case 'complete':
+      processingStatus.value = 'Photo processing complete! 🎉'
+      showProcessingCompleteNotification();
+      
+      // Auto-refresh the album after a short delay
+      setTimeout(async () => {
+        await refreshAlbum()
+        console.log('Album refreshed after processing complete')
+        stopProcessingListener()
+
+      }, 2000)
+      break
+      
+    case 'failed':
+      processingStatus.value = 'Photo processing failed. Please try again.'
+      setTimeout(() => {
+        stopProcessingListener()
+      }, 5000)
+      break
+      
+    default:
+      processingStatus.value = data.message || 'Processing photos...'
+  }
+}
+
+const showProcessingCompleteNotification = () => {
+  // Show a nice notification to the user
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('Photo Processing Complete!', {
+      body: 'Your photos are now ready to view in the album.',
+      icon: '/favicon.ico'
+    })
+  }
+  
+  // Also show an in-app notification
+  // You could use your existing notification system here
+  console.log('📸 Photo processing complete notification')
+}
+
+const stopProcessingListener = () => {
+  console.log('Stopping SSE processing listener >>> ', eventSource.value)
+  if (eventSource.value) {
+    eventSource.value.close()
+    eventSource.value = null
+  }
+  
+  processingNotifications.value = false
+  processingStatus.value = ''
+  processingJobId.value = null
+}
+
+const requestNotificationPermission = () => {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission()
+  }
+}
+
+// Modify your existing uploadFiles method to integrate SSE
+const uploadFiles = async () => {
+  if (selectedFiles.value.length === 0) return
+  
+  // Check permission before proceeding
+  const actionType = uploadType.value === 'photos' ? 'upload_photos' : 'upload_photos'
+  if (!authService.canPerformAction(actionType)) {
+    error.value = `You do not have permission to upload ${uploadType.value}`
+    return
+  }
+  
+  // Request notification permission
+  requestNotificationPermission()
+  
+  uploading.value = true
+  uploadProgress.value = 0
+  error.value = null
+  
+  // Reset upload tracking
+  uploadedFiles.value = new Set()
+  failedFiles.value = new Set()
+  
+  try {
+    uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
+    console.log('📤 Uploading files:', selectedFiles.value.map(f => f.name))
+    
+    // Mobile detection
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    console.log('📱 Mobile device detected:', isMobile)
+    
+    // Mobile-specific visibility handler
+    let visibilityChangeHandler = null
+    if (isMobile) {
+      visibilityChangeHandler = () => {
+        if (document.hidden && uploading.value) {
+          console.warn('📱 App backgrounded during upload - may affect progress updates')
+        }
+      }
+      document.addEventListener('visibilitychange', visibilityChangeHandler)
+    }
+    
+    // Upload files
+    const response = await apiService.uploadFile(
+      BUCKET_NAME, 
+      selectedFiles.value, 
+      props.albumName
+    )
+
+    console.log('📥 Upload response:', response);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Upload failed')
+    }
+    
+    // Handle async processing with SSE
+    if (response.data.jobId) {
+      const jobId = response.data.jobId
+      uploadProgress.value = 100
+      uploadStatus.value = 'Upload complete! Processing photos...'
+      
+      // Start listening for processing updates
+      console.log('📡 Starting SSE listener for job ID:', jobId);
+      startProcessingListener(jobId)
+      
+      // Close upload dialog since files are uploaded
+      setTimeout(() => {
+        closeUploadDialog()
+      }, 1000)
+      
+    } else if (response.data.status === 'processing') {
+      // Background processing without job ID
+      uploadProgress.value = 100
+      uploadStatus.value = `${response.data.filesReceived} files received and are being processed.`
+      
+      // Show processing notification without SSE
+      processingNotifications.value = true
+      processingStatus.value = 'Photos are being processed in the background...'
+      
+      // Auto-refresh after delay
+      setTimeout(async () => {
+        await loadPhotos()
+        stopProcessingListener()
+      }, 5000)
+      
+    } else {
+      // Legacy synchronous upload
+      const uploaded = response.data.uploaded || []
+      const errors = response.errors || []
+      
+      uploaded.forEach(file => {
+        uploadedFiles.value.add(file.originalName)
+      })
+      
+      if (errors.length > 0) {
+        errors.forEach(error => {
+          failedFiles.value.add(error.filename)
+        })
+      }
+      
+      uploadProgress.value = 100
+      
+      if (errors.length > 0) {
+        uploadStatus.value = `${uploaded.length} files uploaded, ${errors.length} failed`
+      } else {
+        uploadStatus.value = 'All files uploaded successfully!'
+      }
+      
+      // Refresh album for immediate uploads
+      await loadPhotos()
+    }
+    
+  } catch (err) {
+    error.value = `Upload failed: ${err.message}`
+    console.error('Upload failed:', err)
+  } finally {
+    uploading.value = false
+    
+    // Cleanup
+    if (visibilityChangeHandler) {
+      document.removeEventListener('visibilitychange', visibilityChangeHandler)
+    }
+  }
+}
+
 onUnmounted(() => {
   cleanupBlobUrls()
   // Clean up keyboard listener if lightbox is open
   document.removeEventListener('keydown', handleLightboxKeyboard)
+    // Clean up SSE connection
+  stopProcessingListener()
 })
 </script>
 

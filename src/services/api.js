@@ -13,6 +13,12 @@ class ApiService {
     return configService.getApiUrl()
   }
 
+  // Get SSE URL for processing status
+getProcessingStatusUrl(jobId) {
+  const API_BASE_URL = this.getApiBaseUrl()
+  return `${API_BASE_URL}/processing-status/${jobId}`
+}
+
   // Set auth service reference (to avoid circular imports)
   setAuthService(authService) {
     this.authService = authService
@@ -27,7 +33,7 @@ class ApiService {
     const API_BASE_URL = this.getApiBaseUrl()
     const url = `${API_BASE_URL}${endpoint}`
     
-    console.log('🌐 API Call:', url)
+    // console.log('🌐 API Call:', url)
     
     // Add authentication headers
     const headers = {
@@ -51,7 +57,7 @@ class ApiService {
       
       // Handle 401 Unauthorized - token might be expired
       if (response.status === 401) {
-        console.warn('Authentication failed - clearing tokens and redirecting to login');
+        // console.warn('Authentication failed - clearing tokens and redirecting to login');
         
         // Clear invalid token
         localStorage.removeItem('hbvu_auth_token')
@@ -226,11 +232,13 @@ class ApiService {
     return `${API_BASE_URL}/buckets/${bucketName}/download?object=${encodeURIComponent(objectName)}`
   }
 
+  /*
   // Job status polling for async uploads
   async getJobStatus(jobId) {
     return this.request(`/upload/status/${jobId}`)
   }
-
+*/
+/*
   // Poll job status until completion
   async pollJobUntilComplete(jobId, onProgress = null, maxWaitTime = 300000) { // 5 minutes max
     const startTime = Date.now()
@@ -238,7 +246,7 @@ class ApiService {
     
     // Mobile optimization: detect if mobile and adjust polling
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    console.log(`📱 [POLLING] Starting job polling - Mobile: ${isMobile}, JobID: ${jobId}`)
+    // console.log(`📱 [POLLING] Starting job polling - Mobile: ${isMobile}, JobID: ${jobId}`)
     
     if (isMobile) {
       pollInterval = 1500 // Slightly slower on mobile but not too slow
@@ -253,11 +261,11 @@ class ApiService {
       
       const poll = async () => {
         pollCount++
-        console.log(`📱 [POLLING] Poll attempt #${pollCount} for job ${jobId}`)
+        // console.log(`📱 [POLLING] Poll attempt #${pollCount} for job ${jobId}`)
         
         try {
           const result = await this.getJobStatus(jobId)
-          console.log(`📱 [POLLING] Poll #${pollCount} response:`, result)
+          // console.log(`📱 [POLLING] Poll #${pollCount} response:`, result)
           
           // Reset error counter on successful request
           consecutiveErrors = 0
@@ -349,6 +357,7 @@ class ApiService {
       poll()
     })
   }
+    */
 }
 
 export default new ApiService()
