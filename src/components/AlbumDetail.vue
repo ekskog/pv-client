@@ -358,7 +358,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
 
-// ADDED FOR SSE BY CLAUDE
+// ADDED FOR SSE
 const processingNotifications = ref(false)
 const eventSource = ref(null)
 const processingStatus = ref('')
@@ -385,6 +385,8 @@ const error = ref(null)
 const photos = ref([])
 const albumMetadata = ref(null)
 const photoMetadataLookup = ref({})
+const locationCache = ref(new Map()) // Cache for resolved addresses
+
 // Removed HEIC conversion variables - backend handles all conversions
 const showUploadDialog = ref(false)
 const showDeletePhotoDialog = ref(false)
@@ -484,7 +486,7 @@ const loadPhotos = async () => {
         return obj.name && !obj.name.endsWith('/');
       })
       
-      console.log('📁 Files found:', allFiles.length, allFiles.map(f => f.name))
+      //console.log('📁 Files found:', allFiles.length, allFiles.map(f => f.name))
       
       photos.value = allFiles
       
@@ -494,7 +496,7 @@ const loadPhotos = async () => {
       // Reset pagination
       resetVirtualScrolling()
       
-      console.log('✅ Album loaded successfully')
+      //console.log('✅ Album loaded successfully')
     } else {
       throw new Error(response.error || 'Failed to load album photos')
     }
@@ -538,8 +540,8 @@ const loadAlbumMetadata = async (albumName) => {
         })
       }
       photoMetadataLookup.value = lookup
-      console.log('📄 Metadata loaded successfully for', Object.keys(lookup).length, 'images')
-      console.log('📄 Available metadata keys:', Object.keys(lookup))
+      //console.log('📄 Metadata loaded successfully for', Object.keys(lookup).length, 'images')
+      //console.log('📄 Available metadata keys:', Object.keys(lookup))
     } else {
       console.warn('📄 Metadata file not found:', metadataFileName)
     }
@@ -581,45 +583,102 @@ const formatPhotoTimestamp = (photo) => {
   }
 }
 
-// Format GPS coordinates for display
-const formatPhotoGPS = (photo) => {
+// Async function to fetch and cache location
+const fetchPhotoLocation = async (photo) => {
+  const cacheKey = photo.name;
+  
+  // Return cached result if available
+  if (locationCache.value.has(cacheKey)) {
+    return locationCache.value.get(cacheKey);
+  }
+
   // Get metadata for the photo
-  const filename = photo.name.split('/').pop() // Get just the filename
-  let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
+  const filename = photo.name.split('/').pop();
+  let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name];
   
-  // If not found and this is an AVIF variant, try to find the original
-  if (!metadata && photo.name.includes('.avif')) {
-    // Try to match with original filename patterns
-    const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(key => {
-      // Extract base name without extension and compare
-      const baseName = filename.replace(/\.avif$/i, '')
-      const originalBase = key.replace(/\.[^.]+$/, '')
-      return baseName.includes(originalBase) || originalBase.includes(baseName)
-    })
-    
-    if (possibleOriginals.length > 0) {
-      metadata = photoMetadataLookup.value[possibleOriginals[0]]
-    }
-  }
-    
+  console.log('📄 Photo metadata for GPS:', {
+    filename,
+    photoName: photo.name,
+    metadata: metadata,
+    hasExif: metadata?.exif,
+    hasGPS: metadata?.exif?.gpsCoordinates
+  });
+
   if (!metadata || !metadata.exif || !metadata.exif.gpsCoordinates) {
-    return 'No location'
+    const result = 'No location';
+    locationCache.value.set(cacheKey, result);
+    return result;
   }
-  
+
   try {
-    // Parse GPS coordinates from string format "lat,lng"
-    const coords = metadata.exif.gpsCoordinates.split(',')
+    const coords = metadata.exif.gpsCoordinates.split(',');
     if (coords.length === 2) {
-      const lat = parseFloat(coords[0]).toFixed(4)
-      const lng = parseFloat(coords[1]).toFixed(4)
-      return `${lat}, ${lng}`
+      const lat = parseFloat(coords[0]).toFixed(4);
+      const lng = parseFloat(coords[1]).toFixed(4);
+
+      console.log('📍 Fetching address for coordinates:', { lat, lng });
+
+      // Fetch address from Mapbox API
+      const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}`);
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+          const feature = data.features[0];
+          const result = `${feature.place_type[0]}: ${feature.place_name}`;
+          locationCache.value.set(cacheKey, result);
+          return result;
+        }
+      }
+
+      // Fallback to coordinates
+      const result = `${lat}, ${lng}`;
+      locationCache.value.set(cacheKey, result);
+      return result;
     }
   } catch (err) {
-    console.warn('Error parsing GPS coordinates:', err)
+    console.warn('Error fetching address from Mapbox:', err);
+    const result = 'Invalid location';
+    locationCache.value.set(cacheKey, result);
+    return result;
+  }
+};
+
+// Format GPS coordinates for display
+const formatPhotoGPS = (photo) => {
+  const cacheKey = photo.name;
+  
+  // Return cached result or loading state
+  if (locationCache.value.has(cacheKey)) {
+    return locationCache.value.get(cacheKey);
   }
   
-  return 'Invalid location'
-}
+  // Start async fetch but return loading state immediately
+  fetchPhotoLocation(photo);
+  return 'Loading location...';
+};
+
+// Call this after photos are loaded to pre-populate locations
+const preloadPhotoLocations = async () => {
+  const visiblePhotosWithGPS = visiblePhotos.value.filter(photo => {
+    const filename = photo.name.split('/').pop();
+    let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name];
+    return metadata?.exif?.gpsCoordinates;
+  });
+  
+  // Fetch locations in batches to avoid overwhelming the API
+  const batchSize = 5;
+  for (let i = 0; i < visiblePhotosWithGPS.length; i += batchSize) {
+    const batch = visiblePhotosWithGPS.slice(i, i + batchSize);
+    await Promise.all(batch.map(photo => fetchPhotoLocation(photo)));
+    
+    // Small delay between batches
+    if (i + batchSize < visiblePhotosWithGPS.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+};
 
 const downloadPhoto = (photo) => {
   const downloadUrl = apiService.getObjectUrl(BUCKET_NAME, photo.name)
@@ -1072,7 +1131,12 @@ const setupInfiniteScroll = () => {
 
 // Lifecycle
 onMounted(async () => {
-  await loadPhotos()
+  await loadPhotos();
+
+    // Preload locations after album metadata is loaded
+  if (Object.keys(photoMetadataLookup.value).length > 0) {
+    preloadPhotoLocations();
+  }
   
   // Setup 3-step progressive loading system after images are loaded
   setTimeout(() => {
@@ -1924,6 +1988,25 @@ onUnmounted(() => {
 
 .selected-files {
   margin-bottom: 1.5rem;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #2196f3;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: #666;
+  text-align: center;
+  margin: 0;
+}
+
+.selected-files {
+  margin-bottom: 1.5rem;
 }
 
 .selected-files h4 {
@@ -1938,25 +2021,6 @@ onUnmounted(() => {
 
 .file-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 4px;
-  margin-bottom: 0.5rem;
-  gap: 1rem;
-}
-
-.file-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.file-name {
-  font-weight: 500;
-  color: #333;
   font-size: 0.9rem;
   word-break: break-word;
 }
