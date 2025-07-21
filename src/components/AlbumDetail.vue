@@ -47,13 +47,6 @@
         <div class="empty-icon"><i class="fas fa-images"></i></div>
         <h3>No Photos Yet</h3>
         <p>Start building your album by adding some photos!</p>
-        <button 
-          v-if="canUploadPhotos"
-          class="btn-primary" 
-          @click="showUploadDialog = true"
-        >
-          <i class="fas fa-plus"></i> Add Photos
-        </button>
       </div>
 
       <!-- Photos Grid -->
@@ -74,10 +67,7 @@
               class="photo-image"
               loading="lazy"
               :data-full-src="getPhotoUrl(photo)"
-            >
-            
-            <!-- Status indicators removed - backend handles conversion -->
-            
+            >                   
             <!-- Loading placeholder for images -->
             <div class="image-loading-placeholder">
               <i class="fas fa-image"></i>
@@ -100,7 +90,6 @@
       </div>
     </div>
 
-    <!-- Preloading Progress Indicator 
     <div v-if="!loading && !error && visiblePhotos.length > 0" class="preload-status">
       <div class="preload-header">
         <i class="fas fa-download"></i>
