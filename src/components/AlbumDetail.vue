@@ -89,7 +89,7 @@
         <div class="load-more-trigger" v-if="paginatedVisiblePhotos.length < visiblePhotos.length"></div>
       </div>
     </div>
-
+  <!--  
     <div v-if="!loading && !error && visiblePhotos.length > 0" class="preload-status">
       <div class="preload-header">
         <i class="fas fa-download"></i>
@@ -130,9 +130,10 @@
             </span>
           </div>
         </div>
+        
       </div>
     </div>
--->
+  -->
     <!-- Upload Dialog -->
     <div v-if="showUploadDialog" class="dialog-overlay" @click="closeUploadDialog">
       <div class="dialog upload-dialog" @click.stop>
@@ -615,7 +616,8 @@ const fetchPhotoLocation = async (photo) => {
         const data = await response.json();
         if (data.features && data.features.length > 0) {
           const feature = data.features[0];
-          const result = `${feature.place_type[0]}: ${feature.place_name}`;
+          const result = `${feature.place_name}`;
+          //const result = `${feature.place_type[0]}: ${feature.place_name}`;
           locationCache.value.set(cacheKey, result);
           return result;
         }
@@ -1580,7 +1582,7 @@ onUnmounted(() => {
 
 .photo-card {
   background: white;
-  border: 1px solid #e0e0e0;
+  border: 1px solid black;
   border-radius: 8px;
   overflow: hidden;
   transition: all 0.2s ease;
