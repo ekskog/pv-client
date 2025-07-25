@@ -22,7 +22,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
     env:
       IMAGE_NAME: ghcr.io/ekskog/photovault-client
 
