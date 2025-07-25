@@ -1,7 +1,7 @@
 <template>
   <div class="home">
     <div class="hero">
-      <h1 class="hero-title">-- HBVU PHOTO VAULT --</h1>
+      <h1 class="hero-title">-- HBVU PHOTO VAULT HOME--</h1>
       <p class="hero-subtitle">Minimalist photo gallery and storage management</p>
     </div>
 
