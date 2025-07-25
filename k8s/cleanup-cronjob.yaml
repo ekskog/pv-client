@@ -40,8 +40,8 @@ spec:
               if command -v docker >/dev/null 2>&1; then
                 echo "Docker cleanup for PhotoVault Frontend images..."
                 # Remove unused PhotoVault Frontend images older than 48h
-                docker images --filter "reclientrence=*photovault-client*" --filter "until=48h" -q | xargs -r docker rmi -f
-                docker images --filter "reclientrence=*photovault-frontend*" --filter "until=48h" -q | xargs -r docker rmi -f
+                docker images --filter "reference=*photovault-client*" --filter "until=48h" -q | xargs -r docker rmi -f
+                docker images --filter "reference=*photovault-frontend*" --filter "until=48h" -q | xargs -r docker rmi -f
                 docker system prune -f --filter "until=48h"
               fi
               

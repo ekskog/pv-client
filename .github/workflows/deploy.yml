@@ -30,7 +30,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          clienttch-depth: 0
+          fetch-depth: 0
 
       - name: Check for source code changes
         id: changes
