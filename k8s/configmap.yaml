@@ -4,7 +4,7 @@ metadata:
   name: photovault-frontend-config
   namespace: webapps
   labels:
-    app: photovault-fe
+    app: photovault-client
     component: frontend
 data:
   # Non-sensitive configuration values
@@ -16,7 +16,7 @@ data:
   VITE_APP_TITLE: "HBVU PHOTOS"
   VITE_APP_DESCRIPTION: "Secure Photo Gallery"
   
-  # Feature Flags
+  # clientature Flags
   VITE_ENABLE_USER_MANAGEMENT: "true"
   VITE_ENABLE_ALBUM_SHARING: "false"
   VITE_ENABLE_PHOTO_COMMENTS: "false"

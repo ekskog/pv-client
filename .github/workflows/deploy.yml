@@ -24,13 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     
     env:
-      IMAGE_NAME: ghcr.io/ekskog/photovault-fe
+      IMAGE_NAME: ghcr.io/ekskog/photovault-client
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          clienttch-depth: 0
 
       - name: Check for source code changes
         id: changes
@@ -88,20 +88,20 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.changes.outputs.source == 'true'
         run: |
           echo "Deploying image: $IMAGE_TAG"
-          kubectl set image deployment/photovault-fe photovault-fe=$IMAGE_TAG --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
+          kubectl set image deployment/photovault-client photovault-client=$IMAGE_TAG --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
           
           # Add debugging information
           echo "Checking deployment status..."
-          kubectl get deployment photovault-fe --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
+          kubectl get deployment photovault-client --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
           
           echo "Checking pod status..."
-          kubectl get pods -l app=photovault-fe --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
+          kubectl get pods -l app=photovault-client --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
           
           echo "Checking recent events..."
           kubectl get events --namespace=webapps --sort-by='.lastTimestamp' --kubeconfig=$PWD/kubeconfig.yaml | grep -E "(Pull|Image|Failed|Error)" | tail -10
           
           # Wait for rollout with detailed output
-          kubectl rollout status deployment/photovault-fe --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml --timeout=600s
+          kubectl rollout status deployment/photovault-client --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml --timeout=600s
 
       - name: Skip Deployment (No Source Changes)
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.changes.outputs.source != 'true'
@@ -113,14 +113,14 @@ jobs:
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.changes.outputs.source == 'true'
         run: |
           echo "Service information:"
-          kubectl get service photovault-fe-service --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml -o wide
+          kubectl get service photovault-client-service --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml -o wide
           
           echo "External IP (if available):"
-          kubectl get service photovault-fe-service --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+          kubectl get service photovault-client-service --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
 
       - name: Debug on Failure
         if: failure()
         run: |
           echo "Deployment failed. Gathering debug information..."
-          kubectl describe deployment photovault-fe --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
-          kubectl describe pods -l app=photovault-fe --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
+          kubectl describe deployment photovault-client --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml
+          kubectl describe pods -l app=photovault-client --namespace=webapps --kubeconfig=$PWD/kubeconfig.yaml

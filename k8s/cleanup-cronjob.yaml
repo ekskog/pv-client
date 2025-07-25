@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: photovault-fe-cleanup
+  name: photovault-client-cleanup
   namespace: kube-system
 spec:
   schedule: "30 2 * * *"  # Daily at 2:30 AM (offset from other cleanups)
@@ -30,7 +30,7 @@ spec:
               # Cleanup unused PhotoVault Frontend images older than 48h
               if command -v crictl >/dev/null 2>&1; then
                 echo "Cleaning up old PhotoVault Frontend images..."
-                crictl images | grep "photovault-fe\|photovault-frontend" | awk '{print $3}' | while read img; do
+                crictl images | grep "photovault-client\|photovault-frontend" | awk '{print $3}' | while read img; do
                   # Get image creation time and remove if older than 48h
                   crictl rmi --prune
                 done
@@ -40,15 +40,15 @@ spec:
               if command -v docker >/dev/null 2>&1; then
                 echo "Docker cleanup for PhotoVault Frontend images..."
                 # Remove unused PhotoVault Frontend images older than 48h
-                docker images --filter "reference=*photovault-fe*" --filter "until=48h" -q | xargs -r docker rmi -f
-                docker images --filter "reference=*photovault-frontend*" --filter "until=48h" -q | xargs -r docker rmi -f
+                docker images --filter "reclientrence=*photovault-client*" --filter "until=48h" -q | xargs -r docker rmi -f
+                docker images --filter "reclientrence=*photovault-frontend*" --filter "until=48h" -q | xargs -r docker rmi -f
                 docker system prune -f --filter "until=48h"
               fi
               
               # Log remaining PhotoVault Frontend images
               echo "Remaining PhotoVault Frontend images:"
               if command -v crictl >/dev/null 2>&1; then
-                crictl images | grep -E "photovault-fe|photovault-frontend" || echo "No PhotoVault Frontend images found"
+                crictl images | grep -E "photovault-client|photovault-frontend" || echo "No PhotoVault Frontend images found"
               fi
               
               echo "PhotoVault Frontend cleanup completed at $(date)"
