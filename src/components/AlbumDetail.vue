@@ -1,352 +1,143 @@
 <template>
-  <div class="album-detail">
-    <!-- Header -->
-    <div class="album-header">
-      <button class="btn-back" @click="$emit('back')">
-        <i class="fas fa-arrow-left"></i> Back to Albums
-      </button>
-      <div class="album-info">
-        <h1><i class="fas fa-folder-open"></i> {{ albumName }}</h1>
-        <p class="subtitle">{{ visiblePhotos.length }} photos</p>
-      </div>
-      <div class="header-actions">
-        <button 
-          class="btn-secondary btn-refresh" 
-          @click="refreshAlbum"
-          :disabled="loading"
-          title="Refresh album"
-        >
-          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
-        </button>
-        <button 
-          v-if="canUploadPhotos"
-          class="btn-primary" 
-          @click="showUploadDialog = true"
-        >
-          <i class="fas fa-plus"></i> Add Photos
-        </button>
-      </div>
-    </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="loading">
-      <div class="spinner"></div>
-      <p>Loading album photos...</p>
-    </div>
+  <!-- Use the new AlbumHeader component -->
+  <AlbumHeader :album-name="albumName" :photo-count="visiblePhotos.length" :loading="loading"
+    :can-upload-photos="canUploadPhotos" @back="$emit('back')" @refresh="refreshAlbum"
+    @upload="showUploadDialog = true" />
 
-    <!-- Error State -->
-    <div v-if="error" class="error">
-      <p><i class="fas fa-exclamation-triangle"></i> {{ error }}</p>
-      <button class="btn-secondary" @click="loadPhotos">Try Again</button>
+  <!-- Loading State -->
+  <div v-if="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading album photos...</p>
+  </div>
+
+  <!-- Error State -->
+  <div v-if="error" class="error">
+    <p><i class="fas fa-exclamation-triangle"></i> {{ error }}</p>
+    <button class="btn-secondary" @click="loadPhotos">Try Again</button>
+  </div>
+
+  <!-- Photos Grid -->
+  <div v-if="!loading && !error" class="photos-section">
+    <!-- Empty State -->
+    <div v-if="visiblePhotos.length === 0" class="empty-state">
+      <div class="empty-icon"><i class="fas fa-images"></i></div>
+      <h3>No Photos Yet</h3>
+      <p>Start building your album by adding some photos!</p>
     </div>
 
     <!-- Photos Grid -->
-    <div v-if="!loading && !error" class="photos-section">
-      <!-- Empty State -->
-      <div v-if="visiblePhotos.length === 0" class="empty-state">
-        <div class="empty-icon"><i class="fas fa-images"></i></div>
-        <h3>No Photos Yet</h3>
-        <p>Start building your album by adding some photos!</p>
-      </div>
-
-      <!-- Photos Grid -->
-      <div v-else class="photos-grid">
-        <div 
-          v-for="photo in paginatedVisiblePhotos" 
-          :key="photo.name"
-          class="photo-card"
-          @click="openPhoto(photo)"
-        >
-          <div class="photo-item">
-            <img 
-              :src="getOptimizedPhotoUrl(photo)" 
-              :alt="photo.name" 
-              @error="handleImageError"
-              @load="handleImageLoad"
-              @loadstart="handleImageLoadStart"
-              class="photo-image"
-              loading="lazy"
-              :data-full-src="getPhotoUrl(photo)"
-            >                   
-            <!-- Loading placeholder for images -->
-            <div class="image-loading-placeholder">
-              <i class="fas fa-image"></i>
-            </div>
-          </div>
-          <div class="photo-info">
-            <div class="photo-timestamp">
-              <i class="fas fa-clock"></i>
-              {{ formatPhotoTimestamp(photo) }}
-            </div>
-            <div class="photo-gps">
-              <i class="fas fa-map-marker-alt"></i>
-              {{ formatPhotoGPS(photo) }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Load More Trigger (Invisible) -->
-        <div class="load-more-trigger" v-if="paginatedVisiblePhotos.length < visiblePhotos.length"></div>
-      </div>
-    </div>
-  <!--  
-    <div v-if="!loading && !error && visiblePhotos.length > 0" class="preload-status">
-      <div class="preload-header">
-        <i class="fas fa-download"></i>
-        <span>Lightbox Ready: {{ preloadStats.preloaded }}/{{ preloadStats.total }}</span>
-        <div class="preload-percentage">{{ preloadStats.percentage }}%</div>
-      </div>
-      <div class="preload-progress-bar">
-        <div 
-          class="preload-progress-fill" 
-          :style="{ width: preloadStats.percentage + '%' }"
-        ></div>
-      </div>
-      <div class="preload-details">
-        <span v-if="preloadStats.currentlyFetchingFullSize" class="preload-current-file">
-          <i class="fas fa-download fa-pulse"></i>
-          Fetching full-size AVIF: {{ getPhotoDisplayName(preloadStats.currentlyFetchingFullSize) }}
-        </span>
-        <span v-else-if="preloadStats.percentage < 100" class="preload-status-text">
-          <i class="fas fa-sync fa-spin"></i> Background preloading full-size images for instant lightbox...
-        </span>
-        <span v-else-if="preloadStats.percentage >= 100" class="preload-complete-text">
-          <i class="fas fa-check-circle"></i> All images ready! Lightbox will be instant.
-        </span>
-        
-        <div v-if="preloadStats.readyImages.length > 0" class="preload-ready-list">
-          <div class="ready-list-header">
-            <i class="fas fa-check-circle"></i>
-            <span>Full-size images ready for instant lightbox ({{ preloadStats.readyImages.length }}):</span>
-          </div>
-          <div class="ready-images-grid">
-            <span 
-              v-for="readyImage in preloadStats.readyImages" 
-              :key="readyImage"
-              class="ready-image-item"
-              :title="readyImage"
-            >
-              {{ getPhotoDisplayName(readyImage) }}
-            </span>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-  -->
-    <!-- Upload Dialog -->
-    <div v-if="showUploadDialog" class="dialog-overlay" @click="closeUploadDialog">
-      <div class="dialog upload-dialog" @click.stop>
-        <h3><i class="fas fa-cloud-upload-alt"></i> Upload Media</h3>
-        
-        <!-- Upload Type Selector -->
-        <div class="upload-type-selector">
-          <button 
-            class="btn-upload-type" 
-            :class="{ active: uploadType === 'photos' }"
-            @click="setUploadType('photos')"
-          >
+    <div v-else class="photos-grid">
+      <div v-for="photo in paginatedVisiblePhotos" :key="photo.name" class="photo-card" @click="openPhoto(photo)">
+        <div class="photo-item">
+          <img :src="getOptimizedPhotoUrl(photo)" :alt="photo.name" @error="handleImageError" @load="handleImageLoad"
+            @loadstart="handleImageLoadStart" class="photo-image" loading="lazy" :data-full-src="getPhotoUrl(photo)">
+          <!-- Loading placeholder for images -->
+          <div class="image-loading-placeholder">
             <i class="fas fa-image"></i>
-            Photos
-          </button>
-          <button 
-            class="btn-upload-type" 
-            :class="{ active: uploadType === 'videos' }"
-            @click="setUploadType('videos')"
-          >
-            <i class="fas fa-video"></i>
-            Videos
-          </button>
-        </div>
-        
-        <!-- Processing Info - only shown after upload completes -->
-        <div v-if="uploadProgress === 100 && !uploading" class="processing-info">
-          <i class="fas fa-info-circle"></i>
-          <span>Images are processed in the background after upload. Use the refresh button to check progress.</span>
-        </div>
-        
-        <!-- Upload UI - hidden after upload completes -->
-        <div v-if="!(uploadProgress === 100 && !uploading)">
-          <!-- Mobile Warning -->
-          <div v-if="isMobileDevice" class="mobile-warning">
-            <i class="fas fa-mobile-alt"></i>
-            <span>Keep this app open during upload for progress updates</span>
-          </div>
-          
-          <!-- File Drop Zone -->
-          <div 
-            class="upload-zone"
-            :class="{ 'dragging': isDragging }"
-            @drop="handleDrop"
-            @dragover.prevent
-            @dragenter="isDragging = true"
-            @dragleave="isDragging = false"
-            @click="triggerFileInput"
-          >
-          <input
-            ref="fileInput"
-            type="file"
-            :accept="uploadType === 'photos' ? 'image/*' : 'video/*'"
-            multiple
-            @change="handleFileSelect"
-            style="display: none;"
-          />
-          <div class="upload-content">
-            <i :class="uploadType === 'photos' ? 'fas fa-cloud-upload-alt' : 'fas fa-video'" class="upload-icon"></i>
-            <p class="upload-text">
-              {{ uploadType === 'photos' ? 'Drag and drop photos here or click to select' : 'Drag and drop videos here or click to select' }}
-            </p>
-            <p class="upload-hint">
-              {{ uploadType === 'photos' ? 'Supports JPG, PNG, GIF, HEIC files (optimized for fast display)' : 'Supports MOV, MP4 and other video formats (up to 2GB each)' }}
-            </p>
           </div>
         </div>
-
-        <!-- Upload Progress -->
-        <div v-if="uploading" class="upload-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: `${uploadProgress}%` }"></div>
+        <div class="photo-info">
+          <div class="photo-timestamp">
+            <i class="fas fa-clock"></i>
+            {{ formatPhotoTimestamp(photo) }}
           </div>
-          <p class="progress-text">{{ uploadStatus }}</p>
-        </div>
-
-        <!-- Selected Files -->
-        <div v-if="selectedFiles.length > 0" class="selected-files">
-          <h4>Selected Files ({{ selectedFiles.length }})</h4>
-          <div class="file-list">
-            <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
-              <div class="file-info">
-                <span class="file-name">{{ file.name }}</span>
-                <span class="file-size">{{ formatFileSize(file.size) }}</span>
-              </div>
-              
-              <button v-if="!uploading" @click="removeFile(index)" class="btn-remove">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
+          <div class="photo-gps">
+            <i class="fas fa-map-marker-alt"></i>
+            {{ formatPhotoGPS(photo) }}
           </div>
-        </div>
-        </div> <!-- End of upload UI conditional -->
-
-        <div class="dialog-actions">
-          <button class="btn-secondary" @click="closeUploadDialog">
-            {{ uploadProgress === 100 && !uploading ? 'Done' : 'Cancel' }}
-          </button>
-          <button 
-            v-if="uploadProgress < 100"
-            class="btn-primary" 
-            @click="uploadFiles"
-            :disabled="selectedFiles.length === 0 || uploading"
-          >
-            {{ uploading ? 'Uploading...' : `Upload ${selectedFiles.length} ${uploadType === 'photos' ? 'Photo' : 'Video'}${selectedFiles.length !== 1 ? 's' : ''}` }}
-          </button>
         </div>
       </div>
-    </div>
 
-    <!-- Delete Photo Confirmation -->
-    <div v-if="showDeletePhotoDialog" class="dialog-overlay" @click="closeDeletePhotoDialog">
-      <div class="dialog" @click.stop>
-        <h3>Delete Photo</h3>
-        <p>Are you sure you want to delete "<strong>{{ getPhotoDisplayName(photoToDelete?.name) }}</strong>"?</p>
-        <p class="warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
-        <div class="dialog-actions">
-          <button class="btn-secondary" @click="closeDeletePhotoDialog">Cancel</button>
-          <button 
-            class="btn-danger" 
-            @click="deletePhoto"
-            :disabled="deletingPhoto"
-          >
-            {{ deletingPhoto ? 'Deleting...' : 'Delete Photo' }}
-          </button>
-        </div>
+      <!-- Load More Trigger (Invisible) -->
+      <div class="load-more-trigger" v-if="paginatedVisiblePhotos.length < visiblePhotos.length"></div>
+    </div>
+  </div>
+
+  <MediaUpload 
+    :showUploadDialog="showUploadDialog" 
+    @close="handleUploadDialogClose"
+  />
+
+  <!-- Delete Photo Confirmation -->
+  <div v-if="showDeletePhotoDialog" class="dialog-overlay" @click="closeDeletePhotoDialog">
+    <div class="dialog" @click.stop>
+      <h3>Delete Photo</h3>
+      <p>Are you sure you want to delete "<strong>{{ getPhotoDisplayName(photoToDelete?.name) }}</strong>"?</p>
+      <p class="warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
+      <div class="dialog-actions">
+        <button class="btn-secondary" @click="closeDeletePhotoDialog">Cancel</button>
+        <button class="btn-danger" @click="deletePhoto" :disabled="deletingPhoto">
+          {{ deletingPhoto ? 'Deleting...' : 'Delete Photo' }}
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- Lightbox Viewer -->
-    <div v-if="showLightbox" class="lightbox-overlay" @click="closeLightbox">
-      <div class="lightbox-container" @click.stop>
-        <!-- Navigation Controls -->
-        <button 
-          class="lightbox-nav lightbox-prev" 
-          @click.stop="previousPhoto"
-          :disabled="currentPhotoIndex === 0"
-          title="Previous Photo (←)"
-        >
-          <i class="fas fa-chevron-left"></i>
-        </button>
-        
-        <button 
-          class="lightbox-nav lightbox-next" 
-          @click.stop="nextPhoto"
-          :disabled="currentPhotoIndex === lightboxPhotos.length - 1"
-          title="Next Photo (→)"
-        >
-          <i class="fas fa-chevron-right"></i>
-        </button>
+  <!-- Lightbox Viewer -->
+  <div v-if="showLightbox" class="lightbox-overlay" @click="closeLightbox">
+    <div class="lightbox-container" @click.stop>
+      <!-- Navigation Controls -->
+      <button class="lightbox-nav lightbox-prev" @click.stop="previousPhoto" :disabled="currentPhotoIndex === 0"
+        title="Previous Photo (←)">
+        <i class="fas fa-chevron-left"></i>
+      </button>
 
-        <!-- Close Button -->
-        <button class="lightbox-close" @click.stop="closeLightbox" title="Close (Esc)">
-          <i class="fas fa-times"></i>
-        </button>
+      <button class="lightbox-nav lightbox-next" @click.stop="nextPhoto"
+        :disabled="currentPhotoIndex === lightboxPhotos.length - 1" title="Next Photo (→)">
+        <i class="fas fa-chevron-right"></i>
+      </button>
 
-        <!-- Photo Display -->
-        <div class="lightbox-content">
-          <div class="lightbox-image-container">
-            <!-- Backend handles all conversions -->
-            <img 
-              v-if="currentPhoto"
-              :src="getPhotoUrl(currentPhoto)" 
-              :alt="currentPhoto.name"
-              class="lightbox-image"
-              @error="handleLightboxImageError"
-              @load="handleLightboxImageLoad"
-            >
-            
-            <!-- Loading placeholder -->
-            <div v-if="lightboxLoading" class="lightbox-loading">
-              <i class="fas fa-spinner fa-spin"></i>
-              <p>Loading image...</p>
-            </div>
+      <!-- Close Button -->
+      <button class="lightbox-close" @click.stop="closeLightbox" title="Close (Esc)">
+        <i class="fas fa-times"></i>
+      </button>
+
+      <!-- Photo Display -->
+      <div class="lightbox-content">
+        <div class="lightbox-image-container">
+          <!-- Backend handles all conversions -->
+          <img v-if="currentPhoto" :src="getPhotoUrl(currentPhoto)" :alt="currentPhoto.name" class="lightbox-image"
+            @error="handleLightboxImageError" @load="handleLightboxImageLoad">
+
+          <!-- Loading placeholder -->
+          <div v-if="lightboxLoading" class="lightbox-loading">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading image...</p>
+          </div>
+        </div>
+
+        <!-- Photo Info -->
+        <div class="lightbox-info">
+          <div class="lightbox-photo-details">
+            <p class="lightbox-photo-meta">
+              {{ currentPhotoIndex + 1 }} of {{ lightboxPhotos.length }}
+            </p>
           </div>
 
-          <!-- Photo Info -->
-          <div class="lightbox-info">
-            <div class="lightbox-photo-details">
-              <p class="lightbox-photo-meta">
-                {{ currentPhotoIndex + 1 }} of {{ lightboxPhotos.length }}
-              </p>
-            </div>
-            
-            <!-- Action Buttons -->
-            <div class="lightbox-actions">
-              <button 
-                @click="downloadPhoto(currentPhoto)" 
-                class="btn-lightbox-action"
-                title="Download Photo"
-              >
-                <i class="fas fa-download"></i>
-              </button>
-              <button 
-                v-if="canDeletePhoto"
-                @click="confirmDeletePhoto(currentPhoto)" 
-                class="btn-lightbox-action btn-danger-action"
-                title="Delete Photo"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
+          <!-- Action Buttons -->
+          <div class="lightbox-actions">
+            <button @click="downloadPhoto(currentPhoto)" class="btn-lightbox-action" title="Download Photo">
+              <i class="fas fa-download"></i>
+            </button>
+            <button v-if="canDeletePhoto" @click="confirmDeletePhoto(currentPhoto)"
+              class="btn-lightbox-action btn-danger-action" title="Delete Photo">
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
         </div>
       </div>
     </div>
   </div>
+
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
+import AlbumHeader from './AlbumHeader.vue'
+import MediaUpload from './MediaUpload.vue'
 
 // ADDED FOR SSE
 const processingNotifications = ref(false)
@@ -380,14 +171,8 @@ const locationCache = ref(new Map()) // Cache for resolved addresses
 // Removed HEIC conversion variables - backend handles all conversions
 const showUploadDialog = ref(false)
 const showDeletePhotoDialog = ref(false)
-const uploadType = ref('photos') // 'photos' or 'videos'
-const selectedFiles = ref([])
-const uploading = ref(false)
-const uploadProgress = ref(0)
-const uploadStatus = ref('')
 const uploadedFiles = ref(new Set()) // Track completed uploads
 const failedFiles = ref(new Set()) // Track failed uploads
-const isDragging = ref(false)
 const photoToDelete = ref(null)
 const deletingPhoto = ref(false)
 const fileInput = ref(null)
@@ -413,7 +198,7 @@ const progressTracker = ref(null)
 // Computed properties
 const currentPhoto = computed(() => {
   const photo = lightboxPhotos.value[currentPhotoIndex.value] || null
-  
+
   // Log current file showing in lightbox for debugging
   if (photo) {
     console.log('Current file showing in lightbox:', {
@@ -424,18 +209,13 @@ const currentPhoto = computed(() => {
       totalFiles: lightboxPhotos.value.length
     })
   }
-  
+
   return photo
 })
 
 // Permission checks
 const canUploadPhotos = computed(() => {
   return authService.canPerformAction('upload_photos')
-})
-
-// Mobile device detection
-const isMobileDevice = computed(() => {
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 })
 
 const canDeletePhoto = computed(() => {
@@ -447,14 +227,19 @@ const BUCKET_NAME = 'photovault'
 const ITEMS_PER_PAGE = 50
 
 // Methods
+const handleUploadDialogClose = () => {
+  showUploadDialog.value = false
+  // Add any other cleanup you might need here
+}
+
 const loadPhotos = async () => {
   console.log('🔄 Loading album:', props.albumName)
   loading.value = true
   error.value = null
-  
+
   // Clear previous data
   cleanupBlobUrls()
-  
+
   try {
     // Clean the album name and ensure we have exactly one trailing slash
     let cleanAlbumName = props.albumName.trim()
@@ -462,30 +247,30 @@ const loadPhotos = async () => {
     cleanAlbumName = cleanAlbumName.replace(/\/+$/, '')
     // Add exactly one trailing slash
     const prefix = cleanAlbumName + '/'
-    
+
     // console.log('📡 API request for prefix:', prefix)
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
-    
+
     // console.log('📥 API response:', response)
-    
+
     if (response.success && response.data) {
-      
+
       // Load ALL files returned by backend (no filtering)
       const allFiles = (response.data.objects || []).filter(obj => {
         // Only exclude folders (names ending with '/')
         return obj.name && !obj.name.endsWith('/');
       })
-      
+
       //console.log('📁 Files found:', allFiles.length, allFiles.map(f => f.name))
-      
+
       photos.value = allFiles
-      
+
       // Load album metadata
       await loadAlbumMetadata(cleanAlbumName)
-      
+
       // Reset pagination
       resetVirtualScrolling()
-      
+
       //console.log('✅ Album loaded successfully')
     } else {
       throw new Error(response.error || 'Failed to load album photos')
@@ -509,13 +294,13 @@ const loadAlbumMetadata = async (albumName) => {
   try {
     const metadataFileName = `${albumName}/${albumName}.json`
     const metadataUrl = apiService.getObjectUrl(BUCKET_NAME, metadataFileName)
-    
+
     console.log('📄 Loading metadata from:', metadataUrl)
     const response = await fetch(metadataUrl)
     if (response.ok) {
       const metadata = await response.json()
       albumMetadata.value = metadata
-      
+
       // Create lookup table for quick access - use the correct structure
       const lookup = {}
       if (metadata.images && Array.isArray(metadata.images)) {
@@ -545,7 +330,7 @@ const formatPhotoTimestamp = (photo) => {
   // Get metadata for the photo
   const filename = photo.name.split('/').pop() // Get just the filename
   let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
-  
+
   // If not found and this is an AVIF variant, try to find the original
   if (!metadata && photo.name.includes('.avif')) {
     // Try to match with original filename patterns
@@ -555,19 +340,19 @@ const formatPhotoTimestamp = (photo) => {
       const originalBase = key.replace(/\.[^.]+$/, '')
       return baseName.includes(originalBase) || originalBase.includes(baseName)
     })
-    
+
     if (possibleOriginals.length > 0) {
       metadata = photoMetadataLookup.value[possibleOriginals[0]]
     }
   }
-    
+
   if (!metadata || !metadata.exif || !metadata.exif.dateTaken) {
     return 'No date'
   }
-  
+
   try {
     const date = new Date(metadata.exif.dateTaken)
-    return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+    return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   } catch {
     return 'Invalid date'
   }
@@ -576,7 +361,7 @@ const formatPhotoTimestamp = (photo) => {
 // Async function to fetch and cache location
 const fetchPhotoLocation = async (photo) => {
   const cacheKey = photo.name;
-  
+
   // Return cached result if available
   if (locationCache.value.has(cacheKey)) {
     return locationCache.value.get(cacheKey);
@@ -585,14 +370,6 @@ const fetchPhotoLocation = async (photo) => {
   // Get metadata for the photo
   const filename = photo.name.split('/').pop();
   let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name];
-  
-  console.log('📄 Photo metadata for GPS:', {
-    filename,
-    photoName: photo.name,
-    metadata: metadata,
-    hasExif: metadata?.exif,
-    hasGPS: metadata?.exif?.gpsCoordinates
-  });
 
   if (!metadata || !metadata.exif || !metadata.exif.gpsCoordinates) {
     const result = 'No location';
@@ -605,8 +382,6 @@ const fetchPhotoLocation = async (photo) => {
     if (coords.length === 2) {
       const lat = parseFloat(coords[0]).toFixed(4);
       const lng = parseFloat(coords[1]).toFixed(4);
-
-      console.log('📍 Fetching address for coordinates:', { lat, lng });
 
       // Fetch address from Mapbox API
       const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -639,12 +414,12 @@ const fetchPhotoLocation = async (photo) => {
 // Format GPS coordinates for display
 const formatPhotoGPS = (photo) => {
   const cacheKey = photo.name;
-  
+
   // Return cached result or loading state
   if (locationCache.value.has(cacheKey)) {
     return locationCache.value.get(cacheKey);
   }
-  
+
   // Start async fetch but return loading state immediately
   fetchPhotoLocation(photo);
   return 'Loading location...';
@@ -657,13 +432,13 @@ const preloadPhotoLocations = async () => {
     let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name];
     return metadata?.exif?.gpsCoordinates;
   });
-  
+
   // Fetch locations in batches to avoid overwhelming the API
   const batchSize = 5;
   for (let i = 0; i < visiblePhotosWithGPS.length; i += batchSize) {
     const batch = visiblePhotosWithGPS.slice(i, i + batchSize);
     await Promise.all(batch.map(photo => fetchPhotoLocation(photo)));
-    
+
     // Small delay between batches
     if (i + batchSize < visiblePhotosWithGPS.length) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -704,32 +479,32 @@ const loadImageProgressively = async (photo, imgElement) => {
   try {
     // Since we no longer have thumbnails, we load the full-size image directly
     const photoSrc = getPhotoUrl(photo)
-    
+
     // Set currently loading
     preloadStats.value.currentlyFetchingFullSize = photo.name
-    
+
     preloadImage(photoSrc).then(() => {
       // Mark as ready for lightbox display
       imgElement.dataset.fullLoaded = 'true'
-      
+
       // Add to ready images list if not already there
       if (!preloadStats.value.readyImages.includes(photo.name)) {
         preloadStats.value.readyImages.push(photo.name)
       }
-        
+
       // Clear currently fetching status
       preloadStats.value.currentlyFetchingFullSize = null
-      
+
       // Update progress immediately when a preload completes
       trackProgressiveLoadingStats()
     }).catch((error) => {
       // Failed to preload, but image may still be available
       console.warn(`Preload failed for ${photo.name}:`, error.message)
-      
+
       // Clear currently fetching status on error
       preloadStats.value.currentlyFetchingFullSize = null
     })
-    
+
   } catch (error) {
     // Failed to load image
     console.error(`Failed to load image for ${photo.name}:`, error)
@@ -744,9 +519,9 @@ const handleImageError = (event) => {
   const imgElement = event.target
   const originalSrc = imgElement.src
   const photoName = imgElement.alt || 'unknown'
-  
+
   console.error('❌ Image failed to load:', photoName, 'from', originalSrc)
-  
+
   // Set fallback image
   event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='
 }
@@ -754,43 +529,38 @@ const handleImageError = (event) => {
 const handleImageLoadStart = (event) => {
   const imgElement = event.target
   const photoName = imgElement.alt || 'unknown'
-  
+
   console.log('🔄 Started loading image:', photoName)
 }
 
 const handleImageLoad = (event) => {
   const imgElement = event.target
   const photoName = imgElement.alt || 'unknown'
-  
-}
 
-const handleHeicImageError = async (event, photo) => {
-  // Since backend converts everything to AVIF, show fallback image
-  event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIHVuYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg=='
 }
 
 const openPhoto = async (photo) => {
   // Find the photo in lightbox array (now simplified since no thumbnail conversion needed)
   const targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
-  
+
   if (targetPhotoIndex === -1) {
     console.error(`Could not find photo in lightbox array: ${photo.name}`)
     return
   }
-  
+
   // Check if image was already preloaded
   const gridImage = document.querySelector(`img[alt="${photo.name}"][data-full-loaded="true"]`)
   const isPreloaded = gridImage && gridImage.dataset.fullLoaded === 'true'
-  
+
   // Open the lightbox
   currentPhotoIndex.value = targetPhotoIndex
   showLightbox.value = true
-  
+
   // If image wasn't preloaded, show loading state briefly
   if (!isPreloaded) {
     lightboxLoading.value = true
   }
-  
+
   // Add keyboard event listener
   document.addEventListener('keydown', handleLightboxKeyboard)
 }
@@ -798,7 +568,7 @@ const openPhoto = async (photo) => {
 const closeLightbox = () => {
   showLightbox.value = false
   lightboxLoading.value = false
-  
+
   // Remove keyboard event listener
   document.removeEventListener('keydown', handleLightboxKeyboard)
 }
@@ -809,12 +579,12 @@ const nextPhoto = () => {
     const nextPhoto = lightboxPhotos.value[currentPhotoIndex.value + 1]
     const nextGridImage = document.querySelector(`img[alt="${nextPhoto.name}"][data-full-loaded="true"]`)
     const isNextPreloaded = nextGridImage && nextGridImage.dataset.fullLoaded === 'true'
-    
+
     // Show loading state if next image wasn't preloaded
     if (!isNextPreloaded) {
       lightboxLoading.value = true
     }
-    
+
     currentPhotoIndex.value++
   }
 }
@@ -825,12 +595,12 @@ const previousPhoto = () => {
     const prevPhoto = lightboxPhotos.value[currentPhotoIndex.value - 1]
     const prevGridImage = document.querySelector(`img[alt="${prevPhoto.name}"][data-full-loaded="true"]`)
     const isPrevPreloaded = prevGridImage && prevGridImage.dataset.fullLoaded === 'true'
-    
+
     // Show loading state if previous image wasn't preloaded
     if (!isPrevPreloaded) {
       lightboxLoading.value = true
     }
-    
+
     currentPhotoIndex.value--
   }
 }
@@ -854,81 +624,37 @@ const handleLightboxImageError = async (event) => {
   event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIGNhbm5vdCBiZSBsb2FkZWQ8L3RleHQ+PC9zdmc+'
 }
 
-const triggerFileInput = () => {
-  fileInput.value?.click()
-}
-
-const handleFileSelect = (event) => {
-  const files = Array.from(event.target.files)
-  addFiles(files)
-}
-
-const handleDrop = (event) => {
-  event.preventDefault()
-  isDragging.value = false
-  const files = Array.from(event.dataTransfer.files)
-  addFiles(files)
-}
-
-const addFiles = (files) => {
-  let validFiles
-  let fileTypeDescription
-  
-  if (uploadType.value === 'photos') {
-    validFiles = files.filter(file => file.type.startsWith('image/'))
-    fileTypeDescription = 'image files'
-  } else {
-    validFiles = files.filter(file => file.type.startsWith('video/'))
-    fileTypeDescription = 'video files'
-  }
-  
-  selectedFiles.value.push(...validFiles)
-  
-  if (validFiles.length !== files.length) {
-    alert(`${files.length - validFiles.length} files were skipped (only ${fileTypeDescription} are allowed)`)
-  }
-}
-
-const setUploadType = (type) => {
-  uploadType.value = type
-  selectedFiles.value = [] // Clear selected files when switching type
-}
-
-const removeFile = (index) => {
-  selectedFiles.value.splice(index, 1)
-}
-
 const confirmDeletePhoto = (photo) => {
   // Check permission before showing dialog
   if (!authService.canPerformAction('delete_photo')) {
     error.value = 'You do not have permission to delete photos'
     return
   }
-  
+
   photoToDelete.value = photo
   showDeletePhotoDialog.value = true
 }
 
 const deletePhoto = async () => {
   if (!photoToDelete.value) return
-  
+
   // Debug alert to confirm function is called
   alert(`About to delete: ${photoToDelete.value.name}`)
-  
+
   deletingPhoto.value = true
   error.value = null
-  
+
   try {
     console.log('🗑️ Deleting photo:', photoToDelete.value.name, 'from bucket:', BUCKET_NAME)
     const response = await apiService.deleteObject(BUCKET_NAME, photoToDelete.value.name)
     console.log('🗑️ Delete response:', response)
-    
+
     if (response.success) {
       // Close lightbox if the deleted photo was being viewed
       if (showLightbox.value && currentPhoto.value && currentPhoto.value.name === photoToDelete.value.name) {
         closeLightbox()
       }
-      
+
       await loadPhotos() // Refresh the list
       closeDeletePhotoDialog()
     } else {
@@ -942,30 +668,12 @@ const deletePhoto = async () => {
   }
 }
 
-const closeUploadDialog = () => {
-  showUploadDialog.value = false
-  selectedFiles.value = []
-  uploading.value = false
-  uploadProgress.value = 0
-  uploadStatus.value = ''
-  isDragging.value = false
-  uploadedFiles.value = new Set()
-  failedFiles.value = new Set()
-}
-
 const closeDeletePhotoDialog = () => {
   showDeletePhotoDialog.value = false
   photoToDelete.value = null
   deletingPhoto.value = false
 }
 
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 B'
-  const k = 1024
-  const sizes = ['B', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
 
 // Cleanup function for blob URLs (now mostly unused since backend handles conversions)
 const cleanupBlobUrls = () => {
@@ -975,7 +683,7 @@ const cleanupBlobUrls = () => {
 // Performance monitoring with 3-step progressive loading tracking
 const trackImageLoadTime = (photoName, startTime) => {
   const loadTime = Date.now() - startTime
-  
+
   // Track slow loading images (>2 seconds) - could be used for analytics
   if (loadTime > 2000) {
     console.warn('Slow image load detected:', { photoName, loadTime })
@@ -989,7 +697,7 @@ const trackProgressiveLoadingStats = () => {
   const totalImages = allImages.length
   const preloadedCount = preloadedImages.length
   const preloadPercentage = totalImages > 0 ? Math.round((preloadedCount / totalImages) * 100) : 0
-  
+
   // Update reactive stats for UI display - preserve existing tracking properties
   preloadStats.value = {
     total: totalImages,
@@ -998,7 +706,7 @@ const trackProgressiveLoadingStats = () => {
     currentlyFetchingFullSize: preloadStats.value.currentlyFetchingFullSize, // Preserve current file being fetched
     readyImages: preloadStats.value.readyImages // Preserve ready images list
   }
-  
+
   return {
     total: totalImages,
     preloaded: preloadedCount,
@@ -1009,11 +717,11 @@ const trackProgressiveLoadingStats = () => {
 // Aggressive background preloading: Start immediately after images load
 const startAggressivePreloading = () => {
   const imageElements = document.querySelectorAll('.photo-image')
-  
+
   imageElements.forEach((img, index) => {
     const photoName = img.alt
     const photo = visiblePhotos.value.find(p => p.name === photoName)
-    
+
     if (photo) {
       // Add small delay between images to avoid overwhelming the browser
       setTimeout(() => {
@@ -1031,26 +739,26 @@ const preloadVisibleImages = () => {
       if (entry.isIntersecting) {
         const img = entry.target
         const startTime = Date.now()
-        
+
         img.addEventListener('load', () => {
           trackImageLoadTime(img.alt, startTime)
         }, { once: true })
-        
+
         // Enhanced: Start progressive loading for visible images
         const photoName = img.alt
         const photo = visiblePhotos.value.find(p => p.name === photoName)
         if (photo) {
           loadImageProgressively(photo, img)
         }
-        
+
         observer.unobserve(img)
       }
     })
-  }, { 
+  }, {
     rootMargin: '100px', // Increased margin for earlier preloading
     threshold: 0.1 // Trigger when 10% visible
   })
-  
+
   imageElements.forEach(img => observer.observe(img))
 }
 
@@ -1065,7 +773,7 @@ const handleLightboxImageLoad = (event) => {
   if (img && img.naturalWidth && img.naturalHeight) {
     currentImageInfo.value = `${img.naturalWidth} × ${img.naturalHeight}`
   }
-  
+
   // Hide loading state once image loads
   lightboxLoading.value = false
 }
@@ -1090,7 +798,7 @@ const currentPage = ref(1)
 const paginatedVisiblePhotos = computed(() => {
   const endIndex = currentPage.value * ITEMS_PER_PAGE
   const result = visiblePhotos.value.slice(0, endIndex)
-  
+
   return result
 })
 
@@ -1108,7 +816,7 @@ const resetVirtualScrolling = () => {
 const setupInfiniteScroll = () => {
   const sentinel = document.querySelector('.load-more-trigger')
   if (!sentinel) return
-  
+
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting && paginatedVisiblePhotos.value.length < visiblePhotos.value.length) {
@@ -1116,7 +824,7 @@ const setupInfiniteScroll = () => {
       }
     })
   }, { threshold: 0.1 })
-  
+
   observer.observe(sentinel)
 }
 
@@ -1124,28 +832,28 @@ const setupInfiniteScroll = () => {
 onMounted(async () => {
   await loadPhotos();
 
-    // Preload locations after album metadata is loaded
+  // Preload locations after album metadata is loaded
   if (Object.keys(photoMetadataLookup.value).length > 0) {
     preloadPhotoLocations();
   }
-  
+
   // Setup 3-step progressive loading system after images are loaded
   setTimeout(() => {
     // Start aggressive background preloading immediately
     startAggressivePreloading()
-    
+
     // Also setup intersection observer for additional optimizations
     preloadVisibleImages()
     setupInfiniteScroll()
     setupHeicLazyConversion() // Setup HEIC lazy conversion
-    
+
     // Track initial progressive loading statistics
     trackProgressiveLoadingStats()
-    
+
     // Set up periodic tracking every 2 seconds to monitor progress
     progressTracker.value = setInterval(() => {
       const stats = trackProgressiveLoadingStats()
-      
+
       // Stop tracking when we reach 100% preload percentage
       if (stats.percentage >= 100) {
         clearInterval(progressTracker.value)
@@ -1160,15 +868,15 @@ const startProcessingListener = (jobId) => {
   if (eventSource.value) {
     eventSource.value.close()
   }
-  
+
   processingJobId.value = jobId
   processingNotifications.value = true
   processingStatus.value = 'Starting photo processing...'
-  
+
   // Create SSE connection
   const sseUrl = apiService.getProcessingStatusUrl(jobId)
   eventSource.value = new EventSource(sseUrl)
-  
+
   eventSource.value.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
@@ -1178,7 +886,7 @@ const startProcessingListener = (jobId) => {
       console.error('Error parsing SSE message:', error)
     }
   }
-  
+
   eventSource.value.onerror = (error) => {
     console.error('SSE connection error:', error)
     // Retry connection after 5 seconds
@@ -1188,7 +896,7 @@ const startProcessingListener = (jobId) => {
       }
     }, 5000)
   }
-  
+
   // Auto-close after 10 minutes to prevent long-running connections
   setTimeout(() => {
     if (eventSource.value) {
@@ -1197,9 +905,9 @@ const startProcessingListener = (jobId) => {
   }, 600000) // 10 minutes
 }
 
-const handleProcessingUpdate = (data) => {  
+const handleProcessingUpdate = (data) => {
   console.log('Processing update:', data.type, data.message)
-  switch (data.type) {      
+  switch (data.type) {
     case 'connected':
       processingStatus.value = 'Connected to photo processing service...'
       break
@@ -1207,7 +915,7 @@ const handleProcessingUpdate = (data) => {
     case 'complete':
       processingStatus.value = 'Photo processing complete! 🎉'
       showProcessingCompleteNotification();
-      
+
       // Auto-refresh the album after a short delay
       setTimeout(async () => {
         await refreshAlbum()
@@ -1216,14 +924,14 @@ const handleProcessingUpdate = (data) => {
 
       }, 2000)
       break
-      
+
     case 'failed':
       processingStatus.value = 'Photo processing failed. Please try again.'
       setTimeout(() => {
         stopProcessingListener()
       }, 5000)
       break
-      
+
     default:
       processingStatus.value = data.message || 'Processing photos...'
   }
@@ -1237,7 +945,7 @@ const showProcessingCompleteNotification = () => {
       icon: '/favicon.ico'
     })
   }
-  
+
   // Also show an in-app notification
   // You could use your existing notification system here
   console.log('📸 Photo processing complete notification')
@@ -1249,7 +957,7 @@ const stopProcessingListener = () => {
     eventSource.value.close()
     eventSource.value = null
   }
-  
+
   processingNotifications.value = false
   processingStatus.value = ''
   processingJobId.value = null
@@ -1261,135 +969,12 @@ const requestNotificationPermission = () => {
   }
 }
 
-// Modify your existing uploadFiles method to integrate SSE
-const uploadFiles = async () => {
-  if (selectedFiles.value.length === 0) return
-  
-  // Check permission before proceeding
-  const actionType = uploadType.value === 'photos' ? 'upload_photos' : 'upload_photos'
-  if (!authService.canPerformAction(actionType)) {
-    error.value = `You do not have permission to upload ${uploadType.value}`
-    return
-  }
-  
-  // Request notification permission
-  requestNotificationPermission()
-  
-  uploading.value = true
-  uploadProgress.value = 0
-  error.value = null
-  
-  // Reset upload tracking
-  uploadedFiles.value = new Set()
-  failedFiles.value = new Set()
-  
-  try {
-    uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
-    console.log('📤 Uploading files:', selectedFiles.value.map(f => f.name))
-    
-    // Mobile detection
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    console.log('📱 Mobile device detected:', isMobile)
-    
-    // Mobile-specific visibility handler
-    let visibilityChangeHandler = null
-    if (isMobile) {
-      visibilityChangeHandler = () => {
-        if (document.hidden && uploading.value) {
-          console.warn('📱 App backgrounded during upload - may affect progress updates')
-        }
-      }
-      document.addEventListener('visibilitychange', visibilityChangeHandler)
-    }
-    
-    // Upload files
-    const response = await apiService.uploadFile(
-      BUCKET_NAME, 
-      selectedFiles.value, 
-      props.albumName
-    )
-
-    console.log('📥 Upload response:', response);
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Upload failed')
-    }
-    
-    // Handle async processing with SSE
-    if (response.data.jobId) {
-      const jobId = response.data.jobId
-      uploadProgress.value = 100
-      uploadStatus.value = 'Upload complete! Processing photos...'
-      
-      // Start listening for processing updates
-      console.log('📡 Starting SSE listener for job ID:', jobId);
-      startProcessingListener(jobId)
-      
-      // Close upload dialog since files are uploaded
-      setTimeout(() => {
-        closeUploadDialog()
-      }, 1000)
-      
-    } else if (response.data.status === 'processing') {
-      // Background processing without job ID
-      uploadProgress.value = 100
-      uploadStatus.value = `${response.data.filesReceived} files received and are being processed.`
-      
-      // Show processing notification without SSE
-      processingNotifications.value = true
-      processingStatus.value = 'Photos are being processed in the background...'
-      
-      // Auto-refresh after delay
-      setTimeout(async () => {
-        await loadPhotos()
-        stopProcessingListener()
-      }, 5000)
-      
-    } else {
-      // Legacy synchronous upload
-      const uploaded = response.data.uploaded || []
-      const errors = response.errors || []
-      
-      uploaded.forEach(file => {
-        uploadedFiles.value.add(file.originalName)
-      })
-      
-      if (errors.length > 0) {
-        errors.forEach(error => {
-          failedFiles.value.add(error.filename)
-        })
-      }
-      
-      uploadProgress.value = 100
-      
-      if (errors.length > 0) {
-        uploadStatus.value = `${uploaded.length} files uploaded, ${errors.length} failed`
-      } else {
-        uploadStatus.value = 'All files uploaded successfully!'
-      }
-      
-      // Refresh album for immediate uploads
-      await loadPhotos()
-    }
-    
-  } catch (err) {
-    error.value = `Upload failed: ${err.message}`
-    console.error('Upload failed:', err)
-  } finally {
-    uploading.value = false
-    
-    // Cleanup
-    if (visibilityChangeHandler) {
-      document.removeEventListener('visibilitychange', visibilityChangeHandler)
-    }
-  }
-}
 
 onUnmounted(() => {
   cleanupBlobUrls()
   // Clean up keyboard listener if lightbox is open
   document.removeEventListener('keydown', handleLightboxKeyboard)
-    // Clean up SSE connection
+  // Clean up SSE connection
   stopProcessingListener()
 })
 </script>
@@ -1462,8 +1047,13 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .btn-primary {
@@ -1538,8 +1128,13 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .error {
@@ -1655,7 +1250,7 @@ onUnmounted(() => {
   transition: opacity 0.3s ease;
 }
 
-.photo-image:not([src=""]) + .image-loading-placeholder {
+.photo-image:not([src=""])+.image-loading-placeholder {
   opacity: 0;
   pointer-events: none;
 }
@@ -1784,11 +1379,30 @@ onUnmounted(() => {
 }
 
 @keyframes checkmarkShow {
-  0% { opacity: 0; transform: scale(0.5); }
-  20% { opacity: 1; transform: scale(1.1); }
-  40% { opacity: 1; transform: scale(1); }
-  90% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  20% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  90% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
 }
 
 .photo-info {
@@ -2076,30 +1690,30 @@ onUnmounted(() => {
   .album-detail {
     padding: 1rem;
   }
-  
+
   .album-header {
     flex-direction: column;
     align-items: stretch;
     gap: 1rem;
   }
-  
+
   .album-info {
     text-align: center;
   }
-  
+
   .photos-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
-  
+
   .dialog {
     min-width: auto;
     margin: 1rem;
   }
-  
+
   .upload-dialog {
     min-width: auto;
   }
-  
+
   .dialog-actions {
     flex-direction: column;
   }
@@ -2148,13 +1762,16 @@ onUnmounted(() => {
   justify-content: center;
   position: relative;
   width: 100%;
-  height: calc(100% - 80px); /* Reserve space for info bar */
-  min-height: 0; /* Allow shrinking */
+  height: calc(100% - 80px);
+  /* Reserve space for info bar */
+  min-height: 0;
+  /* Allow shrinking */
 }
 
 .lightbox-image {
   max-width: 100%;
-  max-height: calc(100vh - 120px); /* Account for info bar at bottom */
+  max-height: calc(100vh - 120px);
+  /* Account for info bar at bottom */
   width: auto;
   height: auto;
   object-fit: contain;
@@ -2209,8 +1826,13 @@ onUnmounted(() => {
 }
 
 @keyframes progressIndeterminate {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(200px); }
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(200px);
+  }
 }
 
 .lightbox-heic-error {
@@ -2366,15 +1988,15 @@ onUnmounted(() => {
     height: 50px;
     font-size: 1.2rem;
   }
-  
+
   .lightbox-prev {
     left: 1rem;
   }
-  
+
   .lightbox-next {
     right: 1rem;
   }
-  
+
   .lightbox-close {
     top: 1rem;
     right: 1rem;
@@ -2382,25 +2004,27 @@ onUnmounted(() => {
     height: 40px;
     font-size: 1rem;
   }
-  
+
   .lightbox-info {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
     padding: 1rem;
   }
-  
+
   .lightbox-content {
     max-width: 98vw;
     max-height: 98vh;
   }
-  
+
   .lightbox-image {
-    max-height: calc(100vh - 140px); /* More space for mobile info bar */
+    max-height: calc(100vh - 140px);
+    /* More space for mobile info bar */
   }
-  
+
   .lightbox-image-container {
-    height: calc(100% - 100px); /* Adjust for mobile info bar */
+    height: calc(100% - 100px);
+    /* Adjust for mobile info bar */
   }
 }
 
@@ -2542,27 +2166,27 @@ onUnmounted(() => {
     margin-bottom: 1rem;
     font-size: 0.85rem;
   }
-  
+
   .preload-header {
     gap: 0.5rem;
     margin-bottom: 0.5rem;
   }
-  
+
   .preload-current-file {
     padding: 0.4rem 0.6rem;
     font-size: 0.8rem;
   }
-  
+
   .ready-list-header {
     font-size: 0.85rem;
     margin-bottom: 0.4rem;
   }
-  
+
   .ready-images-grid {
     gap: 0.4rem;
     max-height: 100px;
   }
-  
+
   .ready-image-item {
     padding: 0.2rem 0.4rem;
     font-size: 0.75rem;
