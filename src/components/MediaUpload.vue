@@ -18,11 +18,6 @@
 
       <!-- Upload UI - hidden after upload completes -->
       <div v-if="!(uploadProgress === 100 && !uploading)">
-        <!-- Mobile Warning -->
-        <div v-if="isMobileDevice" class="mobile-warning">
-          <i class="fas fa-mobile-alt"></i>
-          <span>Keep this app open during upload for progress updates</span>
-        </div>
 
         <!-- File Drop Zone -->
         <div class="upload-zone" :class="{ 'dragging': isDragging }" @drop="handleDrop" @dragover.prevent
@@ -85,12 +80,6 @@ import { ref, onMounted } from 'vue'
 import authService from '../services/auth.js'
 import apiService from '../services/api.js'
 
-// ADDED FOR SSE
-const processingNotifications = ref(false)
-const eventSource = ref(null)
-const processingStatus = ref('')
-const processingJobId = ref(null)
-
 // Props
 const props = defineProps({
   showUploadDialog: {
@@ -101,7 +90,6 @@ const props = defineProps({
 
 // Constants
 const BUCKET_NAME = 'photovault'
-const ITEMS_PER_PAGE = 50
 
 // Emits
 const emit = defineEmits(['close'])
@@ -172,46 +160,6 @@ const removeFile = (index) => {
 }
 
 // Upload functionality
-const startProcessingListener = (jobId) => {
-  if (eventSource.value) {
-    eventSource.value.close()
-  }
-  
-  processingJobId.value = jobId
-  processingNotifications.value = true
-  processingStatus.value = 'Starting photo processing...'
-  
-  // Create SSE connection
-  const sseUrl = apiService.getProcessingStatusUrl(jobId)
-  eventSource.value = new EventSource(sseUrl)
-  
-  eventSource.value.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      console.log('SSE message received:', data)
-      handleProcessingUpdate(data)
-    } catch (error) {
-      console.error('Error parsing SSE message:', error)
-    }
-  }
-  
-  eventSource.value.onerror = (error) => {
-    console.error('SSE connection error:', error)
-    // Retry connection after 5 seconds
-    setTimeout(() => {
-      if (processingNotifications.value) {
-        startProcessingListener(jobId)
-      }
-    }, 5000)
-  }
-  
-  // Auto-close after 10 minutes to prevent long-running connections
-  setTimeout(() => {
-    if (eventSource.value) {
-      stopProcessingListener()
-    }
-  }, 600000) // 10 minutes
-}
 const uploadFiles = async () => {
   if (selectedFiles.value.length === 0) return
   
@@ -236,10 +184,6 @@ const uploadFiles = async () => {
   try {
     uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
     console.log('📤 Uploading files:', selectedFiles.value.map(f => f.name))
-    
-    // Mobile detection
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    console.log('📱 Mobile device detected:', isMobile)
         
     // Upload files
     const response = await apiService.uploadFile(
@@ -248,68 +192,14 @@ const uploadFiles = async () => {
       props.albumName
     )
 
-    console.log('📥 Upload response:', response);
-    
     if (!response.success) {
       throw new Error(response.error || 'Upload failed')
+    } else {
+        console.log('📤 Upload response:', response);
+        closeUploadDialog(response.data.jobId);
     }
     
-    // Handle async processing with SSE
-    if (response.data.jobId) {
-      const jobId = response.data.jobId
-      uploadProgress.value = 100
-      uploadStatus.value = 'Upload complete! Processing photos...'
-      
-      // Start listening for processing updates
-      console.log('📡 Starting SSE listener for job ID:', jobId);
-      startProcessingListener(jobId)
-      
-      // Close upload dialog since files are uploaded
-      setTimeout(() => {
-        closeUploadDialog()
-      }, 1000)
-      
-    } else if (response.data.status === 'processing') {
-      // Background processing without job ID
-      uploadProgress.value = 100
-      uploadStatus.value = `${response.data.filesReceived} files received and are being processed.`
-      
-      // Show processing notification without SSE
-      processingNotifications.value = true
-      processingStatus.value = 'Photos are being processed in the background...'
-      
-      // Auto-refresh after delay
-      setTimeout(async () => {
-        await loadPhotos()
-        stopProcessingListener()
-      }, 5000)
-      
-    } else {
-      // Legacy synchronous upload
-      const uploaded = response.data.uploaded || []
-      const errors = response.errors || []
-      
-      uploaded.forEach(file => {
-        uploadedFiles.value.add(file.originalName)
-      })
-      
-      if (errors.length > 0) {
-        errors.forEach(error => {
-          failedFiles.value.add(error.filename)
-        })
-      }
-      
-      uploadProgress.value = 100
-      
-      if (errors.length > 0) {
-        uploadStatus.value = `${uploaded.length} files uploaded, ${errors.length} failed`
-      } else {
-        uploadStatus.value = 'All files uploaded successfully!'
-      }
-      
-      // Refresh album for immediate uploads
-      await loadPhotos()
-    }
+
     
   } catch (err) {
     error.value = `Upload failed: ${err.message}`
@@ -321,7 +211,7 @@ const uploadFiles = async () => {
 }
 
 // Dialog management
-const closeUploadDialog = () => {
+const closeUploadDialog = (jobId) => {
   // Reset component state
   selectedFiles.value = []
   uploadProgress.value = 0
@@ -333,7 +223,7 @@ const closeUploadDialog = () => {
   isDragging.value = false
   
   // Emit close event to parent
-  emit('close')
+  emit('close', { jobId })
 }
 
 // Utility methods

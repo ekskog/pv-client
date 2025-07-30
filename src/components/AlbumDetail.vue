@@ -154,9 +154,7 @@ const props = defineProps({
 })
 
 // ADDED FOR SSE BY CLAUDE
-const showProcessingIndicator = computed(() => {
-  return processingNotifications.value || processingStatus.value
-})
+
 // Emits
 const emit = defineEmits(['back', 'photoOpened'])
 
@@ -227,9 +225,17 @@ const BUCKET_NAME = 'photovault'
 const ITEMS_PER_PAGE = 50
 
 // Methods
-const handleUploadDialogClose = () => {
+
+
+const handleUploadDialogClose = (payload) => {
   showUploadDialog.value = false
   // Add any other cleanup you might need here
+
+  if (payload?.jobId) {
+    console.log('Upload jobId received from child:', payload.jobId)
+    startProcessingListener(payload.jobId);
+  }
+
 }
 
 const loadPhotos = async () => {
@@ -865,6 +871,7 @@ onMounted(async () => {
 
 // ADDED BY CLAUDE FOR SSE
 const startProcessingListener = (jobId) => {
+  console.log('Starting SSE processing listener for jobId:', jobId)
   if (eventSource.value) {
     eventSource.value.close()
   }
@@ -962,13 +969,6 @@ const stopProcessingListener = () => {
   processingStatus.value = ''
   processingJobId.value = null
 }
-
-const requestNotificationPermission = () => {
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission()
-  }
-}
-
 
 onUnmounted(() => {
   cleanupBlobUrls()
