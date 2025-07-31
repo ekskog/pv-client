@@ -6,77 +6,74 @@
 
       <!-- Upload Type Selector -->
       <div class="upload-type-selector">
-        <button class="btn-upload-type" :class="{ active: uploadType === 'photos' }" @click="setUploadType('photos')">
+        <button class="btn-upload-type" @click="triggerUpload('photos')">
           <i class="fas fa-image"></i>
           Photos
         </button>
-        <button class="btn-upload-type" :class="{ active: uploadType === 'videos' }" @click="setUploadType('videos')">
+        <button class="btn-upload-type" @click="triggerUpload('videos')">
           <i class="fas fa-video"></i>
           Videos
         </button>
       </div>
 
-      <!-- Upload UI - hidden after upload completes -->
-      <div v-if="!(uploadProgress === 100 && !uploading)">
+      <!-- Hidden File Input -->
+      <input
+        ref="fileInput"
+        type="file"
+        :accept="uploadType === 'photos' ? 'image/*' : 'video/*'"
+        multiple
+        @change="handleFileSelect"
+        style="display: none;"
+      />
 
-        <!-- File Drop Zone -->
-        <div class="upload-zone" :class="{ 'dragging': isDragging }" @drop="handleDrop" @dragover.prevent
-          @dragenter="isDragging = true" @dragleave="isDragging = false" @click="triggerFileInput">
-          <input ref="fileInput" type="file" :accept="uploadType === 'photos' ? 'image/*' : 'video/*'" multiple
-            @change="handleFileSelect" style="display: none;" />
-          <div class="upload-content">
-            <i :class="uploadType === 'photos' ? 'fas fa-cloud-upload-alt' : 'fas fa-video'" class="upload-icon"></i>
-            <p class="upload-text">
-              {{ uploadType === 'photos' ? 'Drag and drop photos here or click to select' : 'Drag and drop videos here or click to select' }}
-            </p>
-            <p class="upload-hint">
-              {{ uploadType === 'photos' ? 'Supports JPG and HEIC files (optimized for fast display)' : 'Supports MOV, MP4 and other video formats (up to 2GB each)' }}
-            </p>
-          </div>
+      <!-- Selected Files Summary -->
+      <div v-if="selectedFiles.length > 0" class="selected-summary">
+        <p>
+          <strong>{{ selectedFiles.length }}</strong> file{{ selectedFiles.length > 1 ? 's' : '' }} selected —
+          <strong>{{ totalSizeMB }}</strong> MB total
+        </p>
+      </div>
+
+      <!-- Upload Progress -->
+      <div v-if="uploading" class="upload-progress">
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: `${uploadProgress}%` }"></div>
         </div>
+        <p class="progress-text">{{ uploadStatus }}</p>
+      </div>
 
-        <!-- Upload Progress -->
-        <div v-if="uploading" class="upload-progress">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: `${uploadProgress}%` }"></div>
-          </div>
-          <p class="progress-text">{{ uploadStatus }}</p>
-        </div>
-
-        <!-- Selected Files -->
-        <div v-if="selectedFiles.length > 0" class="selected-files">
-          <h4>Selected Files ({{ selectedFiles.length }})</h4>
-          <div class="file-list">
-            <div v-for="(file, index) in selectedFiles" :key="index" class="file-item">
-              <div class="file-info">
-                <span class="file-name">{{ file.name }}</span>
-                <span class="file-size">{{ formatFileSize(file.size) }}</span>
-              </div>
-
-              <button v-if="!uploading" @click="removeFile(index)" class="btn-remove">
-                <i class="fas fa-times"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div> <!-- End of upload UI conditional -->
-
+      <!-- Dialog Actions -->
       <div class="dialog-actions">
         <button class="btn-secondary" @click="closeUploadDialog">
           {{ uploadProgress === 100 && !uploading ? 'Done' : 'Cancel' }}
         </button>
-        <button v-if="uploadProgress < 100" class="btn-primary" @click="uploadFiles"
-          :disabled="selectedFiles.length === 0 || uploading">
-          {{ uploading ? 'Uploading...' : `Upload ${selectedFiles.length} ${uploadType === 'photos' ? 'Photo' :
-          'Video'}${selectedFiles.length !== 1 ? 's' : ''}` }}
+        <button
+          v-if="uploadProgress < 100"
+          class="btn-primary"
+          @click="uploadFiles"
+          :disabled="selectedFiles.length === 0 || uploading"
+        >
+          {{ uploading ? 'Uploading...' : `Upload ${selectedFiles.length} ${uploadType === 'photos' ? 'Photo' : 'Video'}${selectedFiles.length !== 1 ? 's' : ''}` }}
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Complete Modal -->
+  <div v-if="showUploadCompleteModal" class="dialog-overlay" @click="showUploadCompleteModal = false">
+    <div class="dialog" @click.stop>
+      <h3><i class="fas fa-check-circle" style="color: #4caf50;"></i> Upload Complete</h3>
+      <p>Your files have been uploaded. The album will refresh automatically when processing is complete.</p>
+      <div class="dialog-actions">
+        <button class="btn-primary" @click="confirmUploadComplete">OK</button>
       </div>
     </div>
   </div>
 </template>
 
+
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import authService from '../services/auth.js'
 import apiService from '../services/api.js'
 
@@ -92,135 +89,100 @@ const props = defineProps({
   }
 })
 
-// Constants
-const BUCKET_NAME = 'photovault'
-
 // Emits
 const emit = defineEmits(['close'])
 
-// Reactive data
+// Constants
+const BUCKET_NAME = 'photovault'
+
+// Reactive state
 const uploadType = ref('photos')
-const isDragging = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const uploadStatus = ref('')
 const selectedFiles = ref([])
-const isMobileDevice = ref(false)
 const uploadedFiles = ref(new Set())
 const failedFiles = ref(new Set())
 const error = ref(null)
-
-// Template refs
 const fileInput = ref(null)
+const showUploadCompleteModal = ref(false)
+const pendingJobId = ref(null)
 
-// Upload type management
-const setUploadType = (type) => {
+
+// Trigger upload flow
+const triggerUpload = (type) => {
   uploadType.value = type
-  selectedFiles.value = [] // Clear selected files when switching type
-}
-const requestNotificationPermission = () => {
-  if ('Notification' in window && Notification.permission === 'default') {
-    Notification.requestPermission()
-  }
-}
-// File handling methods
-const handleDrop = (event) => {
-  event.preventDefault()
-  isDragging.value = false
-  const files = Array.from(event.dataTransfer.files)
-  addFiles(files)
-}
-
-const handleFileSelect = (event) => {
-  const files = Array.from(event.target.files)
-  addFiles(files)
-}
-
-const triggerFileInput = () => {
+  selectedFiles.value = []
   fileInput.value?.click()
 }
 
-const addFiles = (files) => {
-  let validFiles
-  let fileTypeDescription
-  
-  if (uploadType.value === 'photos') {
-    validFiles = files.filter(file => file.type.startsWith('image/'))
-    fileTypeDescription = 'image files'
-  } else {
-    validFiles = files.filter(file => file.type.startsWith('video/'))
-    fileTypeDescription = 'video files'
-  }
-  
+// File selection
+const handleFileSelect = (event) => {
+  const files = Array.from(event.target.files)
+  const validFiles = files.filter(file =>
+    uploadType.value === 'photos'
+      ? file.type.startsWith('image/')
+      : file.type.startsWith('video/')
+  )
+
   selectedFiles.value.push(...validFiles)
-  
+
   if (validFiles.length !== files.length) {
-    alert(`${files.length - validFiles.length} files were skipped (only ${fileTypeDescription} are allowed)`)
-  } else {
-    console.log(`selected ${validFiles.length} media files to upload`)
+    alert(`Some files were skipped. Only ${uploadType.value} are allowed.`)
   }
 }
 
-const removeFile = (index) => {
-  selectedFiles.value.splice(index, 1)
-}
+const totalSizeMB = computed(() => {
+  const totalBytes = selectedFiles.value.reduce((sum, file) => sum + file.size, 0)
+  return (totalBytes / (1024 * 1024)).toFixed(2)
+})
 
-// Upload functionality
+// Upload files
 const uploadFiles = async () => {
   if (selectedFiles.value.length === 0) return
-  
-  // Check permission before proceeding
+
   const actionType = uploadType.value === 'photos' ? 'upload_photos' : 'upload_photos'
   if (!authService.canPerformAction(actionType)) {
     error.value = `You do not have permission to upload ${uploadType.value}`
     return
-  } else {
-    console.log(`will upload to ${props.albumName}`)
   }
-  
-  // Request notification permission
-  requestNotificationPermission()
-  
+
   uploading.value = true
   uploadProgress.value = 0
   error.value = null
-  
-  // Reset upload tracking
   uploadedFiles.value = new Set()
   failedFiles.value = new Set()
-  
+
   try {
     uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
-    console.log('📤 Uploading files:', selectedFiles.value.map(f => f.name))
-        
-    // Upload files
     const response = await apiService.uploadFile(
-      BUCKET_NAME, 
-      selectedFiles.value, 
+      BUCKET_NAME,
+      selectedFiles.value,
       props.albumName
     )
 
     if (!response.success) {
       throw new Error(response.error || 'Upload failed')
     } else {
-        console.log('📤 Upload response:', response);
-        closeUploadDialog(response.data.jobId);
+      pendingJobId.value = response.data.jobId
+      showUploadCompleteModal.value = true
     }
-    
 
-    
   } catch (err) {
     error.value = `Upload failed: ${err.message}`
     console.error('Upload failed:', err)
   } finally {
     uploading.value = false
-    
   }
 }
 
-// Dialog management
+const confirmUploadComplete = () => {
+  showUploadCompleteModal.value = false
+  closeUploadDialog(pendingJobId.value)
+}
+
+// Close dialog
 const closeUploadDialog = (jobId) => {
-  // Reset component state
   selectedFiles.value = []
   uploadProgress.value = 0
   uploadStatus.value = ''
@@ -228,16 +190,12 @@ const closeUploadDialog = (jobId) => {
   uploadedFiles.value = new Set()
   failedFiles.value = new Set()
   error.value = null
-  isDragging.value = false
-  
-  // Emit close event to parent
+
   emit('close', { jobId })
 }
 
-// Utility methods
+// Format file size
 const formatFileSize = (bytes) => {
-  // TODO: Implement file size formatting
-  // Convert bytes to human readable format (KB, MB, GB)
   if (bytes === 0) return '0 Bytes'
   const k = 1024
   const sizes = ['Bytes', 'KB', 'MB', 'GB']
@@ -245,19 +203,11 @@ const formatFileSize = (bytes) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-const detectMobileDevice = () => {
-  // TODO: Implement mobile device detection
-  // Set isMobileDevice.value based on user agent or screen size
-  isMobileDevice.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-}
-
-// Lifecycle
+// Detect mobile (optional)
 onMounted(() => {
-  // TODO: Implement mobile device detection
-  detectMobileDevice()
+  // You can add mobile-specific logic here if needed
 })
 </script>
-
 
 <style scoped>
 /* Dialog overlay and base dialog styles */
@@ -318,83 +268,11 @@ onMounted(() => {
   color: #2196f3;
 }
 
-.btn-upload-type.active {
-  border-color: #2196f3;
-  background: #2196f3;
-  color: #fff;
-}
-
 .btn-upload-type i {
   font-size: 1rem;
 }
 
-/* Mobile warning */
-.mobile-warning {
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin-bottom: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: #856404;
-}
-
-.mobile-warning i {
-  color: #f39c12;
-  font-size: 1rem;
-}
-
-/* Upload zone */
-.upload-zone {
-  border: 2px dashed #ccc;
-  border-radius: 8px;
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  margin-bottom: 1.5rem;
-}
-
-.upload-zone:hover,
-.upload-zone.dragging {
-  border-color: #2196f3;
-  background: #f3f9ff;
-}
-
-.upload-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.upload-icon {
-  font-size: 3rem;
-  color: #ccc;
-}
-
-.upload-text {
-  font-size: 1.1rem;
-  font-weight: 500;
-  margin: 0;
-  color: #333;
-}
-
-.upload-hint {
-  font-size: 0.9rem;
-  color: #666;
-  margin: 0;
-}
-
-
-
-
-
-/* Progress bar */
-
+/* Upload progress */
 .upload-progress {
   margin-bottom: 1.5rem;
 }
@@ -421,25 +299,18 @@ onMounted(() => {
   margin: 0;
 }
 
-.progress-fill {
-  height: 100%;
-  background: #2196f3;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.9rem;
-  color: #666;
-  text-align: center;
-  margin: 0;
-}
-
 /* Selected files */
 .selected-files {
   margin-bottom: 1.5rem;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
 }
+
+.selected-summary {
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+
 .selected-files h4 {
   margin: 0 0 1rem 0;
   color: #333;
@@ -452,14 +323,25 @@ onMounted(() => {
 
 .file-item {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 0.9rem;
   word-break: break-word;
+  margin-bottom: 0.5rem;
+}
+
+.file-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-name {
+  font-weight: 500;
 }
 
 .file-size {
   font-size: 0.8rem;
   color: #666;
-  margin-top: 0.25rem;
 }
 
 .btn-remove {
@@ -481,7 +363,6 @@ onMounted(() => {
 .btn-remove:hover {
   background: #d32f2f;
 }
-
 
 /* Dialog actions */
 .dialog-actions {
