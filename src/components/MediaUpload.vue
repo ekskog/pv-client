@@ -85,6 +85,10 @@ const props = defineProps({
   showUploadDialog: {
     type: Boolean,
     default: false
+  },
+  albumName: {
+    type: String,
+    default: 'Test'
   }
 })
 
@@ -152,6 +156,8 @@ const addFiles = (files) => {
   
   if (validFiles.length !== files.length) {
     alert(`${files.length - validFiles.length} files were skipped (only ${fileTypeDescription} are allowed)`)
+  } else {
+    console.log(`selected ${validFiles.length} media files to upload`)
   }
 }
 
@@ -168,6 +174,8 @@ const uploadFiles = async () => {
   if (!authService.canPerformAction(actionType)) {
     error.value = `You do not have permission to upload ${uploadType.value}`
     return
+  } else {
+    console.log(`will upload to ${props.albumName}`)
   }
   
   // Request notification permission

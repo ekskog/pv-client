@@ -55,7 +55,7 @@
   </div>
 
   <MediaUpload 
-    :showUploadDialog="showUploadDialog" 
+    :showUploadDialog="showUploadDialog" :album-name="albumName"
     @close="handleUploadDialogClose"
   />
 
