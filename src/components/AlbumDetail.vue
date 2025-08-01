@@ -821,7 +821,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  cleanupBlobUrls()
   // Clean up keyboard listener if lightbox is open
   document.removeEventListener('keydown', handleLightboxKeyboard)
   // Clean up SSE connection
