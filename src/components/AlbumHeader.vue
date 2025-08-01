@@ -63,7 +63,7 @@ const emit = defineEmits(['back', 'refresh', 'upload'])
 }
 
 .btn-back {
-  background: #555;
+  background: #f5f5f5;
   color: #333;
   border: 1px solid #491b1b;
   padding: 0.75rem 1rem;

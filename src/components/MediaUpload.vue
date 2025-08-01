@@ -400,4 +400,38 @@ onMounted(() => {
   color: #fff;
   cursor: not-allowed;
 }
+
+@media (max-width: 768px) {
+  .dialog {
+    min-width: unset;
+    width: 90vw;
+    padding: 1.5rem;
+  }
+
+  .upload-dialog {
+    min-width: unset;
+  }
+
+  .btn-upload-type {
+    font-size: 0.85rem;
+    padding: 0.5rem;
+  }
+
+  .dialog-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .selected-summary p {
+    font-size: 0.9rem;
+    text-align: center;
+  }
+}
+
 </style>
