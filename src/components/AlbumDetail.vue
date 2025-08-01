@@ -133,17 +133,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
 import AlbumHeader from './AlbumHeader.vue'
 import MediaUpload from './MediaUpload.vue'
-
-// ADDED FOR SSE
-const processingNotifications = ref(false)
-const eventSource = ref(null)
-const processingStatus = ref('')
-const processingJobId = ref(null)
 
 // Props
 const props = defineProps({
@@ -153,51 +147,50 @@ const props = defineProps({
   }
 })
 
-// ADDED FOR SSE BY CLAUDE
-
 // Emits
 const emit = defineEmits(['back', 'photoOpened'])
 
-// Reactive state
+// Core reactive state
 const loading = ref(false)
 const error = ref(null)
 const photos = ref([])
 const albumMetadata = ref(null)
 const photoMetadataLookup = ref({})
-const locationCache = ref(new Map()) // Cache for resolved addresses
+const locationCache = ref(new Map())
 
-// Removed HEIC conversion variables - backend handles all conversions
+// Upload/Delete state
 const showUploadDialog = ref(false)
 const showDeletePhotoDialog = ref(false)
-const uploadedFiles = ref(new Set()) // Track completed uploads
-const failedFiles = ref(new Set()) // Track failed uploads
 const photoToDelete = ref(null)
 const deletingPhoto = ref(false)
-const fileInput = ref(null)
 
 // Lightbox state
 const showLightbox = ref(false)
 const currentPhotoIndex = ref(0)
 const lightboxLoading = ref(false)
-const currentImageInfo = ref('')
 
 // Progressive loading stats
 const preloadStats = ref({
   total: 0,
   preloaded: 0,
   percentage: 0,
-  currentlyFetchingFullSize: null, // Track full-size filename currently being fetched
-  readyImages: [] // List of full-size filenames ready for instant lightbox
+  currentlyFetchingFullSize: null,
+  readyImages: []
 })
 
 // Progress tracker interval reference for cleanup
 const progressTracker = ref(null)
 
+// SSE state
+const processingNotifications = ref(false)
+const eventSource = ref(null)
+const processingStatus = ref('')
+const processingJobId = ref(null)
+
 // Computed properties
 const currentPhoto = computed(() => {
   const photo = lightboxPhotos.value[currentPhotoIndex.value] || null
 
-  // Log current file showing in lightbox for debugging
   if (photo) {
     console.log('Current file showing in lightbox:', {
       name: photo.name,
@@ -220,22 +213,39 @@ const canDeletePhoto = computed(() => {
   return authService.canPerformAction('delete_photo')
 })
 
+// Show all regular image files (no thumbnail filtering)
+const visiblePhotos = computed(() => {
+  return photos.value.filter(photo => {
+    const isRegularImage = /\.(avif|jpg|jpeg|png|gif|heic)$/i.test(photo.name)
+    const isThumbnail = /_thumb\./i.test(photo.name)
+    return isRegularImage && !isThumbnail
+  })
+})
+
+// Use the same photos for lightbox navigation
+const lightboxPhotos = computed(() => {
+  return visiblePhotos.value
+})
+
+// Virtual scrolling
+const currentPage = ref(1)
+const paginatedVisiblePhotos = computed(() => {
+  const endIndex = currentPage.value * ITEMS_PER_PAGE
+  return visiblePhotos.value.slice(0, endIndex)
+})
+
 // Constants
 const BUCKET_NAME = 'photovault'
 const ITEMS_PER_PAGE = 50
 
-// Methods
-
-
+// Core Methods
 const handleUploadDialogClose = (payload) => {
   showUploadDialog.value = false
-  // Add any other cleanup you might need here
 
   if (payload?.jobId) {
     console.log('Upload jobId received from child:', payload.jobId)
-    startProcessingListener(payload.jobId);
+    startProcessingListener(payload.jobId)
   }
-
 }
 
 const loadPhotos = async () => {
@@ -243,41 +253,33 @@ const loadPhotos = async () => {
   loading.value = true
   error.value = null
 
-  // Clear previous data
-  cleanupBlobUrls()
-
   try {
-    // Clean the album name and ensure we have exactly one trailing slash
     let cleanAlbumName = props.albumName.trim()
-    // Remove any trailing slashes first
     cleanAlbumName = cleanAlbumName.replace(/\/+$/, '')
-    // Add exactly one trailing slash
     const prefix = cleanAlbumName + '/'
 
-    // console.log('📡 API request for prefix:', prefix)
+    // STEP 1: Load metadata FIRST
+    console.log('📄 Loading metadata first...')
+    await loadAlbumMetadata(cleanAlbumName)
+
+    // STEP 2: Then load photos
+    console.log('📡 Loading photos...')
     const response = await apiService.getBucketContents(BUCKET_NAME, prefix)
 
-    // console.log('📥 API response:', response)
-
     if (response.success && response.data) {
-
-      // Load ALL files returned by backend (no filtering)
       const allFiles = (response.data.objects || []).filter(obj => {
-        // Only exclude folders (names ending with '/')
-        return obj.name && !obj.name.endsWith('/');
+        return obj.name && !obj.name.endsWith('/')
       })
 
-      //console.log('📁 Files found:', allFiles.length, allFiles.map(f => f.name))
-
+      // STEP 3: Set photos after metadata is ready
       photos.value = allFiles
+      
+      console.log('✅ Photos and metadata loaded:', {
+        photosCount: allFiles.length,
+        metadataCount: Object.keys(photoMetadataLookup.value).length
+      })
 
-      // Load album metadata
-      await loadAlbumMetadata(cleanAlbumName)
-
-      // Reset pagination
       resetVirtualScrolling()
-
-      //console.log('✅ Album loaded successfully')
     } else {
       throw new Error(response.error || 'Failed to load album photos')
     }
@@ -289,13 +291,11 @@ const loadPhotos = async () => {
   }
 }
 
-// Refresh album data
 const refreshAlbum = async () => {
   console.log('🔄 Refreshing album:', props.albumName)
   await loadPhotos()
 }
 
-// Load album metadata JSON file
 const loadAlbumMetadata = async (albumName) => {
   try {
     const metadataFileName = `${albumName}/${albumName}.json`
@@ -303,26 +303,35 @@ const loadAlbumMetadata = async (albumName) => {
 
     console.log('📄 Loading metadata from:', metadataUrl)
     const response = await fetch(metadataUrl)
+    
     if (response.ok) {
       const metadata = await response.json()
       albumMetadata.value = metadata
 
-      // Create lookup table for quick access - use the correct structure
       const lookup = {}
-      if (metadata.images && Array.isArray(metadata.images)) {
-        metadata.images.forEach(imageMeta => {
-          if (imageMeta.sourceImage) {
-            // Extract just the filename from the full path
-            const filename = imageMeta.sourceImage.split('/').pop()
-            lookup[filename] = imageMeta
-            // Also store with full path for exact matches
-            lookup[imageMeta.sourceImage] = imageMeta
+      if (metadata.media && Array.isArray(metadata.media)) {
+        metadata.media.forEach((mediaMeta) => {
+          if (mediaMeta.sourceImage) {
+            const filename = mediaMeta.sourceImage.split('/').pop()
+            lookup[filename] = mediaMeta
+            lookup[mediaMeta.sourceImage] = mediaMeta
           }
         })
       }
+      
       photoMetadataLookup.value = lookup
-      //console.log('📄 Metadata loaded successfully for', Object.keys(lookup).length, 'images')
-      //console.log('📄 Available metadata keys:', Object.keys(lookup))
+      
+      console.log('📄 Metadata loaded:', Object.keys(lookup).length, 'entries')
+      
+      // FORCE REACTIVITY: If photos are already loaded, trigger re-render
+      if (photos.value.length > 0) {
+        console.log('🔄 Forcing photo re-render after metadata load')
+        const currentPhotos = photos.value
+        photos.value = []
+        await nextTick()
+        photos.value = currentPhotos
+      }
+      
     } else {
       console.warn('📄 Metadata file not found:', metadataFileName)
     }
@@ -331,18 +340,19 @@ const loadAlbumMetadata = async (albumName) => {
   }
 }
 
-// Format timestamp for display
 const formatPhotoTimestamp = (photo) => {
-  // Get metadata for the photo
-  const filename = photo.name.split('/').pop() // Get just the filename
+  // Return loading state if metadata isn't ready yet
+  if (Object.keys(photoMetadataLookup.value).length === 0) {
+    return 'Loading...'
+  }
+
+  const filename = photo.name.split('/').pop()
   let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
 
-  // If not found and this is an AVIF variant, try to find the original
+  // AVIF fallback logic
   if (!metadata && photo.name.includes('.avif')) {
-    // Try to match with original filename patterns
+    const baseName = filename.replace(/\.avif$/i, '')
     const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(key => {
-      // Extract base name without extension and compare
-      const baseName = filename.replace(/\.avif$/i, '')
       const originalBase = key.replace(/\.[^.]+$/, '')
       return baseName.includes(originalBase) || originalBase.includes(baseName)
     })
@@ -352,106 +362,60 @@ const formatPhotoTimestamp = (photo) => {
     }
   }
 
-  if (!metadata || !metadata.exif || !metadata.exif.dateTaken) {
+  if (!metadata || !metadata.timestamp) {
     return 'No date'
   }
 
   try {
-    const date = new Date(metadata.exif.dateTaken)
+    const date = new Date(metadata.timestamp)
     return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   } catch {
     return 'Invalid date'
   }
 }
 
-// Async function to fetch and cache location
-const fetchPhotoLocation = async (photo) => {
-  const cacheKey = photo.name;
-
-  // Return cached result if available
-  if (locationCache.value.has(cacheKey)) {
-    return locationCache.value.get(cacheKey);
-  }
-
-  // Get metadata for the photo
-  const filename = photo.name.split('/').pop();
-  let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name];
-
-  if (!metadata || !metadata.exif || !metadata.exif.gpsCoordinates) {
-    const result = 'No location';
-    locationCache.value.set(cacheKey, result);
-    return result;
-  }
-
-  try {
-    const coords = metadata.exif.gpsCoordinates.split(',');
-    if (coords.length === 2) {
-      const lat = parseFloat(coords[0]).toFixed(4);
-      const lng = parseFloat(coords[1]).toFixed(4);
-
-      // Fetch address from Mapbox API
-      const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
-      const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}`);
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.features && data.features.length > 0) {
-          const feature = data.features[0];
-          const result = `${feature.place_name}`;
-          //const result = `${feature.place_type[0]}: ${feature.place_name}`;
-          locationCache.value.set(cacheKey, result);
-          return result;
-        }
-      }
-
-      // Fallback to coordinates
-      const result = `${lat}, ${lng}`;
-      locationCache.value.set(cacheKey, result);
-      return result;
-    }
-  } catch (err) {
-    console.warn('Error fetching address from Mapbox:', err);
-    const result = 'Invalid location';
-    locationCache.value.set(cacheKey, result);
-    return result;
-  }
-};
-
-// Format GPS coordinates for display
 const formatPhotoGPS = (photo) => {
-  const cacheKey = photo.name;
-
-  // Return cached result or loading state
-  if (locationCache.value.has(cacheKey)) {
-    return locationCache.value.get(cacheKey);
+  // Return loading state if metadata isn't ready yet
+  if (Object.keys(photoMetadataLookup.value).length === 0) {
+    return 'Loading...'
   }
 
-  // Start async fetch but return loading state immediately
-  fetchPhotoLocation(photo);
-  return 'Loading location...';
-};
+  const cacheKey = photo.name
 
-// Call this after photos are loaded to pre-populate locations
-const preloadPhotoLocations = async () => {
-  const visiblePhotosWithGPS = visiblePhotos.value.filter(photo => {
-    const filename = photo.name.split('/').pop();
-    let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name];
-    return metadata?.exif?.gpsCoordinates;
-  });
+  if (locationCache.value.has(cacheKey)) {
+    return locationCache.value.get(cacheKey)
+  }
 
-  // Fetch locations in batches to avoid overwhelming the API
-  const batchSize = 5;
-  for (let i = 0; i < visiblePhotosWithGPS.length; i += batchSize) {
-    const batch = visiblePhotosWithGPS.slice(i, i + batchSize);
-    await Promise.all(batch.map(photo => fetchPhotoLocation(photo)));
+  const filename = photo.name.split('/').pop()
+  let metadata = photoMetadataLookup.value[filename] || photoMetadataLookup.value[photo.name]
 
-    // Small delay between batches
-    if (i + batchSize < visiblePhotosWithGPS.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+  // AVIF fallback
+  if (!metadata && photo.name.includes('.avif')) {
+    const baseName = filename.replace(/\.avif$/i, '')
+    const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(key => {
+      const originalBase = key.replace(/\.[^.]+$/, '')
+      return baseName.includes(originalBase) || originalBase.includes(baseName)
+    })
+
+    if (possibleOriginals.length > 0) {
+      metadata = photoMetadataLookup.value[possibleOriginals[0]]
     }
   }
-};
 
+  if (metadata && metadata.location) {
+    locationCache.value.set(cacheKey, metadata.location)
+    return metadata.location
+  }
+
+  if (metadata && metadata.coordinates) {
+    locationCache.value.set(cacheKey, metadata.coordinates)
+    return metadata.coordinates
+  }
+
+  return 'No location'
+}
+
+// Photo URL methods
 const downloadPhoto = (photo) => {
   const downloadUrl = apiService.getObjectUrl(BUCKET_NAME, photo.name)
   const link = document.createElement('a')
@@ -463,15 +427,18 @@ const downloadPhoto = (photo) => {
 }
 
 const getPhotoUrl = (photo) => {
-  // Use the photo directly since we no longer have thumbnails
   return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
 const getOptimizedPhotoUrl = (photo) => {
-  // Use the same photo since we no longer have separate thumbnails
   return apiService.getObjectUrl(BUCKET_NAME, photo.name)
 }
 
+const getPhotoDisplayName = (filename) => {
+  return filename.split('/').pop() || filename
+}
+
+// Image loading and preloading
 const preloadImage = (src) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -483,44 +450,30 @@ const preloadImage = (src) => {
 
 const loadImageProgressively = async (photo, imgElement) => {
   try {
-    // Since we no longer have thumbnails, we load the full-size image directly
     const photoSrc = getPhotoUrl(photo)
 
-    // Set currently loading
     preloadStats.value.currentlyFetchingFullSize = photo.name
 
     preloadImage(photoSrc).then(() => {
-      // Mark as ready for lightbox display
       imgElement.dataset.fullLoaded = 'true'
 
-      // Add to ready images list if not already there
       if (!preloadStats.value.readyImages.includes(photo.name)) {
         preloadStats.value.readyImages.push(photo.name)
       }
 
-      // Clear currently fetching status
       preloadStats.value.currentlyFetchingFullSize = null
-
-      // Update progress immediately when a preload completes
       trackProgressiveLoadingStats()
     }).catch((error) => {
-      // Failed to preload, but image may still be available
       console.warn(`Preload failed for ${photo.name}:`, error.message)
-
-      // Clear currently fetching status on error
       preloadStats.value.currentlyFetchingFullSize = null
     })
 
   } catch (error) {
-    // Failed to load image
     console.error(`Failed to load image for ${photo.name}:`, error)
   }
 }
 
-const getPhotoDisplayName = (filename) => {
-  return filename.split('/').pop() || filename
-}
-
+// Image event handlers
 const handleImageError = (event) => {
   const imgElement = event.target
   const originalSrc = imgElement.src
@@ -528,25 +481,21 @@ const handleImageError = (event) => {
 
   console.error('❌ Image failed to load:', photoName, 'from', originalSrc)
 
-  // Set fallback image
   event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4='
 }
 
 const handleImageLoadStart = (event) => {
   const imgElement = event.target
   const photoName = imgElement.alt || 'unknown'
-
   console.log('🔄 Started loading image:', photoName)
 }
 
 const handleImageLoad = (event) => {
-  const imgElement = event.target
-  const photoName = imgElement.alt || 'unknown'
-
+  // Image loaded successfully - could add tracking here if needed
 }
 
+// Lightbox methods
 const openPhoto = async (photo) => {
-  // Find the photo in lightbox array (now simplified since no thumbnail conversion needed)
   const targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name)
 
   if (targetPhotoIndex === -1) {
@@ -554,39 +503,31 @@ const openPhoto = async (photo) => {
     return
   }
 
-  // Check if image was already preloaded
   const gridImage = document.querySelector(`img[alt="${photo.name}"][data-full-loaded="true"]`)
   const isPreloaded = gridImage && gridImage.dataset.fullLoaded === 'true'
 
-  // Open the lightbox
   currentPhotoIndex.value = targetPhotoIndex
   showLightbox.value = true
 
-  // If image wasn't preloaded, show loading state briefly
   if (!isPreloaded) {
     lightboxLoading.value = true
   }
 
-  // Add keyboard event listener
   document.addEventListener('keydown', handleLightboxKeyboard)
 }
 
 const closeLightbox = () => {
   showLightbox.value = false
   lightboxLoading.value = false
-
-  // Remove keyboard event listener
   document.removeEventListener('keydown', handleLightboxKeyboard)
 }
 
 const nextPhoto = () => {
   if (currentPhotoIndex.value < lightboxPhotos.value.length - 1) {
-    // Check if next image was preloaded
     const nextPhoto = lightboxPhotos.value[currentPhotoIndex.value + 1]
     const nextGridImage = document.querySelector(`img[alt="${nextPhoto.name}"][data-full-loaded="true"]`)
     const isNextPreloaded = nextGridImage && nextGridImage.dataset.fullLoaded === 'true'
 
-    // Show loading state if next image wasn't preloaded
     if (!isNextPreloaded) {
       lightboxLoading.value = true
     }
@@ -597,12 +538,10 @@ const nextPhoto = () => {
 
 const previousPhoto = () => {
   if (currentPhotoIndex.value > 0) {
-    // Check if previous image was preloaded
     const prevPhoto = lightboxPhotos.value[currentPhotoIndex.value - 1]
     const prevGridImage = document.querySelector(`img[alt="${prevPhoto.name}"][data-full-loaded="true"]`)
     const isPrevPreloaded = prevGridImage && prevGridImage.dataset.fullLoaded === 'true'
 
-    // Show loading state if previous image wasn't preloaded
     if (!isPrevPreloaded) {
       lightboxLoading.value = true
     }
@@ -626,12 +565,15 @@ const handleLightboxKeyboard = (event) => {
 }
 
 const handleLightboxImageError = async (event) => {
-  // Since backend handles all conversions to AVIF, show generic error
   event.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIGNhbm5vdCBiZSBsb2FkZWQ8L3RleHQ+PC9zdmc+'
 }
 
+const handleLightboxImageLoad = (event) => {
+  lightboxLoading.value = false
+}
+
+// Delete photo methods
 const confirmDeletePhoto = (photo) => {
-  // Check permission before showing dialog
   if (!authService.canPerformAction('delete_photo')) {
     error.value = 'You do not have permission to delete photos'
     return
@@ -644,9 +586,6 @@ const confirmDeletePhoto = (photo) => {
 const deletePhoto = async () => {
   if (!photoToDelete.value) return
 
-  // Debug alert to confirm function is called
-  alert(`About to delete: ${photoToDelete.value.name}`)
-
   deletingPhoto.value = true
   error.value = null
 
@@ -656,12 +595,11 @@ const deletePhoto = async () => {
     console.log('🗑️ Delete response:', response)
 
     if (response.success) {
-      // Close lightbox if the deleted photo was being viewed
       if (showLightbox.value && currentPhoto.value && currentPhoto.value.name === photoToDelete.value.name) {
         closeLightbox()
       }
 
-      await loadPhotos() // Refresh the list
+      await loadPhotos()
       closeDeletePhotoDialog()
     } else {
       throw new Error(response.error || 'Failed to delete photo')
@@ -680,23 +618,7 @@ const closeDeletePhotoDialog = () => {
   deletingPhoto.value = false
 }
 
-
-// Cleanup function for blob URLs (now mostly unused since backend handles conversions)
-const cleanupBlobUrls = () => {
-  // Function kept for compatibility but mostly unused now
-}
-
-// Performance monitoring with 3-step progressive loading tracking
-const trackImageLoadTime = (photoName, startTime) => {
-  const loadTime = Date.now() - startTime
-
-  // Track slow loading images (>2 seconds) - could be used for analytics
-  if (loadTime > 2000) {
-    console.warn('Slow image load detected:', { photoName, loadTime })
-  }
-}
-
-// Track progressive loading statistics
+// Progressive loading and performance
 const trackProgressiveLoadingStats = () => {
   const allImages = document.querySelectorAll('.photo-image')
   const preloadedImages = document.querySelectorAll('.photo-image[data-full-loaded="true"]')
@@ -704,13 +626,12 @@ const trackProgressiveLoadingStats = () => {
   const preloadedCount = preloadedImages.length
   const preloadPercentage = totalImages > 0 ? Math.round((preloadedCount / totalImages) * 100) : 0
 
-  // Update reactive stats for UI display - preserve existing tracking properties
   preloadStats.value = {
     total: totalImages,
     preloaded: preloadedCount,
     percentage: preloadPercentage,
-    currentlyFetchingFullSize: preloadStats.value.currentlyFetchingFullSize, // Preserve current file being fetched
-    readyImages: preloadStats.value.readyImages // Preserve ready images list
+    currentlyFetchingFullSize: preloadStats.value.currentlyFetchingFullSize,
+    readyImages: preloadStats.value.readyImages
   }
 
   return {
@@ -720,7 +641,6 @@ const trackProgressiveLoadingStats = () => {
   }
 }
 
-// Aggressive background preloading: Start immediately after images load
 const startAggressivePreloading = () => {
   const imageElements = document.querySelectorAll('.photo-image')
 
@@ -729,30 +649,22 @@ const startAggressivePreloading = () => {
     const photo = visiblePhotos.value.find(p => p.name === photoName)
 
     if (photo) {
-      // Add small delay between images to avoid overwhelming the browser
       setTimeout(() => {
         loadImageProgressively(photo, img)
-      }, index * 100) // 100ms delay between each image
+      }, index * 100)
     }
   })
 }
 
-// Batch image preloading for visible images with enhanced progressive loading
 const preloadVisibleImages = () => {
   const imageElements = document.querySelectorAll('.photo-image[loading="lazy"]')
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       if (entry.isIntersecting) {
         const img = entry.target
-        const startTime = Date.now()
-
-        img.addEventListener('load', () => {
-          trackImageLoadTime(img.alt, startTime)
-        }, { once: true })
-
-        // Enhanced: Start progressive loading for visible images
         const photoName = img.alt
         const photo = visiblePhotos.value.find(p => p.name === photoName)
+        
         if (photo) {
           loadImageProgressively(photo, img)
         }
@@ -761,53 +673,14 @@ const preloadVisibleImages = () => {
       }
     })
   }, {
-    rootMargin: '100px', // Increased margin for earlier preloading
-    threshold: 0.1 // Trigger when 10% visible
+    rootMargin: '100px',
+    threshold: 0.1
   })
 
   imageElements.forEach(img => observer.observe(img))
 }
 
-// Simplified HEIC setup - no longer needed since we use server variants first
-const setupHeicLazyConversion = () => {
-  // This function is kept for compatibility but HEIC handling is now automatic
-  // through the handleHeicImageError fallback system
-}
-
-const handleLightboxImageLoad = (event) => {
-  const img = event.target
-  if (img && img.naturalWidth && img.naturalHeight) {
-    currentImageInfo.value = `${img.naturalWidth} × ${img.naturalHeight}`
-  }
-
-  // Hide loading state once image loads
-  lightboxLoading.value = false
-}
-
-// Show all regular image files (no thumbnail filtering)
-const visiblePhotos = computed(() => {
-  // Filter to show only regular image files, excluding any thumbnail files
-  return photos.value.filter(photo => {
-    const isRegularImage = /\.(avif|jpg|jpeg|png|gif|heic)$/i.test(photo.name)
-    const isThumbnail = /_thumb\./i.test(photo.name)
-    return isRegularImage && !isThumbnail
-  })
-})
-
-// Use the same photos for lightbox navigation
-const lightboxPhotos = computed(() => {
-  return visiblePhotos.value
-})
-
-// Virtual scrolling is now based on visiblePhotos computed property
-const currentPage = ref(1)
-const paginatedVisiblePhotos = computed(() => {
-  const endIndex = currentPage.value * ITEMS_PER_PAGE
-  const result = visiblePhotos.value.slice(0, endIndex)
-
-  return result
-})
-
+// Virtual scrolling
 const loadMorePhotos = () => {
   if (paginatedVisiblePhotos.value.length < visiblePhotos.value.length) {
     currentPage.value++
@@ -818,7 +691,6 @@ const resetVirtualScrolling = () => {
   currentPage.value = 1
 }
 
-// Intersection observer for infinite scroll
 const setupInfiniteScroll = () => {
   const sentinel = document.querySelector('.load-more-trigger')
   if (!sentinel) return
@@ -834,42 +706,7 @@ const setupInfiniteScroll = () => {
   observer.observe(sentinel)
 }
 
-// Lifecycle
-onMounted(async () => {
-  await loadPhotos();
-
-  // Preload locations after album metadata is loaded
-  if (Object.keys(photoMetadataLookup.value).length > 0) {
-    preloadPhotoLocations();
-  }
-
-  // Setup 3-step progressive loading system after images are loaded
-  setTimeout(() => {
-    // Start aggressive background preloading immediately
-    startAggressivePreloading()
-
-    // Also setup intersection observer for additional optimizations
-    preloadVisibleImages()
-    setupInfiniteScroll()
-    setupHeicLazyConversion() // Setup HEIC lazy conversion
-
-    // Track initial progressive loading statistics
-    trackProgressiveLoadingStats()
-
-    // Set up periodic tracking every 2 seconds to monitor progress
-    progressTracker.value = setInterval(() => {
-      const stats = trackProgressiveLoadingStats()
-
-      // Stop tracking when we reach 100% preload percentage
-      if (stats.percentage >= 100) {
-        clearInterval(progressTracker.value)
-        progressTracker.value = null
-      }
-    }, 2000)
-  }, 100)
-})
-
-// ADDED BY CLAUDE FOR SSE
+// SSE Methods for Upload Processing
 const startProcessingListener = (jobId) => {
   console.log('Starting SSE processing listener for jobId:', jobId)
   if (eventSource.value) {
@@ -880,7 +717,6 @@ const startProcessingListener = (jobId) => {
   processingNotifications.value = true
   processingStatus.value = 'Starting photo processing...'
 
-  // Create SSE connection
   const sseUrl = apiService.getProcessingStatusUrl(jobId)
   eventSource.value = new EventSource(sseUrl)
 
@@ -896,7 +732,6 @@ const startProcessingListener = (jobId) => {
 
   eventSource.value.onerror = (error) => {
     console.error('SSE connection error:', error)
-    // Retry connection after 5 seconds
     setTimeout(() => {
       if (processingNotifications.value) {
         startProcessingListener(jobId)
@@ -904,12 +739,11 @@ const startProcessingListener = (jobId) => {
     }, 5000)
   }
 
-  // Auto-close after 10 minutes to prevent long-running connections
   setTimeout(() => {
     if (eventSource.value) {
       stopProcessingListener()
     }
-  }, 600000) // 10 minutes
+  }, 600000)
 }
 
 const handleProcessingUpdate = (data) => {
@@ -921,14 +755,12 @@ const handleProcessingUpdate = (data) => {
 
     case 'complete':
       processingStatus.value = 'Photo processing complete! 🎉'
-      showProcessingCompleteNotification();
+      showProcessingCompleteNotification()
 
-      // Auto-refresh the album after a short delay
       setTimeout(async () => {
         await refreshAlbum()
         console.log('Album refreshed after processing complete')
         stopProcessingListener()
-
       }, 2000)
       break
 
@@ -945,7 +777,6 @@ const handleProcessingUpdate = (data) => {
 }
 
 const showProcessingCompleteNotification = () => {
-  // Show a nice notification to the user
   if ('Notification' in window && Notification.permission === 'granted') {
     new Notification('Photo Processing Complete!', {
       body: 'Your photos are now ready to view in the album.',
@@ -953,8 +784,6 @@ const showProcessingCompleteNotification = () => {
     })
   }
 
-  // Also show an in-app notification
-  // You could use your existing notification system here
   console.log('📸 Photo processing complete notification')
 }
 
@@ -969,6 +798,27 @@ const stopProcessingListener = () => {
   processingStatus.value = ''
   processingJobId.value = null
 }
+
+// Lifecycle
+onMounted(async () => {
+  await loadPhotos()
+
+  setTimeout(() => {
+    startAggressivePreloading()
+    preloadVisibleImages()
+    setupInfiniteScroll()
+    trackProgressiveLoadingStats()
+
+    progressTracker.value = setInterval(() => {
+      const stats = trackProgressiveLoadingStats()
+
+      if (stats.percentage >= 100) {
+        clearInterval(progressTracker.value)
+        progressTracker.value = null
+      }
+    }, 2000)
+  }, 100)
+})
 
 onUnmounted(() => {
   cleanupBlobUrls()
