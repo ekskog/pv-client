@@ -1,7 +1,7 @@
 <template>
   <div class="home">
     <div class="hero">
-      <h1 class="hero-title">-- HBVU PHOTO VAULT HOME--</h1>
+      <h1 class="hero-title">EKSKOG PHOTOS</h1>
       <p class="hero-subtitle">Minimalist photo gallery and storage management</p>
     </div>
 
@@ -11,12 +11,7 @@
         <h3>Organize</h3>
         <p>Create and manage albums to organize your photos efficiently.</p>
       </div>
-      
-      <div class="feature-card">
-        <div class="feature-icon"><i class="fas fa-chart-bar"></i></div>
-        <h3>Statistics</h3>
-        <p>View detailed statistics including object counts and storage usage for each bucket.</p>
-      </div>
+
     </div>
   </div>
 </template>
