@@ -1,7 +1,7 @@
 <template>
   <div class="album-header">
     <button class="btn-back" @click="$emit('back')">
-      <i class="fas fa-arrow-left"></i> Back to Albums
+      <i class="fas fa-arrow-left"></i>
     </button>
     <div class="album-info">
       <h1><i class="fas fa-folder-open"></i> {{ albumName }}</h1>
@@ -21,7 +21,7 @@
         class="btn-primary" 
         @click="$emit('upload')"
       >
-        <i class="fas fa-plus"></i> Add Media
+        <i class="fas fa-plus"></i>
       </button>
     </div>
   </div>
