@@ -27,7 +27,7 @@
           <i class="fas fa-plus"></i>
         </button>
       </div>
-    </div>
+    </div>    kubectl logs -n webapps -l app=avif-converter
   </div>
 </template>
 
