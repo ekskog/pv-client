@@ -1,55 +1,60 @@
 <template>
   <div class="album-header">
-    <button class="btn-back" @click="$emit('back')">
-      <i class="fas fa-arrow-left"></i>
-    </button>
+        <!-- Album Info -->
     <div class="album-info">
-      <h1><i class="fas fa-folder-open"></i> {{ albumName }}</h1>
+      <h2><i class="fas fa-images"></i> {{ albumName }}</h2>
       <p class="subtitle">{{ photoCount }} photos</p>
     </div>
-    <div class="header-actions">
-      <button 
-        class="btn-secondary btn-refresh" 
-        @click="$emit('refresh')"
-        :disabled="loading"
-        title="Refresh album"
-      >
-        <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
+    <!-- Button Row -->
+    <div class="album-header-top">
+      <button class="btn-back" @click="$emit('back')">
+        <i class="fas fa-arrow-left"></i>
       </button>
-      <button 
-        v-if="canUploadPhotos"
-        class="btn-primary" 
-        @click="$emit('upload')"
-      >
-        <i class="fas fa-plus"></i>
-      </button>
+      <div class="header-actions">
+        <button
+          class="btn-secondary btn-refresh"
+          @click="$emit('refresh')"
+          :disabled="loading"
+          title="Refresh album"
+        >
+          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
+        </button>
+        <button
+          v-if="canUploadPhotos"
+          class="btn-primary"
+          @click="$emit('upload')"
+        >
+          <i class="fas fa-plus"></i>
+        </button>
+      </div>
     </div>
   </div>
 </template>
+
 
 <script setup>
 // Props
 const props = defineProps({
   albumName: {
     type: String,
-    required: true
+    required: true,
   },
   photoCount: {
     type: Number,
-    default: 0
+    default: 0,
   },
   loading: {
     type: Boolean,
-    default: false
+    default: false,
   },
   canUploadPhotos: {
     type: Boolean,
-    default: false
-  }
-})
+    default: false,
+  },
+});
 
 // Emits
-const emit = defineEmits(['back', 'refresh', 'upload'])
+const emit = defineEmits(["back", "refresh", "upload"]);
 </script>
 
 <style scoped>
@@ -114,8 +119,12 @@ const emit = defineEmits(['back', 'refresh', 'upload'])
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .btn-primary {
@@ -156,13 +165,33 @@ const emit = defineEmits(['back', 'refresh', 'upload'])
 
 @media (max-width: 768px) {
   .album-header {
+    display: flex;
     flex-direction: column;
-    align-items: stretch;
     gap: 1rem;
   }
-  
+
+  .album-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+
   .album-info {
+    flex: 1 1 100%;
     text-align: center;
+    margin-top: 0.5rem;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .btn-back {
+    flex-shrink: 0;
   }
 }
 </style>
