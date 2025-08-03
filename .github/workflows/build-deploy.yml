@@ -1,220 +1,51 @@
-name: Build and Deploy Frontend
+name: Build and Deploy to K8s
 
 on:
   push:
     branches:
-      - main
-      - master
-  pull_request:
-    branches:
-      - main
-      - master
-
-env:
-  IMAGE_NAME: ghcr.io/ekskog/photovault-client
-  NAMESPACE: webapps
+      - main  # Or your desired branch
 
 jobs:
-  build-and-deploy:
+  build-and-push:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set Environment Variables
-        run: |
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
-          echo "IMAGE_TAG_SHA=${{ env.IMAGE_NAME }}:$SHORT_SHA" >> $GITHUB_ENV
-          echo "IMAGE_TAG_LATEST=${{ env.IMAGE_NAME }}:latest" >> $GITHUB_ENV
-          
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "IS_PR=true" >> $GITHUB_ENV
-            echo "IMAGE_TAG_PR=${{ env.IMAGE_NAME }}:pr-${{ github.event.number }}" >> $GITHUB_ENV
-          else
-            echo "IS_PR=false" >> $GITHUB_ENV
-          fi
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Check for changes
-        id: changes
-        uses: dorny/paths-filter@v3
-        with:
-          filters: |
-            source:
-              - src/**
-              - public/**
-              - package.json
-              - package-lock.json
-              - Dockerfile
-              - nginx.conf
-              - vite.config.js
-            k8s:
-              - k8s/**
-              - .github/workflows/**
+      - name: Extract short SHA
+        id: vars
+        run: echo "SHORT_SHA=$(git rev-parse --short=7 HEAD)" >> $GITHUB_ENV
 
-      - name: Login to GitHub Container Registry
-        if: steps.changes.outputs.source == 'true' && github.event_name == 'push'
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.EK_GITHUB_PAT }}
 
-      - name: Set up Docker Buildx
-        if: steps.changes.outputs.source == 'true' && github.event_name == 'push'
-        uses: docker/setup-buildx-action@v3
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ env.SHORT_SHA }}
+            ghcr.io/${{ github.repository }}:latest
 
-      - name: Build and Push Docker Image
-        if: steps.changes.outputs.source == 'true' && github.event_name == 'push'
-        run: |
-          echo "🏗️ Building and pushing images:"
-          echo "  SHA tag: $IMAGE_TAG_SHA"
-          echo "  Latest tag: $IMAGE_TAG_LATEST"
-          
-          docker buildx build \
-            --platform linux/amd64 \
-            --tag $IMAGE_TAG_SHA \
-            --tag $IMAGE_TAG_LATEST \
-            --push \
-            --progress=plain \
-            .
+  apply-manifests:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Verify Image Push
-        if: steps.changes.outputs.source == 'true' && github.event_name == 'push'
+      - name: Decode KUBECONFIG and set up file
         run: |
-          echo "✅ Verifying images exist:"
-          docker manifest inspect $IMAGE_TAG_SHA
-          docker manifest inspect $IMAGE_TAG_LATEST
+          echo "${{ secrets.kubecONFIG }}" | base64 --decode > kubeconfig
+          chmod 600 kubeconfig
 
-      - name: Build PR Image (No Push)
-        if: steps.changes.outputs.source == 'true' && github.event_name == 'pull_request'
-        run: |
-          echo "🧪 Building PR image (validation only): $IMAGE_TAG_PR"
-          docker buildx build \
-            --platform linux/amd64 \
-            --tag $IMAGE_TAG_PR \
-            --progress=plain \
-            .
-
-      - name: Skip Build (No Source Changes)
-        if: steps.changes.outputs.source != 'true'
-        run: |
-          echo "⚡ No source code changes detected. Skipping Docker build."
-          echo "Will use existing latest image for deployment if K8s manifests changed."
-
-      - name: Set Up KUBECONFIG
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        run: |
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig.yaml
-          echo "KUBECONFIG=$PWD/kubeconfig.yaml" >> $GITHUB_ENV
-          echo "Kubeconfig file size: $(wc -c < kubeconfig.yaml) bytes"
-          
-          if [ ! -s kubeconfig.yaml ]; then
-            echo "❌ ERROR: kubeconfig.yaml is empty!"
-            exit 1
-          fi
-
-      - name: Deploy to Kubernetes (Source Changes)
-        if: |
-          github.event_name == 'push' && 
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && 
-          steps.changes.outputs.source == 'true'
-        run: |
-          echo "🚀 Deploying with NEW image: $IMAGE_TAG_SHA"
-          
-          # Update deployment with new image
-          kubectl set image deployment/photovault-client photovault-client=$IMAGE_TAG_LATEST \
-            --namespace=$NAMESPACE \
-            --kubeconfig=kubeconfig.yaml
-          
-          # Apply any K8s manifest changes if they exist
-          if [ -d "k8s" ]; then
-            echo "📝 Applying K8s manifests to namespace: $NAMESPACE"
-            # Update image in deployment manifest if it exists
-            if [ -f "k8s/deployment.yaml" ]; then
-              sed -i "s|image: ${{ env.IMAGE_NAME }}:.*|image: $IMAGE_TAG_SHA|g" k8s/deployment.yaml
-            fi
-            # Apply all manifests with forced namespace
-            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml 
-          fi
-          
-          # Wait for rollout and show status
-          echo "⏳ Waiting for deployment to complete..."
-          kubectl rollout status deployment/photovault-client \
-            --namespace=$NAMESPACE \
-            --kubeconfig=kubeconfig.yaml \
-            --timeout=600s
-          
-          echo "✅ Deployment completed successfully!"
-
-      - name: Apply K8s Manifests Only (No Source Changes)
-        if: |
-          github.event_name == 'push' && 
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && 
-          steps.changes.outputs.source != 'true' && 
-          steps.changes.outputs.k8s == 'true'
-        run: |
-          echo "📝 Applying K8s manifest changes to namespace: $NAMESPACE (no image rebuild)..."
-          
-          # Apply manifest changes without changing the image, force namespace
-          if [ -d "k8s" ]; then
-            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
-            echo "✅ K8s manifests applied successfully to namespace: $NAMESPACE!"
-          else
-            echo "⚠️ No k8s directory found, skipping manifest application"
-          fi
-
-      - name: Get Deployment Status
-        if: |
-          github.event_name == 'push' && 
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && 
-          (steps.changes.outputs.source == 'true' || steps.changes.outputs.k8s == 'true')
-        run: |
-          echo "📊 Current deployment status in namespace: $NAMESPACE"
-          kubectl get deployment/photovault-client --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o wide
-          
-          echo "🏃 Pod status:"
-          kubectl get pods -l app=photovault-client --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
-          
-          # Show service info
-          if kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml >/dev/null 2>&1; then
-            echo "🌐 Service information:"
-            kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o wide
-            
-            echo "🌍 External IP (if available):"
-            kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-          fi
-
-      - name: Skip Deployment (No Changes)
-        if: |
-          github.event_name == 'push' && 
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && 
-          steps.changes.outputs.source != 'true' && 
-          steps.changes.outputs.k8s != 'true'
-        run: |
-          echo "⏭️ No relevant changes detected. Skipping deployment."
-          echo "Current deployment will continue running unchanged."
-
-      - name: Debug on Failure
-        if: failure()
-        run: |
-          echo "💥 Deployment failed. Gathering debug information..."
-          
-          if [ -f "kubeconfig.yaml" ]; then
-            echo "📋 Deployment description:"
-            kubectl describe deployment/photovault-client --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
-            
-            echo "🏃 Pod descriptions:"
-            kubectl describe pods -l app=photovault-client --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
-            
-            echo "📝 Recent events:"
-            kubectl get events --namespace=$NAMESPACE --sort-by='.lastTimestamp' --kubeconfig=kubeconfig.yaml | grep -E "(Pull|Image|Failed|Error)" | tail -10
-            
-            echo "📊 Current resource status:"
-            kubectl get all -l app=photovault-client --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
-          else
-            echo "⚠️ No kubeconfig available for debugging"
-          fi
+      - name: Apply manifests
+        run: kubectl --kubeconfig=kubeconfig apply -f k8s/
