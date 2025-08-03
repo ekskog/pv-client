@@ -9,7 +9,9 @@ on:
       - 'public/**'
       - 'vite.config.*'
       - 'package.json'
-      - 'package-lock.json'
+      - 'pnpm-lock.yaml'
+      - 'k8s/**'
+      - '.github/workflows/**'
 
 
 jobs:
