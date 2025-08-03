@@ -5,7 +5,7 @@ metadata:
   namespace: webapps
   labels:
     app: photovault-client
-    component: frontend
+    component: client
 spec:
   replicas: 2
   strategy:
@@ -20,7 +20,7 @@ spec:
     metadata:
       labels:
         app: photovault-client
-        component: frontend
+        component: client
       annotations:
         # This annotation will be updated by the CI/CD pipeline to force pod recreation
         deployment.kubernetes.io/revision: "1"
@@ -41,13 +41,13 @@ spec:
           value: "demo"
         # Debug Configuration
         - name: VITE_DEBUG
-          value: "false"  # Set to "true" or "hbvu:*" to enable debug logging
+          value: "false"  # Set to "true" or "ekskog:*" to enable debug logging
         - name: VITE_DEBUG_PATTERN
-          value: "hbvu:*"  # Debug pattern when debugging is enabled
+          value: "ekskog:*"  # Debug pattern when debugging is enabled
         # Load non-sensitive config from ConfigMap
         envFrom:
         - configMapRef:
-            name: photovault-frontend-config
+            name: photovault-client-config
         resources:
           requests:
             memory: "64Mi"
