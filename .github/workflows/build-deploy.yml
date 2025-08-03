@@ -108,7 +108,7 @@ jobs:
       - name: Set Up KUBECONFIG
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: |
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig.yaml
+          echo "${{ secrets.KUBECONFIG }}" > kubeconfig.yaml
           echo "KUBECONFIG=$PWD/kubeconfig.yaml" >> $GITHUB_ENV
           echo "Kubeconfig file size: $(wc -c < kubeconfig.yaml) bytes"
           
@@ -138,7 +138,7 @@ jobs:
               sed -i "s|image: ${{ env.IMAGE_NAME }}:.*|image: $IMAGE_TAG_SHA|g" k8s/deployment.yaml
             fi
             # Apply all manifests with forced namespace
-            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml --overrides='{"metadata":{"namespace":"'$NAMESPACE'"}}'
+            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
           fi
           
           # Wait for rollout and show status
