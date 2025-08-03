@@ -1,8 +1,3 @@
-# =================================================================
-# 1. FRONTEND WORKFLOW (photovault-client)
-# File: .github/workflows/build-deploy.yml
-# =================================================================
-
 name: Build and Deploy Frontend
 
 on:
@@ -137,12 +132,13 @@ jobs:
           
           # Apply any K8s manifest changes if they exist
           if [ -d "k8s" ]; then
-            echo "📝 Applying K8s manifests..."
+            echo "📝 Applying K8s manifests to namespace: $NAMESPACE"
             # Update image in deployment manifest if it exists
             if [ -f "k8s/deployment.yaml" ]; then
               sed -i "s|image: ${{ env.IMAGE_NAME }}:.*|image: $IMAGE_TAG_SHA|g" k8s/deployment.yaml
             fi
-            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
+            # Apply all manifests with forced namespace
+            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml --overrides='{"metadata":{"namespace":"'$NAMESPACE'"}}'
           fi
           
           # Wait for rollout and show status
@@ -161,12 +157,12 @@ jobs:
           steps.changes.outputs.source != 'true' && 
           steps.changes.outputs.k8s == 'true'
         run: |
-          echo "📝 Applying K8s manifest changes (no image rebuild)..."
+          echo "📝 Applying K8s manifest changes to namespace: $NAMESPACE (no image rebuild)..."
           
-          # Apply manifest changes without changing the image
+          # Apply manifest changes without changing the image, force namespace
           if [ -d "k8s" ]; then
-            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
-            echo "✅ K8s manifests applied successfully!"
+            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml --overrides='{"metadata":{"namespace":"'$NAMESPACE'"}}'
+            echo "✅ K8s manifests applied successfully to namespace: $NAMESPACE!"
           else
             echo "⚠️ No k8s directory found, skipping manifest application"
           fi
@@ -177,18 +173,20 @@ jobs:
           (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && 
           (steps.changes.outputs.source == 'true' || steps.changes.outputs.k8s == 'true')
         run: |
-          echo "📊 Current deployment status:"
+          echo "📊 Current deployment status in namespace: $NAMESPACE"
           kubectl get deployment/photovault-client --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o wide
           
           echo "🏃 Pod status:"
           kubectl get pods -l app=photovault-client --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
           
           # Show service info
-          echo "🌐 Service information:"
-          kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o wide
-          
-          echo "🌍 External IP (if available):"
-          kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+          if kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml >/dev/null 2>&1; then
+            echo "🌐 Service information:"
+            kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o wide
+            
+            echo "🌍 External IP (if available):"
+            kubectl get service photovault-client-service --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+          fi
 
       - name: Skip Deployment (No Changes)
         if: |
