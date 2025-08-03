@@ -1,13 +1,14 @@
-name: Build and Deploy
+name: Build and Deploy photovault-api
 
 on:
   push:
     paths:
-      - '**.js'
-      - '**.vue'
-      - 'package.json'
-      - 'Dockerfile'
+      - 'src/**'
       - 'k8s/**'
+      - '.github/workflows/**'
+      - 'Dockerfile'
+      - 'package.json'
+      - 'package-lock.json'
     branches:
       - main
 
@@ -15,9 +16,9 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      IMAGE_NAME: ghcr.io/ekskog/photovault-client
+      IMAGE_NAME: ghcr.io/ekskog/photovault-api
       NAMESPACE: webapps
-      DEPLOYMENT: photovault-client
+      DEPLOYMENT: photovault-api
 
     steps:
     - name: Checkout repository
@@ -59,7 +60,7 @@ jobs:
         !contains(join(github.event.commits.*.modified), 'k8s/')
       run: |
         kubectl set image deployment/${{ env.DEPLOYMENT }} \
-          photovault-client=${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} \
+          photovault-api=${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} \
           --namespace=${{ env.NAMESPACE }}
 
     - name: Apply manifests (if k8s files changed)
