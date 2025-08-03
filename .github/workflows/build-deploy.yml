@@ -96,7 +96,7 @@ jobs:
       - name: Rollout deployment (if image updated)
         if: needs.build-and-push-image.outputs.image_updated == 'true'
         run: |
-          kubectl --kubeconfig=kubeconfig rollout restart deployment photovaul-client -n webapps
+          kubectl --kubeconfig=kubeconfig rollout restart deployment photovault-client -n webapps
 
       - name: Apply manifest changes (if manifests updated)
         if: needs.detect-changes.outputs.manifests_changed == 'true'
