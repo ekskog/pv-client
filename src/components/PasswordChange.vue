@@ -446,7 +446,7 @@ watch(() => props.show, (newVal) => {
 .strength-meter {
   flex: 1;
   height: 4px;
-  background: #e5e7eb;
+  background: #e5e7ea;
   border-radius: 2px;
   overflow: hidden;
 }

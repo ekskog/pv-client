@@ -1,66 +1,70 @@
-name: Deploy Photovault Client
+name: Build and Deploy
 
 on:
   push:
-    branches: [main]
+    paths:
+      - '**.js'
+      - '**.vue'
+      - 'package.json'
+      - 'Dockerfile'
+      - 'k8s/**'
+    branches:
+      - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ghcr.io/ekskog/photovault-client
+      NAMESPACE: webapps
+      DEPLOYMENT: photovault-client
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+    - name: Extract short SHA
+      id: vars
+      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-      - name: Build and push image
-        run: |
-          docker build -t ghcr.io/ekskog/photovault-client:${SHORT_SHA} .
-          docker push ghcr.io/ekskog/photovault-client:${SHORT_SHA}
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.EK_GITHUB_PAT }}
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: v1.29.0
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }}
+          ${{ env.IMAGE_NAME }}:latest
 
-      - name: Deploy to cluster
-        run: |
-          kubectl set image deployment photovault-client photovault-client=ghcr.io/ekskog/photovault-client:${SHORT_SHA}
-          kubectl rollout status deployment photovault-client --timeout=60s
-name: Deploy Photovault Client
+    - name: Decode and write kubeconfig
+      run: |
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig.yaml
 
-on:
-  push:
-    branches: [main]
+    - name: Set KUBECONFIG env var
+      run: echo "KUBECONFIG=$GITHUB_WORKSPACE/kubeconfig.yaml" >> $GITHUB_ENV
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+    - name: Update Deployment image (on code changes only)
+      if: |
+        contains(github.event.head_commit.message, '[skip-deploy]') == false &&
+        !contains(join(github.event.commits.*.modified), 'k8s/')
+      run: |
+        kubectl set image deployment/${{ env.DEPLOYMENT }} \
+          photovault-client=${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} \
+          --namespace=${{ env.NAMESPACE }}
 
-      - name: Set short SHA
-        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
-
-      - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Build and push image
-        run: |
-          docker build -t ghcr.io/ekskog/photovault-client:${SHORT_SHA} .
-          docker push ghcr.io/ekskog/photovault-client:${SHORT_SHA}
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: v1.29.0
-
-      - name: Deploy to cluster
-        run: |
-          kubectl set image deployment photovault-client photovault-client=ghcr.io/ekskog/photovault-client:${SHORT_SHA}
-          kubectl rollout status deployment photovault-client --timeout=60s
+    - name: Apply manifests (if k8s files changed)
+      if: |
+        contains(github.event.head_commit.message, '[skip-deploy]') == false &&
+        contains(join(github.event.commits.*.modified), 'k8s/')
+      run: |
+        kubectl apply -f k8s/

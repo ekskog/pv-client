@@ -7,7 +7,7 @@ metadata:
     app: photovault-client
     component: client
 spec:
-  replicas: 2
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -77,6 +77,4 @@ spec:
           periodSeconds: 15
           timeoutSeconds: 5
           failureThreshold: 3
-      imagePullSecrets:
-      - name: ghcr-secret
       restartPolicy: Always
