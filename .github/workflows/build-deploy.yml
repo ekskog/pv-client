@@ -126,7 +126,7 @@ jobs:
           echo "🚀 Deploying with NEW image: $IMAGE_TAG_SHA"
           
           # Update deployment with new image
-          kubectl set image deployment/photovault-client photovault-client=$IMAGE_TAG_SHA \
+          kubectl set image deployment/photovault-client photovault-client=$IMAGE_TAG_LATEST \
             --namespace=$NAMESPACE \
             --kubeconfig=kubeconfig.yaml
           
