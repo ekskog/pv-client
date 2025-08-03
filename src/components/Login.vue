@@ -163,7 +163,7 @@ const handleLogin = async () => {
 }
 
 .login-subtitle {
-  color: #777;
+  color: #666;
   margin: 0;
   font-size: 1rem;
 }
