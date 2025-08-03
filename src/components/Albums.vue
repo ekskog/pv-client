@@ -44,7 +44,7 @@
         class="album-card"
         @click="openAlbum(album)"
       >
-        <div class="album-icon"><i class="fas fa-folder"></i></div>
+        <div class="album-icon"><i class="fas fa-images"></i></div>
         <h3>{{ getAlbumDisplayName(album.name) }}</h3>
         <p class="album-info">
           {{ album.fileCount || 0 }} photos

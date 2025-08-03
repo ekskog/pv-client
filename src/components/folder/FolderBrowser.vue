@@ -40,7 +40,7 @@
         class="folder-item"
         @click="navigateToPath(folder.name)"
       >
-        <div class="folder-icon"><i class="fas fa-folder"></i></div>
+        <div class="folder-icon"><i class="fas fa-images"></i></div>
         <div class="folder-name">{{ folder.displayName }}</div>
         <button 
           @click.stop="deleteFolder(folder.name)"
