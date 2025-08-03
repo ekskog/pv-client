@@ -161,7 +161,7 @@ jobs:
           
           # Apply manifest changes without changing the image, force namespace
           if [ -d "k8s" ]; then
-            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml --overrides='{"metadata":{"namespace":"'$NAMESPACE'"}}'
+            kubectl apply -f k8s/ --namespace=$NAMESPACE --kubeconfig=kubeconfig.yaml
             echo "✅ K8s manifests applied successfully to namespace: $NAMESPACE!"
           else
             echo "⚠️ No k8s directory found, skipping manifest application"
