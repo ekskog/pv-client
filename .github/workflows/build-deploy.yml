@@ -9,7 +9,7 @@ on:
       - 'public/**'
       - 'vite.config.*'
       - 'package.json'
-      - 'pnpm-lock.yaml'  # or yarn.lock / package-lock.json
+      - 'package-lock.json'
 
 
 jobs:
