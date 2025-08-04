@@ -1,35 +1,34 @@
 <template>
   <div class="album-header">
-        <!-- Album Info -->
+    <button class="btn-back" @click="$emit('back')">
+      <i class="fas fa-arrow-left"></i>
+    </button>
+
     <div class="album-info">
       <h2><i class="fas fa-images"></i> {{ albumName }}</h2>
-      <p class="subtitle">{{ photoCount }} photos</p>
+      <span class="photo-count">{{ photoCount }} photos</span>
     </div>
-    <!-- Button Row -->
-    <div class="album-header-top">
-      <button class="btn-back" @click="$emit('back')">
-        <i class="fas fa-arrow-left"></i>
+
+    <div class="header-actions">
+      <button
+        class="btn-secondary btn-refresh"
+        @click="$emit('refresh')"
+        :disabled="loading"
+        title="Refresh album"
+      >
+        <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
       </button>
-      <div class="header-actions">
-        <button
-          class="btn-secondary btn-refresh"
-          @click="$emit('refresh')"
-          :disabled="loading"
-          title="Refresh album"
-        >
-          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
-        </button>
-        <button
-          v-if="canUploadPhotos"
-          class="btn-primary"
-          @click="$emit('upload')"
-        >
-          <i class="fas fa-plus"></i>
-        </button>
-      </div>
+      <button
+        v-if="canUploadPhotos"
+        class="btn-primary"
+        @click="$emit('upload')"
+      >
+        <i class="fas fa-plus"></i>
+      </button>
     </div>
   </div>
 </template>
+
 
 
 <script setup>
@@ -65,6 +64,7 @@ const emit = defineEmits(["back", "refresh", "upload"]);
   margin-bottom: 2rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid #e0e0e0;
+  gap: 1rem;
 }
 
 .btn-back {
@@ -76,29 +76,51 @@ const emit = defineEmits(["back", "refresh", "upload"]);
   cursor: pointer;
   font-size: 0.9rem;
   transition: all 0.2s ease;
+  flex-shrink: 0;
 }
 
 .btn-back:hover {
   background: #e0e0e0;
 }
 
-.album-info h1 {
+.album-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-grow: 1;
+}
+
+.album-info h2 {
   font-size: 2rem;
   font-weight: 600;
   color: #333;
   margin: 0;
 }
 
-.album-info .subtitle {
+.photo-count {
   font-size: 1rem;
   color: #666;
-  margin: 0.25rem 0 0 0;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.btn-secondary {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #e0e0e0;
 }
 
 .btn-refresh {
@@ -148,50 +170,26 @@ const emit = defineEmits(["back", "refresh", "upload"]);
   cursor: not-allowed;
 }
 
-.btn-secondary {
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  background: #e0e0e0;
-}
-
+/* 🌐 Mobile & Tablet Styles */
 @media (max-width: 768px) {
   .album-header {
-    display: flex;
     flex-direction: column;
     gap: 1rem;
   }
 
-  .album-header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-
   .album-info {
-    flex: 1 1 100%;
     text-align: center;
-    margin-top: 0.5rem;
+    flex-direction: column;
+    align-items: center;
   }
 
   .header-actions {
-    display: flex;
-    gap: 0.5rem;
+    justify-content: center;
   }
 
   .btn-back {
-    flex-shrink: 0;
+    align-self: flex-start;
   }
 }
+
 </style>
