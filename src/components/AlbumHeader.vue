@@ -5,7 +5,7 @@
     </button>
 
     <div class="album-info">
-      <h2><i class="fas fa-images"></i> {{ albumName }}</h2>
+      <h2><i class="fas fa-images"></i> {{ cleanAlbumName }}</h2>
       <span class="photo-count">{{ photoCount }} photos</span>
     </div>
 
@@ -29,9 +29,8 @@
   </div>
 </template>
 
-
-
 <script setup>
+import { computed } from "vue";
 // Props
 const props = defineProps({
   albumName: {
@@ -50,6 +49,12 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+});
+
+// 🧹 Computed album name cleaner
+const cleanAlbumName = computed(() => {
+  const match = props.albumName.match(/^(.*)\.(\d{2})\/$/);
+  return match ? `${match[1]} (${match[2]})` : props.albumName;
 });
 
 // Emits
@@ -191,5 +196,4 @@ const emit = defineEmits(["back", "refresh", "upload"]);
     align-self: flex-start;
   }
 }
-
 </style>
