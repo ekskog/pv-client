@@ -165,6 +165,7 @@ const uploadFiles = async () => {
       throw new Error(response.error || 'Upload failed')
     } else {
       pendingJobId.value = response.data.jobId
+      emit('close', { jobId: pendingJobId.value })
       showUploadCompleteModal.value = true
     }
 
@@ -190,18 +191,8 @@ const closeUploadDialog = (jobId) => {
   uploadedFiles.value = new Set()
   failedFiles.value = new Set()
   error.value = null
-
-  emit('close', { jobId })
 }
 
-// Format file size
-const formatFileSize = (bytes) => {
-  if (bytes === 0) return '0 Bytes'
-  const k = 1024
-  const sizes = ['Bytes', 'KB', 'MB', 'GB']
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-}
 
 // Detect mobile (optional)
 onMounted(() => {
