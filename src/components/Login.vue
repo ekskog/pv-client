@@ -1,5 +1,5 @@
 <template>
-  <div class="login-container">
+  <div class="login-container" ref="loginContainer">
     <div class="login-card">
       <div class="login-header">
         <div class="login-icon">
@@ -17,28 +17,14 @@
       <form @submit.prevent="handleLogin" class="login-form">
         <div class="form-group">
           <label for="username">Username</label>
-          <input
-            id="username"
-            v-model="username"
-            type="text"
-            placeholder="Enter your username"
-            required
-            :disabled="loading"
-            autocomplete="username"
-          />
+          <input id="username" ref="usernameInput" v-model="username" type="text" placeholder="Enter your username"
+            required :disabled="loading" autocomplete="username" />
         </div>
 
         <div class="form-group">
           <label for="password">Password</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="Enter your password"
-            required
-            :disabled="loading"
-            autocomplete="current-password"
-          />
+          <input id="password" v-model="password" type="password" placeholder="Enter your password" required
+            :disabled="loading" autocomplete="current-password" />
         </div>
 
         <button type="submit" class="login-btn" :disabled="loading || !isFormValid">
@@ -50,9 +36,14 @@
           <i class="fas fa-exclamation-triangle"></i>
           {{ error }}
         </div>
+
+        <button type="button" class="cancel-btn" @click="emit('close')" :disabled="loading">
+          <i class="fas fa-times-circle"></i>
+          Cancel
+        </button>
       </form>
 
-      <!-- Demo Information (only show in demo mode) -->
+      <!-- Demo Info -->
       <div v-if="isDemoMode" class="demo-info">
         <h4>Demo Mode Active</h4>
         <p class="demo-description">
@@ -69,41 +60,37 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import authService from '../services/auth.js'
 
 // Emits
-const emit = defineEmits(['login-success'])
+const emit = defineEmits(['login-success', 'close'])
 
 // Reactive state
 const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const usernameInput = ref(null)
 
 // Computed properties
 const isFormValid = computed(() => {
   return username.value.trim() && password.value.trim()
 })
 
-// Check if in demo mode
-const isDemoMode = computed(() => {
-  return authService.getConfig().demoMode
-})
+// Demo mode check
+const isDemoMode = computed(() => authService.getConfig().demoMode)
 
 // Methods
 const handleLogin = async () => {
   if (!isFormValid.value) return
-
   loading.value = true
   error.value = ''
 
   try {
     const result = await authService.login(username.value.trim(), password.value)
-    
     if (result.success) {
       emit('login-success', result.user)
-      // Clear form
       username.value = ''
       password.value = ''
     } else {
@@ -115,15 +102,38 @@ const handleLogin = async () => {
     loading.value = false
   }
 }
+
+// ESC key to close modal
+const handleKeyDown = (e) => {
+  if (e.key === 'Escape') emit('close')
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown)
+  if (usernameInput.value) {
+    usernameInput.value.focus()
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 </script>
 
 <style scoped>
 .login-container {
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  backdrop-filter: blur(2px);
+  overflow-y: auto;
   padding: 2rem;
 }
 
@@ -134,6 +144,19 @@ const handleLogin = async () => {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
   width: 100%;
   max-width: 420px;
+  animation: fadeInUp 0.4s ease;
+}
+
+@keyframes fadeInUp {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .login-header {
@@ -142,7 +165,6 @@ const handleLogin = async () => {
 }
 
 .login-icon {
-  display: inline-block;
   width: 80px;
   height: 80px;
   background: linear-gradient(135deg, #2196f3, #1976d2);
@@ -150,22 +172,22 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 1.5rem;
   font-size: 2rem;
   color: white;
+  margin: 0 auto 1.5rem;
 }
 
 .login-header h1 {
   font-size: 2rem;
   font-weight: 700;
   color: #333;
-  margin: 0 0 0.5rem 0;
+  margin-bottom: 0.5rem;
 }
 
 .login-subtitle {
   color: #686;
-  margin: 0;
   font-size: 1rem;
+  margin: 0;
 }
 
 .login-form {
@@ -190,8 +212,8 @@ const handleLogin = async () => {
   border: 2px solid #e1e5e9;
   border-radius: 8px;
   font-size: 1rem;
-  transition: all 0.2s ease;
   box-sizing: border-box;
+  transition: all 0.2s ease;
 }
 
 .form-group input:focus {
@@ -231,7 +253,34 @@ const handleLogin = async () => {
 .login-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-  transform: none;
+}
+
+.cancel-btn {
+  width: 100%;
+  margin-top: 0.75rem;
+  background: transparent;
+  color: #555;
+  border: 2px solid #ddd;
+  padding: 0.875rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: #f2f2f2;
+  border-color: #bbb;
+}
+
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .error-message {
@@ -266,7 +315,7 @@ const handleLogin = async () => {
 }
 
 .demo-info h4 {
-  margin: 0 0 1rem 0;
+  margin-bottom: 1rem;
   color: #495057;
   font-size: 1rem;
   font-weight: 600;
@@ -292,27 +341,33 @@ const handleLogin = async () => {
   gap: 5px;
 }
 
-@media (max-width: 480px) {
+/* 📱 Mobile Responsiveness */
+@media (max-width: 768px) {
   .login-container {
     padding: 1rem;
   }
-  
+
   .login-card {
     padding: 2rem;
   }
-  
+
   .login-icon {
     width: 60px;
     height: 60px;
     font-size: 1.5rem;
   }
-  
+
   .login-header h1 {
     font-size: 1.5rem;
   }
-  
-  .demo-accounts {
-    gap: 0.75rem;
+
+  .form-group input,
+  .login-btn {
+    min-height: 48px;
+  }
+
+  body {
+    overflow-x: hidden;
   }
 }
 </style>

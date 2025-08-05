@@ -1,44 +1,48 @@
 <template>
   <div id="app">
-    <!-- Show login screen if not authenticated -->
-    <Login 
-      v-if="!isAuthenticated"
-      @login-success="handleLoginSuccess"
+    <!-- Header visible to all users -->
+    <AppHeader
+      :currentView="currentView"
+      :currentUser="currentUser"
+      :isAuthenticated="isAuthenticated"
+      @navigate="handleNavigation"
+      @logout="handleLogout"
+      @login="handleLoginTrigger"
     />
 
-    <!-- Main app when authenticated -->
-    <div v-else>
-      <AppHeader
-        :currentView="currentView"
-        :currentUser="currentUser"
+    <!-- Main content: accessible to guests and logged-in users -->
+    <main class="main">
+      <Home 
+        v-if="currentView === 'home'"
         @navigate="handleNavigation"
-        @logout="handleLogout"
       />
+      <Albums 
+        v-else-if="currentView === 'albums'"
+        @navigate="handleNavigation"
+        @openAlbum="handleAlbumOpen"
+      />
+      <AlbumDetail 
+        v-else-if="currentView === 'album-detail'"
+        :albumName="selectedAlbumName"
+        @back="handleBackToAlbums"
+        @photoOpened="handlePhotoOpen"
+      />
+      <UserManagement 
+        v-else-if="currentView === 'users'"
+        v-if="isAuthenticated"
+      />
+      <Settings 
+        v-else-if="currentView === 'settings'"
+        v-if="isAuthenticated"
+      />
+    </main>
 
-      <main class="main">
-        <Home 
-          v-if="currentView === 'home'"
-          @navigate="handleNavigation"
-        />
-        <Albums 
-          v-else-if="currentView === 'albums'"
-          @navigate="handleNavigation"
-          @openAlbum="handleAlbumOpen"
-        />
-        <AlbumDetail 
-          v-else-if="currentView === 'album-detail'"
-          :albumName="selectedAlbumName"
-          @back="handleBackToAlbums"
-          @photoOpened="handlePhotoOpen"
-        />
-        <UserManagement 
-          v-else-if="currentView === 'users'"
-        />
-        <Settings 
-          v-else-if="currentView === 'settings'"
-        />
-      </main>
-    </div>
+    <!-- Login modal only appears when triggered -->
+    <Login 
+      v-if="showLogin"
+      @login-success="handleLoginSuccess"
+      @close="handleLoginClose"
+    />
   </div>
 </template>
 
@@ -53,12 +57,13 @@ import UserManagement from './components/UserManagement.vue'
 import Settings from './components/Settings.vue'
 import authService from './services/auth.js'
 
-// State
-const currentView = ref('home')
+// Reactive state
+const currentView = ref('albums')
 const selectedAlbumName = ref('')
+const showLogin = ref(false)
 const isAuthenticated = ref(false)
 const currentUser = ref(null)
-const userRole = computed(() => currentUser.value?.role || 'user')
+const userRole = computed(() => currentUser.value?.role || 'guest')
 
 // Lifecycle
 onMounted(async () => {
@@ -70,18 +75,23 @@ onUnmounted(() => {
   window.removeEventListener('storage', handleStorageChange)
 })
 
-// Auth
+// Login modal control
+const handleLoginTrigger = () => showLogin.value = true
+const handleLoginClose = () => showLogin.value = false
+
+// Update auth state
 const updateAuthState = () => {
   isAuthenticated.value = authService.isAuthenticated()
   currentUser.value = authService.getCurrentUser()
 }
+
 const handleStorageChange = (event) => {
   if (event.key === 'hbvu_auth_token' && !event.newValue) {
     updateAuthState()
   }
 }
 
-// Handlers
+// Navigation
 const handleNavigation = (view) => currentView.value = view
 const handleAlbumOpen = (album) => {
   selectedAlbumName.value = album.name
@@ -92,12 +102,17 @@ const handleBackToAlbums = () => {
   currentView.value = 'albums'
 }
 const handlePhotoOpen = (photo) => {
-  // TODO: show photo lightbox if needed
+  // TODO: Show lightbox or photo viewer
 }
+
+// Login flow
 const handleLoginSuccess = () => {
+  showLogin.value = false
   updateAuthState()
   currentView.value = 'home'
 }
+
+// Logout
 const handleLogout = () => {
   authService.logout()
   updateAuthState()
@@ -111,7 +126,6 @@ const handleLogout = () => {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   background: #fafafa;
 }
-
 .main {
   padding: 2rem;
   max-width: 1200px;

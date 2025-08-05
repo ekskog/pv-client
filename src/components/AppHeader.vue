@@ -7,19 +7,11 @@
 
     <!-- Navigation Buttons -->
     <div class="nav-links">
-      <button 
-        class="nav-link"
-        :class="{ active: currentView === 'albums' }"
-        @click="$emit('navigate', 'albums')"
-      >
+      <button class="nav-link" :class="{ active: currentView === 'albums' }" @click="$emit('navigate', 'albums')">
         <i class="fas fa-layer-group"></i> Albums
       </button>
-      <button 
-        v-if="isAdmin"
-        class="nav-link"
-        :class="{ active: currentView === 'settings' }"
-        @click="$emit('navigate', 'settings')"
-      >
+      <button v-if="isAdmin" class="nav-link" :class="{ active: currentView === 'settings' }"
+        @click="$emit('navigate', 'settings')">
         <i class="fas fa-cog"></i> Settings
       </button>
     </div>
@@ -35,32 +27,37 @@
             <i class="fas fa-user-circle"></i>
           </div>
           <div class="user-details">
-            <div class="user-name">{{ currentUser?.name || 'User' }}</div>
+            <div class="user-name" @click="handleUserClick">
+              {{ isAuthenticated ? currentUser.name : 'Login' }}
+            </div>
           </div>
           <i class="fas fa-chevron-down dropdown-arrow" :class="{ open: showUserDropdown }"></i>
         </div>
 
         <!-- Dropdown -->
         <div v-if="showUserDropdown" class="user-dropdown">
-          <button class="dropdown-item" @click="changePassword">
-            <i class="fas fa-key"></i> Change Password
-          </button>
-          <div class="dropdown-divider"></div>
-          <button class="dropdown-item logout-item" @click="logout">
-            <i class="fas fa-sign-out-alt"></i> Logout
-          </button>
+          <template v-if="isAuthenticated">
+            <button class="dropdown-item" @click="changePassword">
+              <i class="fas fa-key"></i> Change Password
+            </button>
+            <div class="dropdown-divider"></div>
+            <button class="dropdown-item logout-item" @click="logout">
+              <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+          </template>
+          <template v-else>
+            <button class="dropdown-item login-item" @click="triggerLogin">
+              <i class="fas fa-sign-in-alt"></i> Login
+            </button>
+          </template>
         </div>
+
       </div>
     </div>
 
     <!-- Password Dialog -->
-    <PasswordChange
-      v-if="showPasswordDialog"
-      :user="currentUser"
-      :show="showPasswordDialog"
-      @close="closePasswordDialog"
-      @success="handlePasswordSuccess"
-    />
+    <PasswordChange v-if="showPasswordDialog" :user="currentUser" :show="showPasswordDialog"
+      @close="closePasswordDialog" @success="handlePasswordSuccess" />
   </header>
 </template>
 
@@ -71,12 +68,14 @@ import PasswordChange from './PasswordChange.vue'
 
 const props = defineProps({
   currentView: String,
-  currentUser: Object
+  currentUser: Object,
+  isAuthenticated: Boolean
 })
-const emit = defineEmits(['navigate', 'logout'])
+const emit = defineEmits(['navigate', 'logout', 'login'])
 
 const isHealthy = ref(false)
 const healthStatus = ref('Checking...')
+
 const checkHealth = async () => {
   try {
     const health = await apiService.getHealth()
@@ -87,6 +86,18 @@ const checkHealth = async () => {
     healthStatus.value = 'Offline'
   }
 }
+
+const handleUserClick = () => {
+  if (!props.isAuthenticated) emit('login')
+}
+
+const triggerLogin = () => {
+  showUserDropdown.value = false
+  emit('login')
+
+}
+
+
 onMounted(() => checkHealth())
 
 const isAdmin = computed(() => props.currentUser?.role === 'admin')
@@ -126,7 +137,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   background: white;
   padding: 1rem 2rem;
   border-bottom: 1px solid #e0e0e0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .logo {
@@ -134,10 +145,12 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   color: #333;
   cursor: pointer;
 }
+
 .logo i {
   font-size: 1.8rem;
   color: #4a90e2;
 }
+
 .logo i:hover {
   color: #357abd;
 }
@@ -146,6 +159,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   display: flex;
   gap: 1rem;
 }
+
 .nav-link {
   background: none;
   border: none;
@@ -155,6 +169,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   color: #666;
   border-bottom: 2px solid transparent;
 }
+
 .nav-link:hover,
 .nav-link.active {
   color: #2196f3;
@@ -174,10 +189,12 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   font-size: 0.875rem;
   font-weight: 500;
 }
+
 .healthy {
   background: #e8f5e8;
   color: #2e7d32;
 }
+
 .unhealthy {
   background: #fde8e8;
   color: #c62828;
@@ -189,11 +206,13 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   align-items: center;
   cursor: pointer;
 }
+
 .user-info {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
+
 .user-avatar {
   width: 32px;
   height: 32px;
@@ -204,21 +223,26 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   align-items: center;
   color: #1976d2;
 }
+
 .user-details {
   display: flex;
   flex-direction: column;
 }
+
 .user-name {
   font-size: 0.875rem;
   font-weight: 600;
 }
+
 .dropdown-arrow {
   font-size: 0.75rem;
   transition: transform 0.2s;
 }
+
 .dropdown-arrow.open {
   transform: rotate(180deg);
 }
+
 .user-dropdown {
   position: absolute;
   top: 100%;
@@ -226,11 +250,12 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   background: white;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 180px;
   z-index: 1000;
   margin-top: 0.5rem;
 }
+
 .dropdown-item {
   padding: 0.75rem 1rem;
   border: none;
@@ -242,17 +267,21 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
   font-size: 0.875rem;
   color: #333;
 }
+
 .dropdown-item:hover {
   background: #f8f9fa;
 }
+
 .dropdown-divider {
   height: 1px;
   background: #e0e0e0;
   margin: 0.25rem 0;
 }
+
 .logout-item {
   color: #f44336;
 }
+
 .logout-item:hover {
   background: #ffebee;
 }
