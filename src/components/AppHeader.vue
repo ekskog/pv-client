@@ -49,6 +49,9 @@
             <button class="dropdown-item login-item" @click="triggerLogin">
               <i class="fas fa-sign-in-alt"></i> Login
             </button>
+            <button class="dropdown-item" @click="triggerRegister">
+              <i class="fas fa-user-plus"></i> Register
+            </button>
           </template>
         </div>
 
@@ -71,7 +74,7 @@ const props = defineProps({
   currentUser: Object,
   isAuthenticated: Boolean
 })
-const emit = defineEmits(['navigate', 'logout', 'login'])
+const emit = defineEmits(['navigate', 'logout', 'login', 'register'])
 
 const isHealthy = ref(false)
 const healthStatus = ref('Checking...')
@@ -94,9 +97,12 @@ const handleUserClick = () => {
 const triggerLogin = () => {
   showUserDropdown.value = false
   emit('login')
-
 }
 
+const triggerRegister = () => {
+  showUserDropdown.value = false
+  emit('register')
+}
 
 onMounted(() => checkHealth())
 
