@@ -74,6 +74,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import apiService from '../services/api.js'
 
 const emit = defineEmits(['register-success', 'close'])
 
@@ -89,12 +90,7 @@ const handleRegister = async () => {
   loading.value = true
   error.value = ''
   try {
-    const response = await fetch('http://localhost:3001/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form.value)
-    })
-    const result = await response.json()
+    const result = await apiService.registerUser(form.value)
     if (result.success) {
       emit('register-success', result.data.user)
       form.value = { username: '', email: '', password: '' }
