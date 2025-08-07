@@ -180,7 +180,6 @@ const passwordStrength = computed(() => {
   if (!password) return { class: '', width: '0%', text: '' }
 
   let score = 0
-  let feedback = []
 
   // Length check
   if (password.length >= 8) score += 2

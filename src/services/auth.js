@@ -11,7 +11,7 @@ const getConfig = () => ({
   apiUrl: configService.getApiUrl(),
   authMode: configService.get('authMode') || 'demo', // 'demo' or 'api'
   authEndpoint: '/auth/login',
-  userEndpoint: '/auth/me',
+  userEndpoint: '/auth/user',
   statusEndpoint: '/auth/status'
 });
 
@@ -428,51 +428,35 @@ class AuthService {
   }
 
   // Password change method
-  async changePassword({ userId, currentPassword, newPassword }) {
-    const config = getConfig()
-    if (config.authMode === 'demo') {
-      // Demo mode: simulate password change
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // In demo mode, we can't actually change passwords
-      // Just validate current password if it's provided
-      if (currentPassword) {
-        const currentUser = this.getCurrentUser();
-        if (!currentUser) {
-          throw new Error('Not authenticated');
-        }
-        
-        // For demo, check against known demo passwords
-        const demoUser = Object.values(demoUsers).find(u => u.id === currentUser.id);
-        if (demoUser && demoUser.password !== currentPassword) {
-          throw new Error('Current password is incorrect');
-        }
-      }
-      
-      return { success: true, message: 'Password changed successfully (demo mode)' };
-    } else {
-      // Production: change password via backend
-      const config = getConfig()
-      const response = await fetch(`${config.apiUrl}${config.userEndpoint}/${userId}/password`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.token}`
-        },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword
-        })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Failed to change password' }));
-        throw new Error(error.message);
-      }
-      
-      return await response.json();
-    }
+async changePassword({ userId, currentPassword, newPassword }) {
+  const config = getConfig();
+  const isSelf = !userId || userId === this.getCurrentUser()?.id;
+
+  const endpoint = isSelf
+    ? `${config.apiUrl}/auth/change-password`
+    : `${config.apiUrl}/auth/users/${userId}/password`;
+
+  const body = isSelf
+    ? { oldPassword: currentPassword, newPassword }
+    : { newPassword };
+
+  const response = await fetch(endpoint, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.token}`
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Failed to change password' }));
+    throw new Error(error.message);
   }
+
+  return await response.json();
+}
+
 
   // Get configuration info (useful for displaying mode in UI)
   getConfig() {

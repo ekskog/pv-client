@@ -9,23 +9,13 @@
       <!-- API Configuration Section -->
       <div class="settings-section">
         <h2><i class="fas fa-server"></i> API Configuration</h2>
-        
+
         <div class="form-group">
           <label for="apiUrl">API Server URL</label>
           <div class="input-group">
-            <input
-              id="apiUrl"
-              v-model="formData.apiUrl"
-              type="url"
-              placeholder="https://vault-api.hbvu.su"
-              class="form-input"
-              :class="{ error: validationErrors.apiUrl }"
-            />
-            <button
-              @click="testConnection"
-              class="btn btn-secondary"
-              :disabled="isTestingConnection"
-            >
+            <input id="apiUrl" v-model="formData.apiUrl" type="url" placeholder="https://vault-api.hbvu.su"
+              class="form-input" :class="{ error: validationErrors.apiUrl }" />
+            <button @click="testConnection" class="btn btn-secondary" :disabled="isTestingConnection">
               <i class="fas fa-plug" v-if="!isTestingConnection"></i>
               <i class="fas fa-spinner fa-spin" v-else></i>
               Test
@@ -46,32 +36,54 @@
         </div>
       </div>
 
+      <!-- Admin-Assisted Password Reset -->
+      <div class="settings-section">
+        <h2><i class="fas fa-user-shield"></i> Admin: Reset User Password</h2>
+
+        <div class="form-group">
+          <label for="selectedUser">Select User</label>
+          <select id="selectedUser" v-model="selectedUserId" class="form-input" :disabled="isLoadingUsers">
+            <option value="">-- Choose a user --</option>
+            <option v-for="user in users" :key="user.id" :value="user.id">
+              {{ user.username }} ({{ user.email }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="newPassword">New Password</label>
+          <input id="newPassword" v-model="newPassword" type="password" placeholder="Enter new password"
+            class="form-input" />
+        </div>
+
+        <button @click="resetUserPassword" class="btn btn-danger"
+          :disabled="!selectedUserId || !newPassword || isResettingPassword">
+          <i class="fas fa-key" v-if="!isResettingPassword"></i>
+          <i class="fas fa-spinner fa-spin" v-else></i>
+          Reset Password
+        </button>
+
+        <div v-if="passwordResetMessage" class="message" :class="passwordResetMessage.type">
+          <i :class="passwordResetMessage.icon"></i>
+          {{ passwordResetMessage.text }}
+        </div>
+      </div>
+
+
       <!-- Actions -->
       <div class="settings-actions">
-        <button
-          @click="saveSettings"
-          class="btn btn-primary"
-          :disabled="isSaving || !hasChanges"
-        >
+        <button @click="saveSettings" class="btn btn-primary" :disabled="isSaving || !hasChanges">
           <i class="fas fa-save" v-if="!isSaving"></i>
           <i class="fas fa-spinner fa-spin" v-else></i>
           Save Settings
         </button>
-        
-        <button
-          @click="resetToDefaults"
-          class="btn btn-warning"
-          :disabled="isSaving"
-        >
+
+        <button @click="resetToDefaults" class="btn btn-warning" :disabled="isSaving">
           <i class="fas fa-undo"></i>
           Reset to Defaults
         </button>
-        
-        <button
-          @click="reloadApplication"
-          class="btn btn-info"
-          v-if="requiresReload"
-        >
+
+        <button @click="reloadApplication" class="btn btn-info" v-if="requiresReload">
           <i class="fas fa-refresh"></i>
           Reload Application
         </button>
@@ -103,6 +115,13 @@ const isSaving = ref(false)
 const connectionTestResult = ref(null)
 const requiresReload = ref(false)
 
+const users = ref([])
+const selectedUserId = ref('')
+const newPassword = ref('')
+const isLoadingUsers = ref(false)
+const isResettingPassword = ref(false)
+const passwordResetMessage = ref(null)
+
 // Computed
 const hasChanges = computed(() => {
   return formData.apiUrl !== originalConfig.value.apiUrl
@@ -118,7 +137,7 @@ const loadCurrentConfig = () => {
 
 const validateForm = () => {
   const errors = {}
-  
+
   // Validate API URL
   if (!formData.apiUrl) {
     errors.apiUrl = 'API URL is required'
@@ -129,20 +148,20 @@ const validateForm = () => {
       errors.apiUrl = 'Please enter a valid URL'
     }
   }
-  
+
   Object.assign(validationErrors, errors)
   return Object.keys(errors).length === 0
 }
 
 const testConnection = async () => {
   if (!validateForm()) return
-  
+
   isTestingConnection.value = true
   connectionTestResult.value = null
-  
+
   try {
     const result = await configService.testApiConnection(formData.apiUrl)
-    
+
     if (result.success) {
       connectionTestResult.value = {
         type: 'success',
@@ -169,29 +188,29 @@ const testConnection = async () => {
 
 const saveSettings = async () => {
   if (!validateForm()) return
-  
+
   isSaving.value = true
   message.value = null
-  
+
   try {
     const success = configService.saveConfig({
       apiUrl: formData.apiUrl
     })
-    
+
     if (success) {
       message.value = {
         type: 'success',
         icon: 'fas fa-check-circle',
         text: 'Settings saved successfully!'
       }
-      
+
       // Check if API URL changed (requires reload)
       if (formData.apiUrl !== originalConfig.value.apiUrl) {
         requiresReload.value = true
       }
-      
+
       loadCurrentConfig()
-      
+
       // Clear message after 3 seconds
       setTimeout(() => {
         message.value = null
@@ -215,16 +234,76 @@ const resetToDefaults = () => {
     configService.reset()
     loadCurrentConfig()
     requiresReload.value = true
-    
+
     message.value = {
       type: 'success',
       icon: 'fas fa-check-circle',
       text: 'Settings reset to defaults!'
     }
-    
+
     setTimeout(() => {
       message.value = null
     }, 3000)
+  }
+}
+
+const fetchUsers = async () => {
+  isLoadingUsers.value = true
+  passwordResetMessage.value = null
+
+  try {
+    const response = await fetch(`${formData.apiUrl}/auth/users`, {
+      headers: { Authorization: `Bearer ${configService.getToken()}` }
+    })
+    const data = await response.json()
+    if (response.ok) {
+      users.value = data.users
+    } else {
+      throw new Error(data.error || 'Failed to fetch users')
+    }
+  } catch (error) {
+    passwordResetMessage.value = {
+      type: 'error',
+      icon: 'fas fa-exclamation-triangle',
+      text: `Error fetching users: ${error.message}`
+    }
+  } finally {
+    isLoadingUsers.value = false
+  }
+}
+
+const resetUserPassword = async () => {
+  if (!selectedUserId.value || !newPassword.value) return
+  isResettingPassword.value = true
+  passwordResetMessage.value = null
+
+  try {
+    const response = await fetch(`${formData.apiUrl}/auth/users/${selectedUserId.value}/password`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${configService.getToken()}`
+      },
+      body: JSON.stringify({ newPassword: newPassword.value })
+    })
+
+    const result = await response.json()
+    if (!response.ok) throw new Error(result.error || 'Failed to reset password')
+
+    passwordResetMessage.value = {
+      type: 'success',
+      icon: 'fas fa-check-circle',
+      text: `Password reset for user ID ${selectedUserId.value} successful`
+    }
+    newPassword.value = ''
+  } catch (error) {
+    passwordResetMessage.value = {
+      type: 'error',
+      icon: 'fas fa-exclamation-circle',
+      text: `Error: ${error.message}`
+    }
+  } finally {
+    isResettingPassword.value = false
   }
 }
 
@@ -235,6 +314,8 @@ const reloadApplication = () => {
 // Lifecycle
 onMounted(() => {
   loadCurrentConfig()
+  loadCurrentConfig()
+  fetchUsers()
 })
 </script>
 
@@ -460,16 +541,16 @@ onMounted(() => {
   .settings {
     padding: 1rem;
   }
-  
+
   .settings-section {
     padding: 1.5rem;
   }
-  
+
   .settings-actions {
     padding: 1.5rem;
     flex-direction: column;
   }
-  
+
   .input-group {
     flex-direction: column;
   }
