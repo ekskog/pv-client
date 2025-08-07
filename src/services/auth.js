@@ -15,6 +15,7 @@ const getConfig = () => ({
   statusEndpoint: '/auth/status'
 });
 
+/*
 // Demo users with hardcoded credentials (for demo mode)
 const demoUsers = {
   admin: {
@@ -77,7 +78,7 @@ async function demoLogin(username, password) {
     }
   };
 }
-
+*/
 // API authentication function (production)
 async function apiLogin(username, password) {
   const config = getConfig()
