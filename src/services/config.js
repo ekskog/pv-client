@@ -5,7 +5,6 @@ class ConfigService {
   constructor() {
     this.config = {
       apiUrl: import.meta.env.VITE_API_URL,
-      authMode: import.meta.env.VITE_AUTH_MODE
     }
 
     console.log('🔧 Config: Loaded from environment variables:', this.config)

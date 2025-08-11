@@ -21,28 +21,6 @@ class AuthService {
     this.isInitialized = true
   }
 
-  // Login with username and password
-  async login(username, password) {
-    try {
-      // For demo purposes, we'll simulate authentication
-      // In production, this would call your backend auth endpoint
-      const response = await this.simulateLogin(username, password)
-      
-      if (response.success) {
-        this.token = response.token
-        this.currentUser = response.user
-        localStorage.setItem('hbvu_auth_token', this.token)
-        localStorage.setItem('hbvu_user', JSON.stringify(this.currentUser))
-        return { success: true, user: this.currentUser }
-      } else {
-        throw new Error(response.error || 'Login failed')
-      }
-    } catch (error) {
-      console.error('Login error:', error)
-      return { success: false, error: error.message }
-    }
-  }
-
   // Logout and clear session
   logout() {
     this.clearAuth()
@@ -123,81 +101,7 @@ class AuthService {
     return true // Regular users can view photos
   }
 
-  // Simulate login for demo purposes
-  // Replace with actual backend call in production
-  async simulateLogin(username, password) {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500))
 
-    // Demo credentials
-    const demoUsers = [
-      {
-        id: 1,
-        username: 'admin',
-        password: 'admin123',
-        role: 'admin',
-        name: 'Administrator',
-        email: 'admin@hbvu.su'
-      },
-      {
-        id: 2,
-        username: 'user',
-        password: 'user123',
-        role: 'user',
-        name: 'Regular User',
-        email: 'user@hbvu.su'
-      }
-    ]
-
-    const user = demoUsers.find(u => u.username === username && u.password === password)
-    
-    if (user) {
-      const { password: _, ...userWithoutPassword } = user
-      return {
-        success: true,
-        token: `demo_token_${user.id}_${Date.now()}`,
-        user: userWithoutPassword
-      }
-    } else {
-      return {
-        success: false,
-        error: 'Invalid username or password'
-      }
-    }
-  }
-
-  // Simulate token validation
-  async simulateTokenValidation(token) {
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 200))
-    
-    // For demo, consider all tokens valid if they follow our format
-    return token && token.startsWith('demo_token_')
-  }
-
-  // Get demo users (for user management)
-  async getDemoUsers() {
-    return [
-      {
-        id: 1,
-        username: 'admin',
-        role: 'admin',
-        name: 'Administrator',
-        email: 'admin@hbvu.su',
-        createdAt: '2024-01-01',
-        lastLogin: new Date().toISOString()
-      },
-      {
-        id: 2,
-        username: 'user',
-        role: 'user',
-        name: 'Regular User',
-        email: 'user@hbvu.su',
-        createdAt: '2024-01-15',
-        lastLogin: '2024-06-05'
-      }
-    ]
-  }
 }
 
 export default new AuthService()

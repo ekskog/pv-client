@@ -244,16 +244,6 @@ const isFormValid = computed(() => {
 const loadUsers = async () => {
   loading.value = true
   error.value = null
-  
-  try {
-    // In a real app, this would call your backend API
-    const demoUsers = await authService.getDemoUsers()
-    users.value = demoUsers
-  } catch (err) {
-    error.value = `Failed to load users: ${err.message}`
-  } finally {
-    loading.value = false
-  }
 }
 
 const editUser = (user) => {

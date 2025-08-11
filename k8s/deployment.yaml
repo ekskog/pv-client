@@ -36,9 +36,6 @@ spec:
         # API Configuration
         - name: VITE_API_URL
           value: "https://vault-api.hbvu.su"
-        # Authentication Mode: demo for development, api for production
-        - name: VITE_AUTH_MODE
-          value: "demo"
         # Debug Configuration
         - name: VITE_DEBUG
           value: "false"  # Set to "true" or "ekskog:*" to enable debug logging

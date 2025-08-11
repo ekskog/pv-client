@@ -199,7 +199,6 @@ const hasChanges = computed(() => {
 
 // Methods
 const loadCurrentConfig = () => {
-  const config = configService.getConfig()
   currentConfig.value = config
   originalConfig.value = { ...config } // Store a copy for comparison
   formData.apiUrl = config.apiUrl
