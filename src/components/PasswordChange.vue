@@ -216,37 +216,7 @@ const changePassword = async () => {
   success.value = ''
 
   try {
-    // In demo mode, simulate password change
-    if (authService.getConfig().demoMode) {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // For demo, we can't actually change passwords
-      if (isOwnPassword.value) {
-        // Simulate current password check using hardcoded demo credentials
-        const currentUser = authService.getCurrentUser()
-        
-        // Check current password against hardcoded credentials
-        if (currentUser.username === 'admin' && currentPassword.value !== 'admin123') {
-          throw new Error('Current password is incorrect')
-        }
-        if (currentUser.username === 'user' && currentPassword.value !== 'user123') {
-          throw new Error('Current password is incorrect')
-        }
-      }
-      
-      success.value = 'Password changed successfully! (Demo mode - actual password not changed)'
-      
-      // Close dialog after success
-      setTimeout(() => {
-        emit('success', {
-          userId: props.user.id,
-          isOwnPassword: isOwnPassword.value
-        })
-        closeDialog()
-      }, 1500)
-      
-    } else {
+
       // Production mode - call backend API
       const response = await authService.changePassword({
         userId: props.user.id,
@@ -263,7 +233,6 @@ const changePassword = async () => {
         })
         closeDialog()
       }, 1500)
-    }
     
   } catch (err) {
     error.value = err.message || 'Failed to change password'

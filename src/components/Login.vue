@@ -7,11 +7,6 @@
         </div>
         <h1>HBVU PHOTOS</h1>
         <p class="login-subtitle">Please sign in to continue</p>
-
-        <!-- Demo Mode Warning -->
-        <div v-if="isDemoMode" class="demo-warning">
-          ⚠️ <strong>Demo Mode</strong> - Using test credentials
-        </div>
       </div>
 
       <form @submit.prevent="handleLogin" class="login-form">
@@ -43,14 +38,6 @@
         </button>
       </form>
 
-      <!-- Demo Info -->
-      <div v-if="isDemoMode" class="demo-info">
-        <h4>Demo Mode Active</h4>
-        <p class="demo-description">
-          This is a demonstration environment. Please contact your administrator for login credentials.
-        </p>
-      </div>
-
       <!-- Security Notice -->
       <div class="security-notice">
         <small>🔒 Your credentials are transmitted securely</small>
@@ -77,9 +64,6 @@ const usernameInput = ref(null)
 const isFormValid = computed(() => {
   return username.value.trim() && password.value.trim()
 })
-
-// Demo mode check
-const isDemoMode = computed(() => authService.getConfig().demoMode)
 
 // Methods
 const handleLogin = async () => {
@@ -295,38 +279,6 @@ onUnmounted(() => {
   font-size: 0.9rem;
 }
 
-.demo-warning {
-  background: #fff3cd;
-  border: 1px solid #ffeaa7;
-  color: #856404;
-  padding: 8px 12px;
-  border-radius: 4px;
-  margin: 10px 0;
-  font-size: 0.9em;
-  text-align: center;
-}
-
-.demo-info {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 1.5rem;
-  border: 1px solid #e9ecef;
-  text-align: center;
-}
-
-.demo-info h4 {
-  margin-bottom: 1rem;
-  color: #495057;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.demo-description {
-  font-size: 0.9rem;
-  line-height: 1.4;
-  color: #6c757d;
-  margin: 0;
-}
 
 .security-notice {
   text-align: center;
