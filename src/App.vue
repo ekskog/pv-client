@@ -1,6 +1,6 @@
 <template>
   <div id="app">
-    <!-- Header visible to all users FORCE REBUILD -->
+    <!-- Header visible to all users FORCE REBUILD 11.08.2025 -->
     <AppHeader
       :currentView="currentView"
       :currentUser="currentUser"
