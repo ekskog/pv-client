@@ -141,12 +141,12 @@ To enable debugging in a production Kubernetes deployment:
 
 1. Update the deployment:
 ```bash
-kubectl set env deployment/photovault-vue VITE_DEBUG=true VITE_DEBUG_PATTERN="hbvu:*" -n webapps
+kubectl set env deployment/photovault-vue VITE_DEBUG=true VITE_DEBUG_PATTERN="hbvu:*" -n photovault
 ```
 
 2. Or edit the deployment directly:
 ```bash
-kubectl edit deployment photovault-vue -n webapps
+kubectl edit deployment photovault-vue -n photovault
 ```
 
 3. Pods will automatically restart with debug enabled.
@@ -154,17 +154,17 @@ kubectl edit deployment photovault-vue -n webapps
 ### Disabling Debug in Production
 
 ```bash
-kubectl set env deployment/photovault-vue VITE_DEBUG=false -n webapps
+kubectl set env deployment/photovault-vue VITE_DEBUG=false -n photovault
 ```
 
 ### Checking Current Debug Status
 
 ```bash
 # Check environment variables
-kubectl get deployment photovault-vue -n webapps -o jsonpath='{.spec.template.spec.containers[0].env}'
+kubectl get deployment photovault-vue -n photovault -o jsonpath='{.spec.template.spec.containers[0].env}'
 
 # Check logs for debug output
-kubectl logs -f deployment/photovault-vue -n webapps
+kubectl logs -f deployment/photovault-vue -n photovault
 ```
 
 ## Browser Console

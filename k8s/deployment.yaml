@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: photovault-client
-  namespace: webapps
+  namespace: photovault
   labels:
     app: photovault-client
     component: client

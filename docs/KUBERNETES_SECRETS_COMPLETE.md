@@ -64,7 +64,7 @@ You now have a **production-ready Kubernetes deployment** with proper secret man
 ./k8s/manage-secrets.sh deploy
 
 # 3. Check status
-kubectl get pods -n webapps -l app=photovault-vue
+kubectl get pods -n photovault -l app=photovault-vue
 ```
 
 ### Manual Deployment
@@ -105,7 +105,7 @@ kubectl apply -f k8s/service.yaml
 
 # Update a specific secret
 kubectl patch secret photovault-frontend-secrets \
-  --namespace=webapps \
+  --namespace=photovault \
   --patch='{"data":{"VITE_API_URL":"'$(echo -n "https://new-api.com" | base64)'"}}'
 
 # Rotate all secrets

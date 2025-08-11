@@ -1,48 +1,82 @@
 <template>
-  <div class="settings">
-    <div class="settings-header">
-      <h1><i class="fas fa-cog"></i> Settings</h1>
-      <p>Configure your PhotoVault application settings</p>
+  <div class="max-w-3xl mx-auto p-8">
+    <div class="mb-8 text-center">
+      <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center justify-center gap-2">
+        <i class="fas fa-cog"></i> Settings
+      </h1>
+      <p class="text-gray-600 dark:text-gray-400">Configure your PhotoVault application settings</p>
     </div>
 
-    <div class="settings-content">
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
       <!-- API Configuration Section -->
-      <div class="settings-section">
-        <h2><i class="fas fa-server"></i> API Configuration</h2>
+      <div class="p-8 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-6">
+          <i class="fas fa-server"></i> API Configuration
+        </h2>
 
-        <div class="form-group">
-          <label for="apiUrl">API Server URL</label>
-          <div class="input-group">
-            <input id="apiUrl" v-model="formData.apiUrl" type="url" placeholder="https://vault-api.hbvu.su"
-              class="form-input" :class="{ error: validationErrors.apiUrl }" />
-            <button @click="testConnection" class="btn btn-secondary" :disabled="isTestingConnection">
+        <div class="mb-6">
+          <label for="apiUrl" class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">API Server URL</label>
+          <div class="flex flex-col md:flex-row gap-2">
+            <input
+              id="apiUrl"
+              v-model="formData.apiUrl"
+              type="url"
+              placeholder="https://vault-api.hbvu.su"
+              :class="[
+                'flex-1 px-4 py-3 border rounded-md text-base transition-colors',
+                validationErrors.apiUrl ? 'border-red-500' : 'border-gray-300 focus:border-blue-500',
+                'dark:bg-gray-900 dark:text-white dark:border-gray-600'
+              ]"
+            />
+            <button
+              @click="testConnection"
+              class="px-4 py-3 bg-gray-600 text-white rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
+              :disabled="isTestingConnection"
+            >
               <i class="fas fa-plug" v-if="!isTestingConnection"></i>
               <i class="fas fa-spinner fa-spin" v-else></i>
               Test
             </button>
           </div>
-          <div v-if="validationErrors.apiUrl" class="error-message">
+          <div v-if="validationErrors.apiUrl" class="mt-2 text-sm text-red-600">
             {{ validationErrors.apiUrl }}
           </div>
-          <div v-if="connectionTestResult" class="test-result" :class="connectionTestResult.type">
+          <div
+            v-if="connectionTestResult"
+            :class="[
+              'mt-2 p-2 rounded text-sm flex items-center gap-2',
+              connectionTestResult.type === 'success'
+                ? 'bg-green-100 text-green-800 border border-green-300'
+                : 'bg-red-100 text-red-800 border border-red-300'
+            ]"
+          >
             <i :class="connectionTestResult.icon"></i>
             {{ connectionTestResult.message }}
           </div>
         </div>
 
-        <div class="form-group">
-          <label>Current API URL</label>
-          <div class="current-value">{{ currentConfig.apiUrl }}</div>
+        <div>
+          <label class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">Current API URL</label>
+          <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-gray-600 dark:text-gray-300">
+            {{ currentConfig.apiUrl }}
+          </div>
         </div>
       </div>
 
       <!-- Admin-Assisted Password Reset -->
-      <div class="settings-section">
-        <h2><i class="fas fa-user-shield"></i> Admin: Reset User Password</h2>
+      <div class="p-8 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-6">
+          <i class="fas fa-user-shield"></i> Admin: Reset User Password
+        </h2>
 
-        <div class="form-group">
-          <label for="selectedUser">Select User</label>
-          <select id="selectedUser" v-model="selectedUserId" class="form-input" :disabled="isLoadingUsers">
+        <div class="mb-6">
+          <label for="selectedUser" class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">Select User</label>
+          <select
+            id="selectedUser"
+            v-model="selectedUserId"
+            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-900 dark:text-white"
+            :disabled="isLoadingUsers"
+          >
             <option value="">-- Choose a user --</option>
             <option v-for="user in users" :key="user.id" :value="user.id">
               {{ user.username }} ({{ user.email }})
@@ -50,40 +84,67 @@
           </select>
         </div>
 
-        <div class="form-group">
-          <label for="newPassword">New Password</label>
-          <input id="newPassword" v-model="newPassword" type="password" placeholder="Enter new password"
-            class="form-input" />
+        <div class="mb-6">
+          <label for="newPassword" class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">New Password</label>
+          <input
+            id="newPassword"
+            v-model="newPassword"
+            type="password"
+            placeholder="Enter new password"
+            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-900 dark:text-white"
+          />
         </div>
 
-        <button @click="resetUserPassword" class="btn btn-danger"
-          :disabled="!selectedUserId || !newPassword || isResettingPassword">
+        <button
+          @click="resetUserPassword"
+          class="px-4 py-3 bg-red-600 text-white rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
+          :disabled="!selectedUserId || !newPassword || isResettingPassword"
+        >
           <i class="fas fa-key" v-if="!isResettingPassword"></i>
           <i class="fas fa-spinner fa-spin" v-else></i>
           Reset Password
         </button>
 
-        <div v-if="passwordResetMessage" class="message" :class="passwordResetMessage.type">
+        <div
+          v-if="passwordResetMessage"
+          :class="[
+            'mt-4 p-3 rounded flex items-center gap-2 font-medium',
+            passwordResetMessage.type === 'success'
+              ? 'bg-green-100 text-green-800 border border-green-300'
+              : 'bg-red-100 text-red-800 border border-red-300'
+          ]"
+        >
           <i :class="passwordResetMessage.icon"></i>
           {{ passwordResetMessage.text }}
         </div>
       </div>
 
-
       <!-- Actions -->
-      <div class="settings-actions">
-        <button @click="saveSettings" class="btn btn-primary" :disabled="isSaving || !hasChanges">
+      <div class="p-8 bg-gray-100 dark:bg-gray-700 flex flex-wrap gap-4">
+        <button
+          @click="saveSettings"
+          class="px-4 py-3 bg-blue-600 text-white rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
+          :disabled="isSaving || !hasChanges"
+        >
           <i class="fas fa-save" v-if="!isSaving"></i>
           <i class="fas fa-spinner fa-spin" v-else></i>
           Save Settings
         </button>
 
-        <button @click="resetToDefaults" class="btn btn-warning" :disabled="isSaving">
+        <button
+          @click="resetToDefaults"
+          class="px-4 py-3 bg-yellow-400 text-gray-900 rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
+          :disabled="isSaving"
+        >
           <i class="fas fa-undo"></i>
           Reset to Defaults
         </button>
 
-        <button @click="reloadApplication" class="btn btn-info" v-if="requiresReload">
+        <button
+          @click="reloadApplication"
+          class="px-4 py-3 bg-cyan-600 text-white rounded-md font-semibold flex items-center gap-2"
+          v-if="requiresReload"
+        >
           <i class="fas fa-refresh"></i>
           Reload Application
         </button>
@@ -91,12 +152,21 @@
     </div>
 
     <!-- Success/Error Messages -->
-    <div v-if="message" class="message" :class="message.type">
+    <div
+      v-if="message"
+      :class="[
+        'mt-6 p-4 rounded flex items-center gap-2 font-medium',
+        message.type === 'success'
+          ? 'bg-green-100 text-green-800 border border-green-300'
+          : 'bg-red-100 text-red-800 border border-red-300'
+      ]"
+    >
       <i :class="message.icon"></i>
       {{ message.text }}
     </div>
   </div>
 </template>
+
 
 <script setup>
 import { ref, computed, onMounted, reactive } from 'vue'
@@ -318,241 +388,3 @@ onMounted(() => {
   fetchUsers()
 })
 </script>
-
-<style scoped>
-.settings {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.settings-header {
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.settings-header h1 {
-  color: #333;
-  margin-bottom: 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.settings-header p {
-  color: #666;
-  margin: 0;
-}
-
-.settings-content {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.settings-section {
-  padding: 2rem;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.settings-section:last-child {
-  border-bottom: none;
-}
-
-.settings-section h2 {
-  color: #333;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.25rem;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
-.form-group:last-child {
-  margin-bottom: 0;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: #333;
-}
-
-.input-group {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.form-input {
-  flex: 1;
-  padding: 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: #007bff;
-}
-
-.form-input.error {
-  border-color: #dc3545;
-}
-
-.current-value {
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border: 2px solid #e0e0e0;
-  border-radius: 6px;
-  font-family: monospace;
-  color: #666;
-}
-
-.help-text {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-  color: #666;
-  line-height: 1.4;
-}
-
-.error-message {
-  margin-top: 0.5rem;
-  color: #dc3545;
-  font-size: 0.875rem;
-}
-
-.test-result {
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.test-result.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.test-result.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6ca;
-}
-
-.settings-actions {
-  padding: 2rem;
-  background: #f8f9fa;
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  text-decoration: none;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: #007bff;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.btn-secondary {
-  background: #6c757d;
-  color: white;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #545b62;
-}
-
-.btn-warning {
-  background: #ffc107;
-  color: #212529;
-}
-
-.btn-warning:hover:not(:disabled) {
-  background: #e0a800;
-}
-
-.btn-info {
-  background: #17a2b8;
-  color: white;
-}
-
-.btn-info:hover:not(:disabled) {
-  background: #117a8b;
-}
-
-.message {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-}
-
-.message.success {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.message.error {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-@media (max-width: 768px) {
-  .settings {
-    padding: 1rem;
-  }
-
-  .settings-section {
-    padding: 1.5rem;
-  }
-
-  .settings-actions {
-    padding: 1.5rem;
-    flex-direction: column;
-  }
-
-  .input-group {
-    flex-direction: column;
-  }
-}
-</style>

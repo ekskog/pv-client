@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: ghcr.io/ekskog/photovault-client
-      NAMESPACE: webapps
+      NAMESPACE: photovault
       DEPLOYMENT: photovault-client
 
     steps:
