@@ -1,18 +1,31 @@
 <template>
   <!-- Upload Dialog -->
-  <div v-if="showUploadDialog" class="dialog-overlay" @click="closeUploadDialog">
-    <div class="dialog upload-dialog" @click.stop>
-      <h3><i class="fas fa-cloud-upload-alt"></i> Upload Media</h3>
+  <div
+    v-if="showUploadDialog"
+    class="fixed inset-0 z-[3000] flex items-center justify-center bg-black/50 p-6"
+    @click="closeUploadDialog"
+  >
+    <div
+      class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-xl max-h-[90vh] overflow-y-auto"
+      @click.stop
+    >
+      <h3 class="text-lg font-semibold mb-6 flex items-center gap-2">
+        <i class="fas fa-cloud-upload-alt text-blue-500"></i> Upload Media
+      </h3>
 
       <!-- Upload Type Selector -->
-      <div class="upload-type-selector">
-        <button class="btn-upload-type" @click="triggerUpload('photos')">
-          <i class="fas fa-image"></i>
-          Photos
+      <div class="flex gap-2 mb-6">
+        <button
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-600 text-sm font-medium hover:border-blue-500 hover:text-blue-500 transition"
+          @click="triggerUpload('photos')"
+        >
+          <i class="fas fa-image text-base"></i> Photos
         </button>
-        <button class="btn-upload-type" @click="triggerUpload('videos')">
-          <i class="fas fa-video"></i>
-          Videos
+        <button
+          class="flex-1 flex items-center justify-center gap-2 px-4 py-3 border-2 border-gray-200 rounded-lg text-gray-600 text-sm font-medium hover:border-blue-500 hover:text-blue-500 transition"
+          @click="triggerUpload('videos')"
+        >
+          <i class="fas fa-video text-base"></i> Videos
         </button>
       </div>
 
@@ -23,33 +36,40 @@
         :accept="uploadType === 'photos' ? 'image/*' : 'video/*'"
         multiple
         @change="handleFileSelect"
-        style="display: none;"
+        class="hidden"
       />
 
       <!-- Selected Files Summary -->
-      <div v-if="selectedFiles.length > 0" class="selected-summary">
+      <div v-if="selectedFiles.length > 0" class="mb-6 text-sm text-gray-700">
         <p>
-          <strong>{{ selectedFiles.length }}</strong> file{{ selectedFiles.length > 1 ? 's' : '' }} selected —
+          <strong>{{ selectedFiles.length }}</strong>
+          file{{ selectedFiles.length > 1 ? 's' : '' }} selected —
           <strong>{{ totalSizeMB }}</strong> MB total
         </p>
       </div>
 
       <!-- Upload Progress -->
-      <div v-if="uploading" class="upload-progress">
-        <div class="progress-bar">
-          <div class="progress-fill" :style="{ width: `${uploadProgress}%` }"></div>
+      <div v-if="uploading" class="mb-6">
+        <div class="w-full h-2 bg-gray-200 rounded overflow-hidden mb-2">
+          <div
+            class="h-full bg-blue-500 transition-all duration-300"
+            :style="{ width: `${uploadProgress}%` }"
+          ></div>
         </div>
-        <p class="progress-text">{{ uploadStatus }}</p>
+        <p class="text-center text-sm text-gray-600">{{ uploadStatus }}</p>
       </div>
 
       <!-- Dialog Actions -->
-      <div class="dialog-actions">
-        <button class="btn-secondary" @click="closeUploadDialog">
+      <div class="flex justify-end gap-4 mt-6">
+        <button
+          class="bg-gray-200 text-gray-800 px-4 py-2 rounded text-sm font-medium hover:bg-gray-300 transition"
+          @click="closeUploadDialog"
+        >
           {{ uploadProgress === 100 && !uploading ? 'Done' : 'Cancel' }}
         </button>
         <button
           v-if="uploadProgress < 100"
-          class="btn-primary"
+          class="bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-600 transition disabled:bg-blue-300 disabled:cursor-not-allowed"
           @click="uploadFiles"
           :disabled="selectedFiles.length === 0 || uploading"
         >
@@ -60,16 +80,33 @@
   </div>
 
   <!-- Upload Complete Modal -->
-  <div v-if="showUploadCompleteModal" class="dialog-overlay" @click="showUploadCompleteModal = false">
-    <div class="dialog" @click.stop>
-      <h3><i class="fas fa-check-circle" style="color: #4caf50;"></i> Upload Complete</h3>
-      <p>Your files have been uploaded. The album will refresh automatically when processing is complete.</p>
-      <div class="dialog-actions">
-        <button class="btn-primary" @click="confirmUploadComplete">OK</button>
+  <div
+    v-if="showUploadCompleteModal"
+    class="fixed inset-0 z-[3000] flex items-center justify-center bg-black/50 p-6"
+    @click="showUploadCompleteModal = false"
+  >
+    <div
+      class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md"
+      @click.stop
+    >
+      <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+        <i class="fas fa-check-circle text-green-500"></i> Upload Complete
+      </h3>
+      <p class="text-sm text-gray-700 mb-6">
+        Your files have been uploaded. The album will refresh automatically when processing is complete.
+      </p>
+      <div class="flex justify-end">
+        <button
+          class="bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-600 transition"
+          @click="confirmUploadComplete"
+        >
+          OK
+        </button>
       </div>
     </div>
   </div>
 </template>
+
 
 
 <script setup>
@@ -166,6 +203,7 @@ const uploadFiles = async () => {
     } else {
       pendingJobId.value = response.data.jobId
       emit('close', { jobId: pendingJobId.value })
+      console.log('close emitted')
       showUploadCompleteModal.value = true
     }
 
@@ -184,6 +222,7 @@ const confirmUploadComplete = () => {
 
 // Close dialog
 const closeUploadDialog = (jobId) => {
+  console.log('[MediaUpload] closeUploadDialog called, jobId:', jobId)
   selectedFiles.value = []
   uploadProgress.value = 0
   uploadStatus.value = ''
@@ -191,6 +230,8 @@ const closeUploadDialog = (jobId) => {
   uploadedFiles.value = new Set()
   failedFiles.value = new Set()
   error.value = null
+  emit('close')
+  console.log('[MediaUpload] close event emitted')
 }
 
 
@@ -200,229 +241,4 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
-/* Dialog overlay and base dialog styles */
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 3000;
-}
 
-.dialog {
-  background: white;
-  border-radius: 12px;
-  padding: 2rem;
-  min-width: 400px;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.upload-dialog {
-  min-width: 500px;
-}
-
-/* Upload type selector */
-.upload-type-selector {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.btn-upload-type {
-  flex: 1;
-  padding: 0.75rem 1rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: #fff;
-  color: #666;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-}
-
-.btn-upload-type:hover {
-  border-color: #2196f3;
-  color: #2196f3;
-}
-
-.btn-upload-type i {
-  font-size: 1rem;
-}
-
-/* Upload progress */
-.upload-progress {
-  margin-bottom: 1.5rem;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
-}
-
-.progress-fill {
-  height: 100%;
-  background: #2196f3;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  font-size: 0.9rem;
-  color: #666;
-  text-align: center;
-  margin: 0;
-}
-
-/* Selected files */
-.selected-files {
-  margin-bottom: 1.5rem;
-}
-
-.selected-summary {
-  margin-bottom: 1.5rem;
-  font-size: 0.95rem;
-  color: #444;
-}
-
-
-.selected-files h4 {
-  margin: 0 0 1rem 0;
-  color: #333;
-}
-
-.file-list {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.file-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 0.9rem;
-  word-break: break-word;
-  margin-bottom: 0.5rem;
-}
-
-.file-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.file-name {
-  font-weight: 500;
-}
-
-.file-size {
-  font-size: 0.8rem;
-  color: #666;
-}
-
-.btn-remove {
-  background: #f44336;
-  color: white;
-  border: none;
-  padding: 0.25rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.7rem;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.btn-remove:hover {
-  background: #d32f2f;
-}
-
-/* Dialog actions */
-.dialog-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-}
-
-.btn-primary {
-  background: #2196f3;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.btn-secondary {
-  background: #e0e0e0;
-  color: #333;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 500;
-  transition: background 0.3s ease;
-}
-
-.btn-primary:disabled {
-  background: #b0bec5;
-  color: #fff;
-  cursor: not-allowed;
-}
-
-@media (max-width: 768px) {
-  .dialog {
-    min-width: unset;
-    width: 90vw;
-    padding: 1.5rem;
-  }
-
-  .upload-dialog {
-    min-width: unset;
-  }
-
-  .btn-upload-type {
-    font-size: 0.85rem;
-    padding: 0.5rem;
-  }
-
-  .dialog-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .btn-primary,
-  .btn-secondary {
-    width: 100%;
-    text-align: center;
-  }
-
-  .selected-summary p {
-    font-size: 0.9rem;
-    text-align: center;
-  }
-}
-
-</style>

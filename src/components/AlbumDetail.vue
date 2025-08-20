@@ -59,6 +59,7 @@
     @close="handleUploadDialogClose"
   />
 
+
   <!-- Delete Photo Confirmation -->
   <div v-if="showDeletePhotoDialog" class="dialog-overlay" @click="closeDeletePhotoDialog">
     <div class="dialog" @click.stop>
@@ -160,6 +161,7 @@ const locationCache = ref(new Map())
 
 // Upload/Delete state
 const showUploadDialog = ref(false)
+console.log('[AlbumDetail] showUploadDialog initial:', showUploadDialog.value)
 const showDeletePhotoDialog = ref(false)
 const photoToDelete = ref(null)
 const deletingPhoto = ref(false)
@@ -240,8 +242,9 @@ const ITEMS_PER_PAGE = 50
 
 // Core Methods
 const handleUploadDialogClose = (payload) => {
+  console.log('[AlbumDetail] handleUploadDialogClose called, payload:', payload)
   showUploadDialog.value = false
-
+  console.log('[AlbumDetail] showUploadDialog set to false')
   if (payload?.jobId) {
     console.log('Upload jobId received from child:', payload.jobId)
     startProcessingListener(payload.jobId)
