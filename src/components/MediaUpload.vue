@@ -230,7 +230,13 @@ const closeUploadDialog = (jobId) => {
   uploadedFiles.value = new Set()
   failedFiles.value = new Set()
   error.value = null
-  emit('close')
+  
+  // Emit close event with jobId if provided
+  if (jobId) {
+    emit('close', { jobId })
+  } else {
+    emit('close')
+  }
   console.log('[MediaUpload] close event emitted')
 }
 
@@ -240,5 +246,3 @@ onMounted(() => {
   // You can add mobile-specific logic here if needed
 })
 </script>
-
-
