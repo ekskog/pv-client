@@ -1,26 +1,39 @@
 <template>
-  <div class="album-header">
-    <button class="btn-back" @click="$emit('back')">
+  <div
+    class="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-gray-200 dark:border-gray-700 flex-wrap"
+  >
+    <!-- Back Button -->
+    <button
+      class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-4 py-2 rounded-md text-sm transition"
+      @click="$emit('back')"
+    >
       <i class="fas fa-arrow-left"></i>
     </button>
 
-    <div class="album-info">
-      <h2><i class="fas fa-images"></i> {{ cleanAlbumName }}</h2>
-      <span class="photo-count">{{ photoCount }} photos</span>
+    <!-- Album Info -->
+    <div class="flex items-center gap-3 flex-grow min-w-0">
+      <h2 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 truncate">
+        <i class="fas fa-images text-blue-500"></i> {{ cleanAlbumName }}
+      </h2>
+      <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+        {{ photoCount }} photos
+      </span>
     </div>
 
-    <div class="header-actions">
+    <!-- Header Actions -->
+    <div class="flex items-center gap-3 flex-shrink-0">
       <button
-        class="btn-secondary btn-refresh"
+        class="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-3 py-2 rounded-md text-sm transition flex items-center justify-center disabled:opacity-60"
         @click="$emit('refresh')"
         :disabled="loading"
         title="Refresh album"
       >
         <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
       </button>
+
       <button
         v-if="canUploadPhotos"
-        class="btn-primary"
+        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold transition disabled:opacity-60"
         @click="$emit('upload')"
       >
         <i class="fas fa-plus"></i>
@@ -31,169 +44,18 @@
 
 <script setup>
 import { computed } from "vue";
-// Props
+
 const props = defineProps({
-  albumName: {
-    type: String,
-    required: true,
-  },
-  photoCount: {
-    type: Number,
-    default: 0,
-  },
-  loading: {
-    type: Boolean,
-    default: false,
-  },
-  canUploadPhotos: {
-    type: Boolean,
-    default: false,
-  },
+  albumName: { type: String, required: true },
+  photoCount: { type: Number, default: 0 },
+  loading: { type: Boolean, default: false },
+  canUploadPhotos: { type: Boolean, default: false },
 });
 
-// 🧹 Computed album name cleaner
 const cleanAlbumName = computed(() => {
   const match = props.albumName.match(/^(.*)\.(\d{2})\/$/);
   return match ? `${match[1]} (${match[2]})` : props.albumName;
 });
 
-// Emits
 const emit = defineEmits(["back", "refresh", "upload"]);
 </script>
-
-<style scoped>
-.album-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e0e0e0;
-  gap: 1rem;
-}
-
-.btn-back {
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #491b1b;
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.btn-back:hover {
-  background: #e0e0e0;
-}
-
-.album-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-grow: 1;
-}
-
-.album-info h2 {
-  font-size: 2rem;
-  font-weight: 600;
-  color: #333;
-  margin: 0;
-}
-
-.photo-count {
-  font-size: 1rem;
-  color: #666;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.btn-secondary {
-  background: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  background: #e0e0e0;
-}
-
-.btn-refresh {
-  min-width: 44px;
-  padding: 0.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-refresh:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-refresh .fas.fa-spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.btn-primary {
-  background: #2196f3;
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #1976d2;
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* 🌐 Mobile & Tablet Styles */
-@media (max-width: 768px) {
-  .album-header {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .album-info {
-    text-align: center;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .header-actions {
-    justify-content: center;
-  }
-
-  .btn-back {
-    align-self: flex-start;
-  }
-}
-</style>
