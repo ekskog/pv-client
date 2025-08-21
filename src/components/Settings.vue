@@ -1,80 +1,33 @@
 <template>
-  <div class="max-w-3xl mx-auto p-8">
-    <div class="mb-8 text-center">
-      <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center justify-center gap-2">
-        <i class="fas fa-cog"></i> Settings
+  <div class="max-w-4xl mx-auto px-6 py-10">
+    <!-- Header -->
+    <div class="mb-10 text-center">
+      <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center justify-center gap-3">
+        <i class="fas fa-cog text-blue-500"></i> Settings
       </h1>
-      <p class="text-gray-600 dark:text-gray-400">Configure your PhotoVault application settings</p>
+      <p class="text-gray-600 dark:text-gray-400 text-sm mt-2">
+        Configure your PhotoVault application settings
+      </p>
     </div>
 
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-      <!-- API Configuration Section -->
-      <div class="p-8 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-6">
-          <i class="fas fa-server"></i> API Configuration
+    <!-- Card -->
+    <div class="bg-white dark:bg-gray-900 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+
+      <!-- Admin Password Reset -->
+      <div class="px-8 py-10 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-8">
+          <i class="fas fa-user-shield text-indigo-500"></i> Admin: Reset User Password
         </h2>
 
+        <!-- Select User -->
         <div class="mb-6">
-          <label for="apiUrl" class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">API Server URL</label>
-          <div class="flex flex-col md:flex-row gap-2">
-            <input
-              id="apiUrl"
-              v-model="formData.apiUrl"
-              type="url"
-              placeholder="https://vault-api.hbvu.su"
-              :class="[
-                'flex-1 px-4 py-3 border rounded-md text-base transition-colors',
-                validationErrors.apiUrl ? 'border-red-500' : 'border-gray-300 focus:border-blue-500',
-                'dark:bg-gray-900 dark:text-white dark:border-gray-600'
-              ]"
-            />
-            <button
-              @click="testConnection"
-              class="px-4 py-3 bg-gray-600 text-white rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
-              :disabled="isTestingConnection"
-            >
-              <i class="fas fa-plug" v-if="!isTestingConnection"></i>
-              <i class="fas fa-spinner fa-spin" v-else></i>
-              Test
-            </button>
-          </div>
-          <div v-if="validationErrors.apiUrl" class="mt-2 text-sm text-red-600">
-            {{ validationErrors.apiUrl }}
-          </div>
-          <div
-            v-if="connectionTestResult"
-            :class="[
-              'mt-2 p-2 rounded text-sm flex items-center gap-2',
-              connectionTestResult.type === 'success'
-                ? 'bg-green-100 text-green-800 border border-green-300'
-                : 'bg-red-100 text-red-800 border border-red-300'
-            ]"
-          >
-            <i :class="connectionTestResult.icon"></i>
-            {{ connectionTestResult.message }}
-          </div>
-        </div>
-
-        <div>
-          <label class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">Current API URL</label>
-          <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-gray-600 dark:text-gray-300">
-            {{ currentConfig.apiUrl }}
-          </div>
-        </div>
-      </div>
-
-      <!-- Admin-Assisted Password Reset -->
-      <div class="p-8 border-b border-gray-200 dark:border-gray-700">
-        <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-6">
-          <i class="fas fa-user-shield"></i> Admin: Reset User Password
-        </h2>
-
-        <div class="mb-6">
-          <label for="selectedUser" class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">Select User</label>
+          <label for="selectedUser" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            Select User
+          </label>
           <select
             id="selectedUser"
             v-model="selectedUserId"
-            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-900 dark:text-white"
+            class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             :disabled="isLoadingUsers"
           >
             <option value="">-- Choose a user --</option>
@@ -84,20 +37,24 @@
           </select>
         </div>
 
+        <!-- New Password -->
         <div class="mb-6">
-          <label for="newPassword" class="block mb-2 font-semibold text-gray-800 dark:text-gray-100">New Password</label>
+          <label for="newPassword" class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            New Password
+          </label>
           <input
             id="newPassword"
             v-model="newPassword"
             type="password"
             placeholder="Enter new password"
-            class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-900 dark:text-white"
+            class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
 
+        <!-- Reset Button -->
         <button
           @click="resetUserPassword"
-          class="px-4 py-3 bg-red-600 text-white rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
+          class="inline-flex items-center gap-2 px-5 py-3 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-60"
           :disabled="!selectedUserId || !newPassword || isResettingPassword"
         >
           <i class="fas fa-key" v-if="!isResettingPassword"></i>
@@ -105,10 +62,11 @@
           Reset Password
         </button>
 
+        <!-- Feedback Message -->
         <div
           v-if="passwordResetMessage"
           :class="[
-            'mt-4 p-3 rounded flex items-center gap-2 font-medium',
+            'mt-6 px-4 py-3 rounded-lg flex items-center gap-2 text-sm font-medium',
             passwordResetMessage.type === 'success'
               ? 'bg-green-100 text-green-800 border border-green-300'
               : 'bg-red-100 text-red-800 border border-red-300'
@@ -120,10 +78,10 @@
       </div>
 
       <!-- Actions -->
-      <div class="p-8 bg-gray-100 dark:bg-gray-700 flex flex-wrap gap-4">
+      <div class="px-8 py-6 bg-gray-50 dark:bg-gray-800 flex flex-wrap gap-4">
         <button
           @click="saveSettings"
-          class="px-4 py-3 bg-blue-600 text-white rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
+          class="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-60"
           :disabled="isSaving || !hasChanges"
         >
           <i class="fas fa-save" v-if="!isSaving"></i>
@@ -133,7 +91,7 @@
 
         <button
           @click="resetToDefaults"
-          class="px-4 py-3 bg-yellow-400 text-gray-900 rounded-md font-semibold flex items-center gap-2 disabled:opacity-60"
+          class="inline-flex items-center gap-2 px-5 py-3 bg-yellow-400 text-gray-900 rounded-lg font-semibold hover:bg-yellow-500 transition disabled:opacity-60"
           :disabled="isSaving"
         >
           <i class="fas fa-undo"></i>
@@ -142,7 +100,7 @@
 
         <button
           @click="reloadApplication"
-          class="px-4 py-3 bg-cyan-600 text-white rounded-md font-semibold flex items-center gap-2"
+          class="inline-flex items-center gap-2 px-5 py-3 bg-cyan-600 text-white rounded-lg font-semibold hover:bg-cyan-700 transition"
           v-if="requiresReload"
         >
           <i class="fas fa-refresh"></i>
@@ -151,11 +109,11 @@
       </div>
     </div>
 
-    <!-- Success/Error Messages -->
+    <!-- Global Message -->
     <div
       v-if="message"
       :class="[
-        'mt-6 p-4 rounded flex items-center gap-2 font-medium',
+        'mt-8 px-5 py-4 rounded-lg flex items-center gap-2 text-sm font-medium',
         message.type === 'success'
           ? 'bg-green-100 text-green-800 border border-green-300'
           : 'bg-red-100 text-red-800 border border-red-300'
@@ -166,6 +124,7 @@
     </div>
   </div>
 </template>
+
 
 
 <script setup>

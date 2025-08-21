@@ -1,32 +1,49 @@
 <template>
-  <div class="password-change-overlay" @click="closeDialog">
-    <div class="password-change-dialog" @click.stop>
-      <div class="dialog-header">
-        <h3>
-          <i class="fas fa-key"></i>
-          Change Password
+  <div
+    class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
+    @click="closeDialog"
+  >
+    <div
+      class="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+      @click.stop
+    >
+      <!-- Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h3 class="text-gray-800 text-lg font-semibold flex items-center gap-2">
+          <i class="fas fa-key"></i> Change Password
         </h3>
-        <button class="close-btn" @click="closeDialog">
-          <i class="fas fa-times"></i>
+        <button
+          class="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded transition"
+          @click="closeDialog"
+        >
+          <i class="fas fa-times text-xl"></i>
         </button>
       </div>
 
-      <div class="dialog-body">
-        <div v-if="isOwnPassword" class="info-banner">
+      <!-- Body -->
+      <div class="px-6 py-4">
+        <!-- Info Banner -->
+        <div
+          v-if="isOwnPassword"
+          class="bg-blue-100 border border-blue-300 text-blue-800 p-4 rounded-lg mb-6 flex items-center gap-2 text-sm"
+        >
           <i class="fas fa-info-circle"></i>
           You are changing your own password. You will need to log in again after changing it.
         </div>
-
-        <div v-else class="info-banner admin-banner">
+        <div
+          v-else
+          class="bg-yellow-100 border border-yellow-300 text-yellow-800 p-4 rounded-lg mb-6 flex items-center gap-2 text-sm"
+        >
           <i class="fas fa-shield-alt"></i>
           You are changing the password for <strong>{{ user?.name || user?.username }}</strong>
         </div>
 
-        <form @submit.prevent="changePassword" class="password-form">
-          <!-- Current Password (only for own password) -->
-          <div v-if="isOwnPassword" class="form-group">
-            <label for="currentPassword">Current Password:</label>
-            <div class="password-input">
+        <!-- Form -->
+        <form @submit.prevent="changePassword" class="space-y-6">
+          <!-- Current Password -->
+          <div v-if="isOwnPassword">
+            <label for="currentPassword" class="block text-sm font-medium text-gray-700 mb-2">Current Password:</label>
+            <div class="relative flex items-center">
               <input
                 id="currentPassword"
                 v-model="currentPassword"
@@ -34,10 +51,11 @@
                 placeholder="Enter your current password"
                 required
                 :disabled="loading"
+                class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100"
               />
               <button
                 type="button"
-                class="password-toggle"
+                class="absolute right-3 text-gray-500 hover:text-gray-700"
                 @click="showCurrentPassword = !showCurrentPassword"
               >
                 <i :class="showCurrentPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
@@ -46,9 +64,9 @@
           </div>
 
           <!-- New Password -->
-          <div class="form-group">
-            <label for="newPassword">New Password:</label>
-            <div class="password-input">
+          <div>
+            <label for="newPassword" class="block text-sm font-medium text-gray-700 mb-2">New Password:</label>
+            <div class="relative flex items-center">
               <input
                 id="newPassword"
                 v-model="newPassword"
@@ -57,27 +75,34 @@
                 required
                 minlength="6"
                 :disabled="loading"
+                class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100"
               />
               <button
                 type="button"
-                class="password-toggle"
+                class="absolute right-3 text-gray-500 hover:text-gray-700"
                 @click="showNewPassword = !showNewPassword"
               >
                 <i :class="showNewPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
               </button>
             </div>
-            <div class="password-strength">
-              <div class="strength-meter">
-                <div class="strength-bar" :class="passwordStrength.class" :style="{ width: passwordStrength.width }"></div>
+
+            <!-- Strength Meter -->
+            <div class="mt-2 flex items-center gap-3">
+              <div class="flex-1 h-1 rounded bg-gray-200 overflow-hidden">
+                <div
+                  class="h-full rounded transition-all duration-300"
+                  :class="passwordStrength.class"
+                  :style="{ width: passwordStrength.width }"
+                ></div>
               </div>
-              <span class="strength-text" :class="passwordStrength.class">{{ passwordStrength.text }}</span>
+              <span class="text-xs font-semibold" :class="passwordStrength.class">{{ passwordStrength.text }}</span>
             </div>
           </div>
 
           <!-- Confirm Password -->
-          <div class="form-group">
-            <label for="confirmPassword">Confirm New Password:</label>
-            <div class="password-input">
+          <div>
+            <label for="confirmPassword" class="block text-sm font-medium text-gray-700 mb-2">Confirm New Password:</label>
+            <div class="relative flex items-center">
               <input
                 id="confirmPassword"
                 v-model="confirmPassword"
@@ -85,41 +110,54 @@
                 placeholder="Confirm new password"
                 required
                 :disabled="loading"
+                class="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg text-base focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100"
               />
               <button
                 type="button"
-                class="password-toggle"
+                class="absolute right-3 text-gray-500 hover:text-gray-700"
                 @click="showConfirmPassword = !showConfirmPassword"
               >
                 <i :class="showConfirmPassword ? 'fas fa-eye-slash' : 'fas fa-eye'"></i>
               </button>
             </div>
-            <div v-if="confirmPassword && !passwordsMatch" class="validation-error">
-              <i class="fas fa-exclamation-triangle"></i>
-              Passwords do not match
+
+            <div
+              v-if="confirmPassword && !passwordsMatch"
+              class="mt-2 text-red-600 text-sm flex items-center gap-1"
+            >
+              <i class="fas fa-exclamation-triangle"></i> Passwords do not match
             </div>
           </div>
 
           <!-- Error Message -->
-          <div v-if="error" class="error-message">
-            <i class="fas fa-exclamation-triangle"></i>
-            {{ error }}
+          <div
+            v-if="error"
+            class="bg-red-100 border border-red-300 text-red-700 p-3 rounded flex items-center gap-2 text-sm"
+          >
+            <i class="fas fa-exclamation-triangle"></i> {{ error }}
           </div>
 
           <!-- Success Message -->
-          <div v-if="success" class="success-message">
-            <i class="fas fa-check-circle"></i>
-            {{ success }}
+          <div
+            v-if="success"
+            class="bg-green-100 border border-green-300 text-green-700 p-3 rounded flex items-center gap-2 text-sm"
+          >
+            <i class="fas fa-check-circle"></i> {{ success }}
           </div>
 
-          <!-- Form Actions -->
-          <div class="form-actions">
-            <button type="button" class="btn-secondary" @click="closeDialog" :disabled="loading">
+          <!-- Actions -->
+          <div class="flex justify-end gap-4 pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              class="px-4 py-2 rounded-lg text-sm font-semibold bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 transition disabled:opacity-50"
+              @click="closeDialog"
+              :disabled="loading"
+            >
               Cancel
             </button>
-            <button 
-              type="submit" 
-              class="btn-primary" 
+            <button
+              type="submit"
+              class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-500 border border-blue-500 text-white hover:bg-blue-600 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               :disabled="!canSubmit || loading"
             >
               <i v-if="loading" class="fas fa-spinner fa-spin"></i>
@@ -267,270 +305,3 @@ watch(() => props.show, (newVal) => {
   }
 })
 </script>
-
-<style scoped>
-.password-change-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 1rem;
-}
-
-.password-change-dialog {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-  width: 100%;
-  max-width: 480px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.dialog-header h3 {
-  margin: 0;
-  color: #1f2937;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 1.25rem;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.dialog-body {
-  padding: 1.5rem;
-}
-
-.info-banner {
-  background: #dbeafe;
-  border: 1px solid #93c5fd;
-  color: #1e40af;
-  padding: 1rem;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.admin-banner {
-  background: #fef3c7;
-  border-color: #fcd34d;
-  color: #92400e;
-}
-
-.password-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.form-group label {
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
-  font-size: 0.9rem;
-}
-
-.password-input {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.password-input input {
-  width: 100%;
-  padding: 0.75rem;
-  padding-right: 3rem;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-}
-
-.password-input input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.password-toggle {
-  position: absolute;
-  right: 0.75rem;
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: color 0.2s;
-}
-
-.password-toggle:hover {
-  color: #374151;
-}
-
-.password-strength {
-  margin-top: 0.5rem;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.strength-meter {
-  flex: 1;
-  height: 4px;
-  background: #e5e7ea;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.strength-bar {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.3s, background-color 0.3s;
-}
-
-.strength-bar.weak { background: #ef4444; }
-.strength-bar.fair { background: #f59e0b; }
-.strength-bar.good { background: #10b981; }
-.strength-bar.strong { background: #059669; }
-
-.strength-text {
-  font-size: 0.75rem;
-  font-weight: 600;
-  min-width: 60px;
-}
-
-.strength-text.weak { color: #ef4444; }
-.strength-text.fair { color: #f59e0b; }
-.strength-text.good { color: #10b981; }
-.strength-text.strong { color: #059669; }
-
-.validation-error {
-  margin-top: 0.5rem;
-  color: #ef4444;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.error-message, .success-message {
-  padding: 0.75rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.error-message {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-}
-
-.success-message {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #059669;
-}
-
-.form-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.btn-secondary, .btn-primary {
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-secondary {
-  background: #f9fafb;
-  border: 1px solid #d1d5db;
-  color: #374151;
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #f3f4f6;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  border: 1px solid #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.btn-primary:disabled, .btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Mobile responsive */
-@media (max-width: 640px) {
-  .password-change-dialog {
-    margin: 1rem;
-    max-width: none;
-  }
-  
-  .form-actions {
-    flex-direction: column;
-  }
-  
-  .btn-secondary, .btn-primary {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style>
