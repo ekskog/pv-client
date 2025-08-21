@@ -1,84 +1,70 @@
 <template>
-  <div class="user-management">
-    <div class="user-management-header">
-      <h1>User Management</h1>
-      <p class="subtitle">Manage system users and permissions</p>
-      <button class="btn-primary" @click="showCreateDialog = true">
+  <div class="px-8 py-6 max-w-screen-xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 pb-4 border-b border-gray-200">
+      <div>
+        <h1 class="text-3xl font-semibold text-gray-800">User Management</h1>
+        <p class="text-sm text-gray-500 mt-1">Manage system users and permissions</p>
+      </div>
+      <button class="bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm px-4 py-2 rounded-md flex items-center gap-2" @click="showCreateDialog = true">
         <i class="fas fa-user-plus"></i> Add New User
       </button>
     </div>
 
-    <!-- Loading State -->
-    <div v-if="loading" class="loading">
-      <div class="spinner"></div>
-      <p>Loading users...</p>
+    <!-- Loading -->
+    <div v-if="loading" class="text-center py-12">
+      <div class="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+      <p class="text-gray-600">Loading users...</p>
     </div>
 
-    <!-- Error State -->
-    <div v-if="error" class="error">
+    <!-- Error -->
+    <div v-if="error" class="text-center bg-red-50 text-red-700 p-6 rounded-lg mb-6">
       <p><i class="fas fa-exclamation-triangle"></i> {{ error }}</p>
-      <button class="btn-secondary" @click="loadUsers">Try Again</button>
+      <button class="mt-4 bg-gray-100 hover:bg-gray-200 text-sm px-4 py-2 rounded-md" @click="loadUsers">Try Again</button>
     </div>
 
     <!-- Users Table -->
-    <div v-if="!loading && !error" class="users-section">
-      <div class="users-table-container">
-        <table class="users-table">
-          <thead>
+    <div v-if="!loading && !error">
+      <div class="bg-white rounded-lg shadow overflow-x-auto">
+        <table class="min-w-full table-auto">
+          <thead class="bg-gray-50 text-gray-700 text-left text-sm font-semibold">
             <tr>
-              <th>User</th>
-              <th>Role</th>
-              <th>Created</th>
-              <th>Last Login</th>
-              <th>Actions</th>
+              <th class="px-6 py-4">User</th>
+              <th class="px-6 py-4">Role</th>
+              <th class="px-6 py-4">Created</th>
+              <th class="px-6 py-4">Last Login</th>
+              <th class="px-6 py-4">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="user in users" :key="user.id" class="user-row">
-              <td class="user-info">
-                <div class="user-avatar">
+            <tr v-for="user in users" :key="user.id" class="hover:bg-indigo-50">
+              <td class="px-6 py-4 flex items-center gap-4">
+                <div class="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-lg">
                   <i class="fas fa-user"></i>
                 </div>
-                <div class="user-details">
-                  <div class="user-name">{{ user.name }}</div>
-                  <div class="user-email">{{ user.email }}</div>
-                  <div class="user-username">@{{ user.username }}</div>
+                <div>
+                  <div class="font-semibold text-gray-800">{{ user.name }}</div>
+                  <div class="text-sm text-gray-500">{{ user.email }}</div>
+                  <div class="text-xs text-gray-400 font-mono">@{{ user.username }}</div>
                 </div>
               </td>
-              <td>
-                <span class="role-badge" :class="user.role">
+              <td class="px-6 py-4">
+                <span :class="user.role === 'admin' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-700'" class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold">
                   <i :class="user.role === 'admin' ? 'fas fa-crown' : 'fas fa-user'"></i>
                   {{ user.role === 'admin' ? 'Admin' : 'User' }}
                 </span>
               </td>
-              <td class="date-cell">
-                {{ formatDate(user.createdAt) }}
-              </td>
-              <td class="date-cell">
-                {{ formatDate(user.lastLogin) }}
-              </td>
-              <td class="actions-cell">
-                <div class="action-buttons">
-                  <button 
-                    class="btn-action btn-edit"
-                    @click="editUser(user)"
-                    title="Edit User"
-                  >
+              <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(user.createdAt) }}</td>
+              <td class="px-6 py-4 text-sm text-gray-600">{{ formatDate(user.lastLogin) }}</td>
+              <td class="px-6 py-4">
+                <div class="flex gap-2">
+                  <button class="border border-gray-300 text-blue-600 hover:bg-blue-50 rounded-md w-8 h-8 flex items-center justify-center" @click="editUser(user)" title="Edit User">
                     <i class="fas fa-edit"></i>
                   </button>
-                  <button 
-                    class="btn-action btn-password"
-                    @click="changePassword(user)"
-                    title="Change Password"
-                  >
+                  <button class="border border-gray-300 text-orange-500 hover:bg-orange-50 rounded-md w-8 h-8 flex items-center justify-center" @click="changePassword(user)" title="Change Password">
                     <i class="fas fa-key"></i>
                   </button>
-                  <button 
-                    v-if="user.id !== currentUser?.id"
-                    class="btn-action btn-delete"
-                    @click="confirmDeleteUser(user)"
-                    title="Delete User"
-                  >
+                  <button v-if="user.id !== currentUser?.id" class="border border-gray-300 text-red-600 hover:bg-red-50 rounded-md w-8 h-8 flex items-center justify-center" @click="confirmDeleteUser(user)" title="Delete User">
                     <i class="fas fa-trash"></i>
                   </button>
                 </div>
@@ -89,81 +75,49 @@
       </div>
 
       <!-- Empty State -->
-      <div v-if="users.length === 0" class="empty-state">
-        <div class="empty-icon"><i class="fas fa-users"></i></div>
-        <h3>No Users Found</h3>
-        <p>Start by adding your first user to the system.</p>
-        <button class="btn-primary" @click="showCreateDialog = true">
+      <div v-if="users.length === 0" class="text-center bg-white rounded-lg shadow p-10 mt-6">
+        <div class="text-5xl text-gray-300 mb-4"><i class="fas fa-users"></i></div>
+        <h3 class="text-xl font-semibold text-gray-800 mb-2">No Users Found</h3>
+        <p class="text-gray-500 mb-6">Start by adding your first user to the system.</p>
+        <button class="bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm px-4 py-2 rounded-md" @click="showCreateDialog = true">
           Add User
         </button>
       </div>
     </div>
 
-    <!-- Create User Dialog -->
-    <div v-if="showCreateDialog" class="dialog-overlay" @click="closeCreateDialog">
-      <div class="dialog" @click.stop>
-        <h3>{{ isEditing ? 'Edit User' : 'Create New User' }}</h3>
-        <form @submit.prevent="saveUser" class="user-form">
-          <div class="form-group">
-            <label for="name">Full Name:</label>
-            <input 
-              id="name"
-              v-model="formData.name" 
-              type="text" 
-              placeholder="Enter full name..."
-              required
-            />
+    <!-- Dialogs -->
+    <!-- Create/Edit Dialog -->
+    <div v-if="showCreateDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="closeCreateDialog">
+      <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4 overflow-y-auto max-h-[90vh]" @click.stop>
+        <h3 class="text-xl font-semibold text-gray-800 mb-6">{{ isEditing ? 'Edit User' : 'Create New User' }}</h3>
+        <form @submit.prevent="saveUser" class="space-y-4">
+          <div>
+            <label for="name" class="block text-sm font-medium text-gray-700">Full Name</label>
+            <input id="name" v-model="formData.name" type="text" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          
-          <div class="form-group">
-            <label for="username">Username:</label>
-            <input 
-              id="username"
-              v-model="formData.username" 
-              type="text" 
-              placeholder="Enter username..."
-              required
-            />
+          <div>
+            <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+            <input id="username" v-model="formData.username" type="text" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          
-          <div class="form-group">
-            <label for="email">Email:</label>
-            <input 
-              id="email"
-              v-model="formData.email" 
-              type="email" 
-              placeholder="Enter email address..."
-              required
-            />
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+            <input id="email" v-model="formData.email" type="email" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          
-          <div class="form-group" v-if="!isEditing">
-            <label for="password">Password:</label>
-            <input 
-              id="password"
-              v-model="formData.password" 
-              type="password" 
-              placeholder="Enter password..."
-              required
-            />
+          <div v-if="!isEditing">
+            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+            <input id="password" v-model="formData.password" type="password" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          
-          <div class="form-group">
-            <label for="role">Role:</label>
-            <select id="role" v-model="formData.role" required>
+          <div>
+            <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
+            <select id="role" v-model="formData.role" required class="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="user">User</option>
               <option value="admin">Admin</option>
             </select>
           </div>
         </form>
-        
-        <div class="dialog-actions">
-          <button class="btn-secondary" @click="closeCreateDialog">Cancel</button>
-          <button 
-            class="btn-primary" 
-            @click="saveUser"
-            :disabled="!isFormValid || saving"
-          >
+        <div class="flex justify-end gap-3 mt-6">
+          <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md" @click="closeCreateDialog">Cancel</button>
+          <button class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md font-semibold" :disabled="!isFormValid || saving" @click="saveUser">
             {{ saving ? 'Saving...' : (isEditing ? 'Update User' : 'Create User') }}
           </button>
         </div>
@@ -171,18 +125,16 @@
     </div>
 
     <!-- Delete Confirmation Dialog -->
-    <div v-if="showDeleteDialog" class="dialog-overlay" @click="closeDeleteDialog">
-      <div class="dialog" @click.stop>
-        <h3>Delete User</h3>
-        <p>Are you sure you want to delete user "<strong>{{ userToDelete?.name }}</strong>"?</p>
-        <p class="warning"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone.</p>
-        <div class="dialog-actions">
-          <button class="btn-secondary" @click="closeDeleteDialog">Cancel</button>
-          <button 
-            class="btn-danger" 
-            @click="deleteUser"
-            :disabled="deleting"
-          >
+    <div v-if="showDeleteDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="closeDeleteDialog">
+      <div class="bg-white rounded-xl p-6 w-full max-w-md mx-4 overflow-y-auto max-h-[90vh]" @click.stop>
+        <h3 class="text-xl font-semibold text-gray-800 mb-4">Delete User</h3>
+        <p class="text-gray-700 mb-2">Are you sure you want to delete user "<strong>{{ userToDelete?.name }}</strong>"?</p>
+        <p class="text-sm text-orange-500 flex items-center gap-2 mb-6">
+          <i class="fas fa-exclamation-triangle"></i> This action cannot be undone.
+        </p>
+        <div class="flex justify-end gap-3">
+          <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-md" @click="closeDeleteDialog">Cancel</button>
+          <button class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md font-semibold" :disabled="deleting" @click="deleteUser">
             {{ deleting ? 'Deleting...' : 'Delete User' }}
           </button>
         </div>

@@ -1,323 +1,296 @@
 <template>
-  <header class="header">
-    <!-- Home Shortcut -->
-    <div class="logo" @click="$emit('navigate', 'home')">
-      <i class="fas fa-camera"></i>
-    </div>
-
-    <!-- Navigation Buttons -->
-    <div class="nav-links">
-      <button class="nav-link" :class="{ active: currentView === 'albums' }" @click="$emit('navigate', 'albums')">
-        <i class="fas fa-layer-group"></i> Albums
+  <header
+    class="relative flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm"
+  >
+    <!-- Left: Logo or Hamburger -->
+    <div class="flex items-center gap-4 relative">
+      <!-- Hamburger (visible on md and below) -->
+      <button class="md:hidden text-xl text-gray-700" @click="toggleMobileMenu">
+        <i class="fas fa-bars"></i>
       </button>
-      <button v-if="isAdmin" class="nav-link" :class="{ active: currentView === 'settings' }"
-        @click="$emit('navigate', 'settings')">
-        <i class="fas fa-cog"></i> Settings
-      </button>
-    </div>
 
-    <!-- Status + User Menu -->
-    <div class="header-right">
-      <div class="health-status" :class="{ healthy: isHealthy, unhealthy: !isHealthy }">
-        {{ healthStatus }}
-      </div>
-      <div class="user-menu" @click="toggleUserDropdown" ref="userMenuRef">
-        <div class="user-info">
-          <div class="user-avatar">
-            <i class="fas fa-user-circle"></i>
-          </div>
-          <div class="user-details">
-            <div class="user-name" @click="handleUserClick">
-              {{ isAuthenticated ? currentUser.name : 'Login' }}
+      <!-- Mobile Menu (anchored to hamburger) -->
+      <div
+        v-if="showMobileMenu"
+        class="absolute top-full left-0 mt-2 bg-white border border-gray-200 shadow-md z-40 rounded-lg w-max min-w-[10rem]"
+      >
+        <!-- Navigation Buttons -->
+        <button
+          class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+          @click="
+            () => {
+              showMobileMenu = false;
+              $emit('navigate', 'albums');
+            }
+          "
+        >
+          Albums
+        </button>
+        <button
+          v-if="isAdmin"
+          class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+          @click="
+            () => {
+              showMobileMenu = false;
+              $emit('navigate', 'user-management');
+            }
+          "
+        >
+          Manage Users
+        </button>
+        <button
+          v-if="isAdmin"
+          class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
+          @click="
+            () => {
+              showMobileMenu = false;
+              $emit('navigate', 'settings');
+            }
+          "
+        >
+          Settings
+        </button>
+
+        <!-- Auth Menu Section -->
+        <div class="border-t border-gray-200 px-4 py-2">
+          <template v-if="isAuthenticated">
+            <!-- User Dropdown Toggle -->
+            <button
+              class="w-full text-left text-sm flex items-center justify-between py-2"
+              @click="showMobileUserDropdown = !showMobileUserDropdown"
+            >
+              <span>{{ currentUser.name }}</span>
+              <span :class="showMobileUserDropdown ? 'rotate-180' : ''" class="transition-transform text-xs">⌄</span>
+            </button>
+
+            <!-- Submenu -->
+            <div v-if="showMobileUserDropdown" class="mt-2 ml-2 flex flex-col gap-1">
+              <button class="text-left text-sm px-2 py-1 hover:bg-gray-100" @click="changePassword">
+                Change Password
+              </button>
+              <button class="text-left text-sm px-2 py-1 hover:bg-gray-100" @click="logout">
+                Logout
+              </button>
             </div>
-          </div>
-          <i class="fas fa-chevron-down dropdown-arrow" :class="{ open: showUserDropdown }"></i>
+          </template>
+          <template v-else>
+            <button class="w-full text-left text-sm py-2 hover:bg-gray-100" @click="triggerLogin">
+              Login
+            </button>
+            <button class="w-full text-left text-sm py-2 hover:bg-gray-100" @click="triggerRegister">
+              Register
+            </button>
+          </template>
         </div>
+      </div>
+
+      <!-- Logo (visible on md and up) -->
+      <div
+        class="hidden md:block text-xl text-gray-800 cursor-pointer"
+        @click="$emit('navigate', 'home')"
+      >
+        <i class="fas fa-camera text-2xl text-blue-500 hover:text-blue-700"></i>
+      </div>
+    </div>
+
+    <!-- Center: Navigation (hidden on md and below) -->
+    <div class="hidden md:flex gap-4 flex-wrap justify-center">
+      <button
+        class="text-sm px-4 py-2 border-b-2 transition-all"
+        :class="
+          currentView === 'albums'
+            ? 'text-blue-600 bg-blue-50 border-blue-600 font-semibold'
+            : 'text-gray-600 border-transparent hover:text-blue-500 hover:bg-blue-50'
+        "
+        @click="$emit('navigate', 'albums')"
+      >
+        <i class="fas fa-layer-group mr-2"></i> Albums
+      </button>
+      <button
+        v-if="isAdmin"
+        class="text-sm px-4 py-2 border-b-2 transition-all"
+        :class="
+          currentView === 'user-management'
+            ? 'text-blue-600 bg-blue-50 border-blue-600 font-semibold'
+            : 'text-gray-600 border-transparent hover:text-blue-500 hover:bg-blue-50'
+        "
+        @click="$emit('navigate', 'user-management')"
+      >
+        <i class="fas fa-users mr-2"></i> Manage Users
+      </button>
+      <button
+        v-if="isAdmin"
+        class="text-sm px-4 py-2 border-b-2 transition-all"
+        :class="
+          currentView === 'settings'
+            ? 'text-blue-600 bg-blue-50 border-blue-600 font-semibold'
+            : 'text-gray-600 border-transparent hover:text-blue-500 hover:bg-blue-50'
+        "
+        @click="$emit('navigate', 'settings')"
+      >
+        <i class="fas fa-cog mr-2"></i> Settings
+      </button>
+    </div>
+
+    <!-- Right: Status + User Menu -->
+    <div class="flex items-center gap-4">
+      <!-- Status Dot (always visible) -->
+      <div
+        :class="isHealthy ? 'bg-green-500' : 'bg-red-500'"
+        class="w-3 h-3 rounded-full flex items-center justify-center text-white text-[0.5rem] leading-none"
+      >
+        <i :class="isHealthy ? 'fas fa-check' : 'fas fa-exclamation'"></i>
+      </div>
+
+      <!-- User Menu (hidden on sm, visible on md+) -->
+      <div
+        class="hidden md:flex relative items-center gap-2 cursor-pointer"
+        @click="toggleUserDropdown"
+        ref="userMenuRef"
+      >
+        <div
+          class="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-lg"
+        >
+          <i class="fas fa-user-circle"></i>
+        </div>
+        <div class="flex flex-col">
+          <div class="text-sm font-semibold" @click="handleUserClick">
+            {{ isAuthenticated ? currentUser.name : "Login" }}
+          </div>
+        </div>
+        <i
+          class="fas fa-chevron-down text-xs transition-transform"
+          :class="{ 'rotate-180': showUserDropdown }"
+        ></i>
 
         <!-- Dropdown -->
-        <div v-if="showUserDropdown" class="user-dropdown">
+        <div
+          v-if="showUserDropdown"
+          class="absolute top-full right-0 mt-2 w-44 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+        >
           <template v-if="isAuthenticated">
-            <button class="dropdown-item" @click="changePassword">
+            <button
+              class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-100"
+              @click="changePassword"
+            >
               <i class="fas fa-key"></i> Change Password
             </button>
-            <div class="dropdown-divider"></div>
-            <button class="dropdown-item logout-item" @click="logout">
+            <div class="h-px bg-gray-200 my-1"></div>
+            <button
+              class="w-full text-left px-4 py-2 text-sm text-red-600 flex items-center gap-2 hover:bg-red-50"
+              @click="logout"
+            >
               <i class="fas fa-sign-out-alt"></i> Logout
             </button>
           </template>
           <template v-else>
-            <button class="dropdown-item login-item" @click="triggerLogin">
+            <button
+              class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-100"
+              @click="triggerLogin"
+            >
               <i class="fas fa-sign-in-alt"></i> Login
             </button>
-            <button class="dropdown-item" @click="triggerRegister">
+            <button
+              class="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-gray-100"
+              @click="triggerRegister"
+            >
               <i class="fas fa-user-plus"></i> Register
             </button>
           </template>
         </div>
-
       </div>
     </div>
 
     <!-- Password Dialog -->
-    <PasswordChange v-if="showPasswordDialog" :user="currentUser" :show="showPasswordDialog"
-      @close="closePasswordDialog" @success="handlePasswordSuccess" />
+    <PasswordChange
+      v-if="showPasswordDialog"
+      :user="currentUser"
+      :show="showPasswordDialog"
+      @close="closePasswordDialog"
+      @success="handlePasswordSuccess"
+    />
   </header>
 </template>
 
+
+
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import apiService from '../services/api.js'
-import PasswordChange from './PasswordChange.vue'
+import { ref, computed, onMounted, onUnmounted, watchEffect } from "vue";
+import apiService from "../services/api.js";
+import PasswordChange from "./PasswordChange.vue";
 
 const props = defineProps({
   currentView: String,
   currentUser: Object,
-  isAuthenticated: Boolean
+  isAuthenticated: Boolean,
+});
+const emit = defineEmits(["navigate", "logout", "login", "register"]);
+
+const isHealthy = ref(false);
+const healthStatus = ref("Checking...");
+const showUserDropdown = ref(false);
+const showPasswordDialog = ref(false);
+const userMenuRef = ref(null);
+const showMobileMenu = ref(false);
+const showMobileUserDropdown = ref(false)
+
+const isAdmin = computed(() => props.currentUser?.role === "admin");
+
+const toggleMobileMenu = () => {
+  console.log("Hamburger clicked");
+  showMobileMenu.value = !showMobileMenu.value;
+};
+// Reset submenu when auth status changes
+watchEffect(() => {
+  // Collapse submenu when auth state changes
+  showMobileUserDropdown.value = false
 })
-const emit = defineEmits(['navigate', 'logout', 'login', 'register'])
-
-const isHealthy = ref(false)
-const healthStatus = ref('Checking...')
-
-const checkHealth = async () => {
-  try {
-    const health = await apiService.getHealth()
-    isHealthy.value = health.status === 'healthy'
-    healthStatus.value = isHealthy.value ? 'Connected' : 'Disconnected'
-  } catch {
-    isHealthy.value = false
-    healthStatus.value = 'Offline'
-  }
-}
-
-const handleUserClick = () => {
-  if (!props.isAuthenticated) emit('login')
-}
-
-const triggerLogin = () => {
-  showUserDropdown.value = false
-  emit('login')
-}
-
-const triggerRegister = () => {
-  showUserDropdown.value = false
-  emit('register')
-}
-
-onMounted(() => checkHealth())
-
-const isAdmin = computed(() => props.currentUser?.role === 'admin')
-const showUserDropdown = ref(false)
-const showPasswordDialog = ref(false)
-const userMenuRef = ref(null)
 
 const toggleUserDropdown = (e) => {
-  e.stopPropagation()
-  showUserDropdown.value = !showUserDropdown.value
-}
+  e.stopPropagation();
+  showUserDropdown.value = !showUserDropdown.value;
+};
+const handleUserClick = () => {
+  if (!props.isAuthenticated) emit("login");
+};
+const triggerLogin = () => {
+  showUserDropdown.value = false;
+  emit("login");
+};
+const triggerRegister = () => {
+  showUserDropdown.value = false;
+  emit("register");
+};
 const changePassword = () => {
-  showUserDropdown.value = false
-  showPasswordDialog.value = true
-}
-const closePasswordDialog = () => showPasswordDialog.value = false
-const handlePasswordSuccess = () => showPasswordDialog.value = false
+  showUserDropdown.value = false;
+  showPasswordDialog.value = true;
+};
+const closePasswordDialog = () => (showPasswordDialog.value = false);
+const handlePasswordSuccess = () => (showPasswordDialog.value = false);
 const logout = () => {
-  showUserDropdown.value = false
-  emit('logout')
-}
+  showUserDropdown.value = false;
+  emit("logout");
+};
+const checkHealth = async () => {
+  try {
+    const health = await apiService.getHealth();
+    isHealthy.value = health.status === "healthy";
+    healthStatus.value = isHealthy.value ? "Connected" : "Disconnected";
+  } catch {
+    isHealthy.value = false;
+    healthStatus.value = "Offline";
+  }
+};
 const handleClickOutside = (e) => {
   if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
-    showUserDropdown.value = false
+    showUserDropdown.value = false;
   }
-}
-onMounted(() => document.addEventListener('click', handleClickOutside))
-onUnmounted(() => document.removeEventListener('click', handleClickOutside))
+};
+onMounted(() => {
+  checkHealth();
+  document.addEventListener("click", handleClickOutside);
+});
+onUnmounted(() => {
+  document.removeEventListener("click", handleClickOutside);
+});
 </script>
-
-<style scoped>
-.header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  padding: 1rem 2rem;
-  border-bottom: 1px solid #e0e0e0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.logo {
-  font-size: 1.5rem;
-  color: #333;
-  cursor: pointer;
-}
-
-.logo i {
-  font-size: 1.8rem;
-  color: #4a90e2;
-}
-
-.logo i:hover {
-  color: #357abd;
-}
-
-.nav-links {
-  display: flex;
-  gap: 1rem;
-}
-
-.nav-link {
-  background: none;
-  border: none;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  font-size: 0.875rem;
-  color: #666;
-  border-bottom: 2px solid transparent;
-}
-
-.nav-link:hover,
-.nav-link.active {
-  color: #2196f3;
-  background: #f8f9ff;
-  border-bottom-color: #2196f3;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.health-status {
-  padding: 0.25rem 0.75rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.healthy {
-  background: #e8f5e8;
-  color: #2e7d32;
-}
-
-.unhealthy {
-  background: #fde8e8;
-  color: #c62828;
-}
-
-.user-menu {
-  position: relative;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  background: #e3f2fd;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  color: #1976d2;
-}
-
-.user-details {
-  display: flex;
-  flex-direction: column;
-}
-
-.user-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.dropdown-arrow {
-  font-size: 0.75rem;
-  transition: transform 0.2s;
-}
-
-.dropdown-arrow.open {
-  transform: rotate(180deg);
-}
-
-.user-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: white;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  min-width: 180px;
-  z-index: 1000;
-  margin-top: 0.5rem;
-}
-
-.dropdown-item {
-  padding: 0.75rem 1rem;
-  border: none;
-  background: none;
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  color: #333;
-}
-
-.dropdown-item:hover {
-  background: #f8f9fa;
-}
-
-.dropdown-divider {
-  height: 1px;
-  background: #e0e0e0;
-  margin: 0.25rem 0;
-}
-
-.logout-item {
-  color: #f44336;
-}
-
-.logout-item:hover {
-  background: #ffebee;
-}
-
-@media (max-width: 480px) {
-  .header {
-    padding: 1rem;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-  }
-
-  .nav-links {
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .nav-link {
-    flex: 1 0 40%;
-    padding: 0.6rem 0.5rem;
-    font-size: 0.75rem;
-  }
-
-  .user-details {
-    display: none;
-  }
-
-  .dropdown-arrow {
-    margin-left: 0;
-  }
-}
-</style>
