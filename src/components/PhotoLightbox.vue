@@ -64,7 +64,7 @@
               <i class="fas fa-download"></i>
             </button>
             <button 
-              v-if="canDelete" 
+              v-if="canShowDeleteButton" 
               @click="$emit('delete-photo', currentPhoto)"
               class="bg-white bg-opacity-10 text-white w-10 h-10 rounded-full text-base flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-red-600 hover:bg-opacity-80 hover:scale-110" 
               title="Delete Photo"
@@ -81,6 +81,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import apiService from '../services/api.js'
+import authService from '../services/auth.js'
 
 // Props
 const props = defineProps({
@@ -103,6 +104,10 @@ const imageLoaded = ref(false)
 
 // Computed
 const currentPhoto = computed(() => props.photos[props.currentIndex] || null)
+
+const canShowDeleteButton = computed(() => {
+  return props.canDelete && authService.isAuthenticated()
+})
 
 // Watch for photo changes
 watch(currentPhoto, () => {
@@ -138,6 +143,7 @@ const downloadPhoto = (photo) => {
 }
 
 const nextPhoto = () => {
+  console.log("NEXT BUTTON PRESSED");
   if (props.currentIndex < props.photos.length - 1) {
     emit('next-photo')
   }

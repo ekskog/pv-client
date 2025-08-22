@@ -1,6 +1,6 @@
 <template>
-  <div id="app">
-    <!-- Header visible to all users FORCE REBUILD 11.08.2025 -->
+  <div id="app" class="min-h-screen font-sans bg-gray-50">
+    <!-- Header visible to all users -->
     <AppHeader
       :currentView="currentView"
       :currentUser="currentUser"
@@ -12,7 +12,7 @@
     />
 
     <!-- Main content: accessible to guests and logged-in users -->
-    <main class="main">
+    <main class="px-6 py-8 max-w-screen-xl mx-auto">
       <Home v-if="currentView === 'home'" @navigate="handleNavigation" />
       <Albums
         v-else-if="currentView === 'albums'"
@@ -57,46 +57,31 @@ import AlbumDetail from "./components/AlbumDetail.vue";
 import Login from "./components/Login.vue";
 import UserManagement from "./components/UserManagement.vue";
 import Settings from "./components/Settings.vue";
-import authService from "./services/auth.js";
 import Register from "./components/Register.vue";
+import authService from "./services/auth.js";
 
 // Reactive state
-const currentView = ref("albums");
+const currentView = ref("home");
 const selectedAlbumName = ref("");
 const showLogin = ref(false);
+const showRegister = ref(false);
 const isAuthenticated = ref(false);
 const currentUser = ref(null);
 const userRole = computed(() => currentUser.value?.role || "guest");
-const showRegister = ref(false);
 
 // Lifecycle
 onMounted(async () => {
   await authService.init();
   updateAuthState();
+  currentView.value = isAuthenticated.value ? "albums" : "home";
   window.addEventListener("storage", handleStorageChange);
 });
+
 onUnmounted(() => {
   window.removeEventListener("storage", handleStorageChange);
 });
 
-// Login modal control
-const handleLoginTrigger = () => (showLogin.value = true);
-const handleLoginClose = () => (showLogin.value = false);
-
-// Register modal control
-const handleRegisterTrigger = () => {
-  showRegister.value = true
-}
-const handleRegisterSuccess = () => {
-  showRegister.value = false;
-  showLogin.value = true; // Optional: guide them to login
-};
-
-const handleRegisterClose = () => {
-  showRegister.value = false;
-};
-
-// Update auth state
+// Auth state
 const updateAuthState = () => {
   isAuthenticated.value = authService.isAuthenticated();
   currentUser.value = authService.getCurrentUser();
@@ -109,24 +94,51 @@ const handleStorageChange = (event) => {
 };
 
 // Navigation
-const handleNavigation = (view) => (currentView.value = view);
+const handleNavigation = (view) => {
+  currentView.value = view;
+};
+
 const handleAlbumOpen = (album) => {
   selectedAlbumName.value = album.name;
   currentView.value = "album-detail";
 };
+
 const handleBackToAlbums = () => {
   selectedAlbumName.value = "";
   currentView.value = "albums";
 };
+
 const handlePhotoOpen = (photo) => {
   // TODO: Show lightbox or photo viewer
 };
 
 // Login flow
+const handleLoginTrigger = () => {
+  showLogin.value = true;
+};
+
+const handleLoginClose = () => {
+  showLogin.value = false;
+};
+
 const handleLoginSuccess = () => {
   showLogin.value = false;
   updateAuthState();
   currentView.value = "home";
+};
+
+// Register flow
+const handleRegisterTrigger = () => {
+  showRegister.value = true;
+};
+
+const handleRegisterClose = () => {
+  showRegister.value = false;
+};
+
+const handleRegisterSuccess = () => {
+  showRegister.value = false;
+  showLogin.value = true;
 };
 
 // Logout
@@ -136,17 +148,3 @@ const handleLogout = () => {
   currentView.value = "home";
 };
 </script>
-
-<style scoped>
-#app {
-  min-height: 100vh;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: #fafafa;
-}
-
-.main {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-</style>

@@ -19,11 +19,29 @@
           Create and manage albums to organize your photos efficiently.
         </p>
       </div>
+      <div class="bg-white border border-gray-300 rounded-xl p-8 text-center transition-all duration-200 sm:p-6 xs:p-5">
+        <div class="text-5xl mb-4 text-blue-500 sm:text-4xl xs:text-4xl">
+          <i class="fas fa-chart-bar"></i>
+        </div>
+        <h3 class="text-xl font-semibold text-gray-800 mb-4 sm:text-lg xs:text-lg">Gallery Statistics</h3>
+        <p class="text-gray-600 leading-relaxed sm:text-sm xs:text-sm">
+          See file counts, sizes, and type breakdowns.
+        </p>
+        <button class="btn-primary mt-4" @click="showStats = !showStats">
+          {{ showStats ? 'Hide Statistics' : 'Show Statistics' }}
+        </button>
+        <div v-if="showStats" class="mt-6 text-left">
+          <BucketStats noBorder />
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
+import BucketStats from './BucketStats.vue'
 // Emits
 defineEmits(['navigate'])
+const showStats = ref(false)
 </script>

@@ -30,10 +30,10 @@ class ApiService {
   }
 
   async request(endpoint, options = {}) {
+    // Add this logging
+
     const API_BASE_URL = this.getApiBaseUrl();
     const url = `${API_BASE_URL}${endpoint}`;
-
-    // console.log('🌐 API Call:', url)
 
     // Add authentication headers
     const headers = {
@@ -45,6 +45,8 @@ class ApiService {
     const token = this.getAuthToken();
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
+    } else {
+      console.log("No auth token found");
     }
 
     const config = {
@@ -67,11 +69,6 @@ class ApiService {
         if (this.authService) {
           this.authService.clearAuth();
         }
-
-        // Force page reload to show login screen
-        setTimeout(() => {
-          window.location.reload();
-        }, 100);
 
         throw new Error("Invalid or expired token");
       }
