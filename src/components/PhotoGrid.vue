@@ -24,7 +24,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import PhotoCard from './PhotoCard.vue'
 
 const props = defineProps({
@@ -43,6 +43,7 @@ const paginatedPhotos = computed(() => {
   return props.photos.slice(0, endIndex)
 })
 
+// Debug logs
 onMounted(() => {
   console.log('📋 PhotoGrid: mounted with', props.photos.length, 'photos')
   console.log('📋 PhotoGrid: currentPage =', props.currentPage)
@@ -53,11 +54,7 @@ onUnmounted(() => {
   console.log('📋 PhotoGrid: unmounted')
 })
 
-// Add watcher to see pagination changes
-import { watch } from 'vue'
-
 watch(() => paginatedPhotos.value.length, (newCount) => {
   console.log('📋 PhotoGrid: paginatedPhotos changed to', newCount, 'photos')
 })
-
 </script>
