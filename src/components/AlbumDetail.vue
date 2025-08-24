@@ -32,70 +32,23 @@
       </button>
     </div>
 
+    <!-- Photos Grid Factored Out-->
+    <PhotoGridEmpty v-if="visiblePhotos.length === 0" />
+
     <!-- Photos Grid -->
-    <div v-if="!loading && !error">
-      <!-- Empty State -->
-      <div v-if="visiblePhotos.length === 0" class="text-center py-16">
-        <div class="text-6xl text-gray-300 mb-4">
-          <i class="fas fa-images"></i>
-        </div>
-        <h3 class="text-2xl font-semibold text-gray-700 mb-2">No Photos Yet</h3>
-        <p class="text-gray-500 mb-8">
-          Start building your album by adding some photos!
-        </p>
-      </div>
-
-      <!-- Photos Grid -->
-      <div
-        v-else
-        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 transform-gpu"
-      >
-        <div
-          v-for="photo in paginatedVisiblePhotos"
-          :key="photo.name"
-          class="bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-200 cursor-pointer hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 will-change-transform"
-          @click="openPhoto(photo)"
-        >
-          <div class="relative w-full aspect-square overflow-hidden bg-gray-50">
-            <img
-              :src="getOptimizedPhotoUrl(photo)"
-              :alt="photo.name"
-              @error="handleImageError"
-              @load="handleImageLoad"
-              @loadstart="handleImageLoadStart"
-              class="w-full h-full object-cover transition-opacity duration-300"
-              loading="lazy"
-              :data-full-src="getPhotoUrl(photo)"
-            />
-            <!-- Loading placeholder for images -->
-            <div
-              class="absolute inset-0 flex items-center justify-center bg-gray-50 text-gray-400 text-2xl transition-opacity duration-300 pointer-events-none"
-              :class="{
-                'opacity-0': imageLoadedMap[photo.name],
-                'opacity-100': !imageLoadedMap[photo.name],
-              }"
-            >
-              <i class="fas fa-image"></i>
-            </div>
-          </div>
-          <div class="p-3">
-            <div class="flex items-center gap-2 text-sm text-gray-600 mb-1">
-              <i class="fas fa-clock text-xs text-gray-400 w-3"></i>
-              {{ formatPhotoTimestamp(photo) }}
-            </div>
-            <div class="flex items-center gap-2 text-sm text-gray-600">
-              <i class="fas fa-map-marker-alt text-xs text-gray-400 w-3"></i>
-              {{ formatPhotoGPS(photo) }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Load More Trigger (Invisible) -->
-        <div
-          class="h-4"
-          v-if="paginatedVisiblePhotos.length < visiblePhotos.length"
-        ></div>
-      </div>
+<PhotoGrid
+  v-if="!loading && !error"
+  :photos="visiblePhotos"
+  :photo-metadata-lookup="photoMetadataLookup"
+  :image-loaded-map="imageLoadedMap"
+  :bucket-name="BUCKET_NAME"
+  :current-page="currentPage"
+  :items-per-page="ITEMS_PER_PAGE"
+  @photo-click="openPhoto"
+  @image-load="handleImageLoad"
+  @image-error="handleImageError"
+  @image-load-start="handleImageLoadStart"
+/>
     </div>
 
     <MediaUpload
@@ -107,7 +60,9 @@
     <div v-if="showDeletePhotoDialog">
       <DeletePhotoDialog
         :show="showDeletePhotoDialog"
-        :photoName="photoToDelete ? getPhotoDisplayName(photoToDelete.name) : ''"
+        :photoName="
+          photoToDelete ? getPhotoDisplayName(photoToDelete.name) : ''
+        "
         :deleting="deletingPhoto"
         @cancel="closeDeletePhotoDialog"
         @delete="handleDialogDelete"
@@ -126,7 +81,7 @@
       @previous-photo="previousPhoto"
       @delete-photo="confirmDeletePhoto"
     />
-  </div>
+
 </template>
 
 <script setup>
@@ -136,7 +91,9 @@ import authService from "../services/auth.js";
 import AlbumHeader from "./AlbumHeader.vue";
 import MediaUpload from "./MediaUpload.vue";
 import PhotoLightbox from "./PhotoLightbox.vue";
-import DeletePhotoDialog from './DeletePhotoDialog.vue'
+import DeletePhotoDialog from "./DeletePhotoDialog.vue";
+import PhotoGridEmpty from "./PhotoGridEmpty.vue";
+import PhotoGrid from './PhotoGrid.vue'
 
 // Props
 const props = defineProps({
@@ -168,9 +125,9 @@ const currentPhotoIndex = ref(0);
 const lightboxLoading = ref(false);
 
 // Delete photo state
-const showDeletePhotoDialog = ref(false)
-const photoToDelete = ref(null)
-const deletingPhoto = ref(false)
+const showDeletePhotoDialog = ref(false);
+const photoToDelete = ref(null);
+const deletingPhoto = ref(false);
 
 // Progressive loading stats
 const preloadStats = ref({
@@ -299,20 +256,36 @@ const loadAlbumMetadata = async (albumName) => {
 
     console.log("📄 Loading metadata from:", metadataUrl);
     const response = await fetch(metadataUrl);
+    console.log("📄 Metadata fetch response:", response);
 
     if (response.ok) {
+      console.log("📄 Metadata file found, parsing...");
       const metadata = await response.json();
       albumMetadata.value = metadata;
 
+      // debuggin metadata
+      const keys = Object.keys(metadata);
+      console.log(`keys: ${keys}`);
+      console.log(`metadata: ${metadata.media} >> ${typeof metadata.media}`);
+
       const lookup = {};
+
+      console.log(`MEDIA ARRAY: ${metadata.media}`);
       if (metadata.media && Array.isArray(metadata.media)) {
         metadata.media.forEach((mediaMeta) => {
           if (mediaMeta.sourceImage) {
             const filename = mediaMeta.sourceImage.split("/").pop();
+            console.log("📄 Found source image for metadata:", filename);
             lookup[filename] = mediaMeta;
             lookup[mediaMeta.sourceImage] = mediaMeta;
           }
         });
+      } else {
+        console.log(
+          `📄 No media array found in metadata: ${
+            metadata.media
+          } >> ${typeof metadata.media}`
+        );
       }
 
       photoMetadataLookup.value = lookup;
@@ -335,6 +308,7 @@ const loadAlbumMetadata = async (albumName) => {
   }
 };
 
+/*
 const formatPhotoTimestamp = (photo) => {
   // Return loading state if metadata isn't ready yet
   if (Object.keys(photoMetadataLookup.value).length === 0) {
@@ -378,6 +352,7 @@ const formatPhotoTimestamp = (photo) => {
     return "Invalid date";
   }
 };
+
 
 const formatPhotoGPS = (photo) => {
   // Return loading state if metadata isn't ready yet
@@ -434,6 +409,7 @@ const getPhotoUrl = (photo) => {
 const getOptimizedPhotoUrl = (photo) => {
   return apiService.getObjectUrl(BUCKET_NAME, photo.name);
 };
+*/
 
 const getPhotoDisplayName = (filename) => {
   return filename.split("/").pop() || filename;
@@ -501,7 +477,7 @@ const handleImageLoad = (event) => {
 
 // Lightbox methods
 const openPhoto = async (photo) => {
-  console.log("LIGHTBOX REFACTORED")
+  console.log("LIGHTBOX REFACTORED");
   const targetPhotoIndex = lightboxPhotos.value.findIndex(
     (p) => p.name === photo.name
   );
@@ -565,70 +541,81 @@ const previousPhoto = () => {
 
 // Delete photo methods
 const confirmDeletePhoto = (photo) => {
-  console.log('[Delete] Dialog opened for:', photo);
+  console.log("[Delete] Dialog opened for:", photo);
   photoToDelete.value = photo;
   showDeletePhotoDialog.value = true;
 };
 
 const handleDialogDelete = async () => {
-  console.log('[Delete] Confirm button clicked for:', photoToDelete.value);
+  console.log("[Delete] Confirm button clicked for:", photoToDelete.value);
   await deletePhoto();
 };
 
 // Replace your existing deletePhoto function with this version (just adds debug logs)
 const deletePhoto = async () => {
- if (!photoToDelete.value) return;
- deletingPhoto.value = true;
- error.value = null;
- 
- try {
-   console.log('[Delete] Token check:', localStorage.getItem("hbvu_auth_token")?.substring(0, 20));
-   console.log('[Delete] Making API call...');
-   const response = await apiService.deleteObject(BUCKET_NAME, photoToDelete.value.name);
-   console.log('[Delete] API response:', response);
-   
-   if (response.success) {
-     console.log('[Delete] API success, calling loadPhotos...');
-     await loadPhotos();
-     
-     console.log('[Delete] After loadPhotos:', {
-       lightboxLength: lightboxPhotos.value.length,
-       currentIndex: currentPhotoIndex.value,
-       showLightbox: showLightbox.value
-     });
-     
-     if (showLightbox.value) {
-       console.log('[Delete] Processing lightbox logic...');
-       if (lightboxPhotos.value.length > 1) {
-         if (currentPhotoIndex.value >= lightboxPhotos.value.length - 1) {
-           const newIndex = Math.max(0, lightboxPhotos.value.length - 2);
-           console.log('[Delete] Adjusting index from', currentPhotoIndex.value, 'to', newIndex);
-           currentPhotoIndex.value = newIndex;
-         }
-       } else {
-         console.log('[Delete] Closing lightbox (<=1 photos)');
-         closeLightbox();
-       }
-     }
-     closeDeletePhotoDialog();
-     console.log('[Delete] Dialog closed');
-   } else {
-     error.value = response.error || 'Failed to delete photo';
-     console.log('[Delete] Error from API:', error.value);
-   }
- } catch (err) {
-   error.value = `Failed to delete photo: ${err.message}`;
-   console.log('[Delete] Exception:', err);
- } finally {
-   deletingPhoto.value = false;
- }
+  if (!photoToDelete.value) return;
+  deletingPhoto.value = true;
+  error.value = null;
+
+  try {
+    console.log(
+      "[Delete] Token check:",
+      localStorage.getItem("hbvu_auth_token")?.substring(0, 20)
+    );
+    console.log("[Delete] Making API call...");
+    const response = await apiService.deleteObject(
+      BUCKET_NAME,
+      photoToDelete.value.name
+    );
+    console.log("[Delete] API response:", response);
+
+    if (response.success) {
+      console.log("[Delete] API success, calling loadPhotos...");
+      await loadPhotos();
+
+      console.log("[Delete] After loadPhotos:", {
+        lightboxLength: lightboxPhotos.value.length,
+        currentIndex: currentPhotoIndex.value,
+        showLightbox: showLightbox.value,
+      });
+
+      if (showLightbox.value) {
+        console.log("[Delete] Processing lightbox logic...");
+        if (lightboxPhotos.value.length > 1) {
+          if (currentPhotoIndex.value >= lightboxPhotos.value.length - 1) {
+            const newIndex = Math.max(0, lightboxPhotos.value.length - 2);
+            console.log(
+              "[Delete] Adjusting index from",
+              currentPhotoIndex.value,
+              "to",
+              newIndex
+            );
+            currentPhotoIndex.value = newIndex;
+          }
+        } else {
+          console.log("[Delete] Closing lightbox (<=1 photos)");
+          closeLightbox();
+        }
+      }
+      closeDeletePhotoDialog();
+      console.log("[Delete] Dialog closed");
+    } else {
+      error.value = response.error || "Failed to delete photo";
+      console.log("[Delete] Error from API:", error.value);
+    }
+  } catch (err) {
+    error.value = `Failed to delete photo: ${err.message}`;
+    console.log("[Delete] Exception:", err);
+  } finally {
+    deletingPhoto.value = false;
+  }
 };
 
 const closeDeletePhotoDialog = () => {
   showDeletePhotoDialog.value = false;
   photoToDelete.value = null;
   deletingPhoto.value = false;
-  console.log('[Delete] Dialog closed (cancel or after delete)');
+  console.log("[Delete] Dialog closed (cancel or after delete)");
 };
 
 // Progressive loading and performance
