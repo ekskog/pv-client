@@ -57,6 +57,13 @@
 
           <div class="flex gap-3">
             <button 
+              @click="showMetadata = !showMetadata"
+              class="bg-white bg-opacity-10 text-white w-10 h-10 rounded-full text-base flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-opacity-20 hover:scale-110" 
+              title="Photo Info"
+            >
+              <i class="fas fa-info"></i>
+            </button>
+            <button 
               @click="downloadPhoto(currentPhoto)" 
               class="bg-white bg-opacity-10 text-white w-10 h-10 rounded-full text-base flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-opacity-20 hover:scale-110" 
               title="Download Photo"
@@ -73,6 +80,25 @@
             </button>
           </div>
         </div>
+
+        <!-- Metadata Overlay -->
+        <div 
+          v-if="showMetadata && currentPhoto" 
+          class="absolute bottom-20 right-8 bg-black bg-opacity-90 backdrop-blur-sm text-white p-4 rounded-lg max-w-sm z-20 transition-all duration-300 max-h-96 overflow-y-auto"
+          @click.stop
+        >
+          <div class="flex justify-between items-center mb-3">
+            <span></span> <!-- spacer -->
+            <button @click="showMetadata = false" class="text-gray-400 hover:text-white text-sm">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          
+          <PhotoMetadataDetailed 
+            :photo="currentPhoto"
+            :photo-metadata-lookup="photoMetadataLookup" 
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -82,6 +108,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
+import PhotoMetadataDetailed from './PhotoMetadataDetailed.vue'
 
 // Props
 const props = defineProps({
@@ -93,7 +120,8 @@ const props = defineProps({
   bucketName: {
     type: String,
     default: 'photovault'
-  }
+  },
+  photoMetadataLookup: { type: Object, default: () => ({}) }
 })
 
 // Emits
@@ -101,6 +129,7 @@ const emit = defineEmits(['close', 'next-photo', 'previous-photo', 'delete-photo
 
 // Local state
 const imageLoaded = ref(false)
+const showMetadata = ref(false)
 
 // Computed
 const currentPhoto = computed(() => props.photos[props.currentIndex] || null)
@@ -112,6 +141,7 @@ const canShowDeleteButton = computed(() => {
 // Watch for photo changes
 watch(currentPhoto, () => {
   imageLoaded.value = false
+  showMetadata.value = false // Hide metadata when changing photos
 })
 
 // Methods
@@ -157,9 +187,16 @@ const previousPhoto = () => {
 
 const handleKeyboard = (event) => {
   if (!props.show) return
-  if (event.key === 'Escape') emit('close')
+  if (event.key === 'Escape') {
+    if (showMetadata.value) {
+      showMetadata.value = false
+    } else {
+      emit('close')
+    }
+  }
   if (event.key === 'ArrowLeft') previousPhoto()
   if (event.key === 'ArrowRight') nextPhoto()
+  if (event.key === 'i' || event.key === 'I') showMetadata.value = !showMetadata.value
 }
 
 // Lifecycle
@@ -176,6 +213,7 @@ watch(() => props.show, (newVal) => {
     document.addEventListener('keydown', handleKeyboard)
   } else {
     document.removeEventListener('keydown', handleKeyboard)
+    showMetadata.value = false
   }
 })
 </script>
