@@ -26,48 +26,10 @@
         :disabled="currentPage === 1"
         class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 transition-colors font-medium"
       >
-        <i class="fas fa-chevron-left mr-2"></i>Previous
+        <i class="fas fa-chevron-left mr-2"></i>
       </button>
 
-      <!-- Page Numbers -->
-      <div class="flex items-center gap-1 flex-wrap">
-        <!-- First Page -->
-        <button 
-          v-if="showFirstPage"
-          @click="goToPage(1)"
-          class="min-w-10 h-10 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 font-medium transition-colors"
-          :class="{ 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600': currentPage === 1 }"
-        >
-          1
-        </button>
 
-        <!-- First Ellipsis -->
-        <span v-if="showFirstEllipsis" class="px-2 text-gray-500 font-medium">...</span>
-
-        <!-- Visible Page Range -->
-        <button
-          v-for="page in visiblePages"
-          :key="page"
-          @click="goToPage(page)"
-          class="min-w-10 h-10 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 font-medium transition-colors"
-          :class="{ 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600': currentPage === page }"
-        >
-          {{ page }}
-        </button>
-
-        <!-- Last Ellipsis -->
-        <span v-if="showLastEllipsis" class="px-2 text-gray-500 font-medium">...</span>
-
-        <!-- Last Page -->
-        <button 
-          v-if="showLastPage"
-          @click="goToPage(totalPages)"
-          class="min-w-10 h-10 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 font-medium transition-colors"
-          :class="{ 'bg-blue-500 text-white border-blue-500 hover:bg-blue-600': currentPage === totalPages }"
-        >
-          {{ totalPages }}
-        </button>
-      </div>
 
       <!-- Next Button -->
       <button 
@@ -75,7 +37,7 @@
         :disabled="currentPage === totalPages"
         class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 transition-colors font-medium"
       >
-        Next<i class="fas fa-chevron-right ml-2"></i>
+        <i class="fas fa-chevron-right ml-2"></i>
       </button>
     </div>
 

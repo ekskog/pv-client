@@ -1,6 +1,6 @@
 <template>
   <div
-    class="bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-200 cursor-pointer hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 will-change-transform"
+    class="bg-white border border-black rounded-lg overflow-hidden transition-all duration-200 cursor-pointer hover:border-black-500 hover:shadow-lg hover:-translate-y-1 will-change-transform"
     @click="$emit('click', photo)"
   >
     <div class="relative w-full aspect-square overflow-hidden bg-gray-50">

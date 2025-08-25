@@ -109,7 +109,7 @@ const emit = defineEmits(["back", "photoOpened"]);
 
 // Constants
 const BUCKET_NAME = "photovault";
-const ITEMS_PER_PAGE = 24; // Changed from 50 to 24
+const ITEMS_PER_PAGE = 25; // Changed from 50 to 25
 
 // Core reactive state
 const loading = ref(false);
@@ -278,20 +278,22 @@ const loadAlbumMetadata = async (albumName) => {
       const metadata = await response.json();
       albumMetadata.value = metadata;
 
+      /*
       const keys = Object.keys(metadata);
       console.log(`keys: ${keys}`);
       console.log(`metadata: ${metadata.media} >> ${typeof metadata.media}`);
-
+      */
       const lookup = {};
 
-      console.log(`MEDIA ARRAY: ${metadata.media}`);
       if (metadata.media && Array.isArray(metadata.media)) {
         metadata.media.forEach((mediaMeta) => {
           if (mediaMeta.sourceImage) {
             const filename = mediaMeta.sourceImage.split("/").pop();
-            console.log("📄 Found source image for metadata:", filename);
+            //console.log("📄 Found source image for metadata:", filename);
             lookup[filename] = mediaMeta;
             lookup[mediaMeta.sourceImage] = mediaMeta;
+          } else {
+            console.log("📄 No source image found for metadata:", mediaMeta);
           }
         });
       } else {
