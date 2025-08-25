@@ -5,7 +5,7 @@ Successfully integrated server-side HEIC processing with client-side fallback to
 
 ## Key Changes Implemented
 
-### 1. Frontend Updates (AlbumDetail.vue)
+### 1. Frontend Updates (AlbumViewer.vue)
 
 #### **Smart HEIC URL Resolution**
 - `getPhotoUrl()`: Now tries server variants first (`_medium.jpeg`)

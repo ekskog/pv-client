@@ -23,7 +23,7 @@ We've successfully implemented a comprehensive 3-step progressive loading system
 
 ## 🔧 Key Implementation Changes
 
-### Frontend Changes (`AlbumDetail.vue`)
+### Frontend Changes (`AlbumViewer.vue`)
 
 #### Enhanced URL Generation
 ```javascript
@@ -153,7 +153,7 @@ debugPerformance('PROGRESSIVE_LOADING_STATS', `Preload percentage: 85%`)
 ## 📁 Files Modified
 
 ### Frontend (`photovault-fe`)
-- `src/components/AlbumDetail.vue` - **MAJOR ENHANCEMENT**
+- `src/components/AlbumViewer.vue` - **MAJOR ENHANCEMENT**
   - Enhanced `getOptimizedPhotoUrl()` for thumbnail URLs
   - Implemented `loadImageProgressively()` for background preloading
   - Enhanced lightbox with preload detection

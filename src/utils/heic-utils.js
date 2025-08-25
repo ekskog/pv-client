@@ -1,4 +1,4 @@
-// Updated HEIC handling for AlbumDetail.vue
+// Updated HEIC handling for AlbumViewer.vue
 // This replaces the current HEIC conversion logic
 
 import AdvancedHeicHandler from '../services/heic-handler.js'

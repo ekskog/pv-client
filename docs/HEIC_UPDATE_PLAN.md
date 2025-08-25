@@ -1,9 +1,9 @@
 // Frontend Update Plan for HEIC Optimization
-// File: /src/components/AlbumDetail.vue
+// File: /src/components/AlbumViewer.vue
 
 /* 
 STEP 1: Replace current HEIC logic with server-variant detection
-Update these functions in AlbumDetail.vue:
+Update these functions in AlbumViewer.vue:
 */
 
 // Replace getPhotoUrl function

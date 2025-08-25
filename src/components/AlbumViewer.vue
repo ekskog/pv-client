@@ -32,42 +32,43 @@
       </button>
     </div>
 
-    <!-- Photos Grid Factored Out-->
-    <PhotoGridEmpty v-if="visiblePhotos.length === 0" />
+    <!-- Empty State -->
+    <PhotoGridEmpty v-if="!loading && !error && visiblePhotos.length === 0" />
 
-    <!-- Photos Grid -->
-<PhotoGrid
-  v-if="!loading && !error"
-  :photos="visiblePhotos"
-  :photo-metadata-lookup="photoMetadataLookup"
-  :image-loaded-map="imageLoadedMap"
-  :bucket-name="BUCKET_NAME"
-  :current-page="currentPage"
-  :items-per-page="ITEMS_PER_PAGE"
-  @photo-click="openPhoto"
-  @image-load="handleImageLoad"
-  @image-error="handleImageError"
-  @image-load-start="handleImageLoadStart"
-/>
-    </div>
+    <!-- Photos Grid with Pagination -->
+    <PhotoGrid
+      v-if="!loading && !error && visiblePhotos.length > 0"
+      :photos="visiblePhotos"
+      :photo-metadata-lookup="photoMetadataLookup"
+      :image-loaded-map="imageLoadedMap"
+      :bucket-name="BUCKET_NAME"
+      :current-page="currentPage"
+      :items-per-page="ITEMS_PER_PAGE"
+      @photo-click="openPhoto"
+      @image-load="handleImageLoad"
+      @image-error="handleImageError"
+      @image-load-start="handleImageLoadStart"
+      @page-change="handlePageChange"
+    />
 
+    <!-- Upload Dialog -->
     <MediaUpload
       :showUploadDialog="showUploadDialog"
       :album-name="albumName"
       @close="handleUploadDialogClose"
     />
 
+    <!-- Delete Photo Dialog -->
     <div v-if="showDeletePhotoDialog">
       <DeletePhotoDialog
         :show="showDeletePhotoDialog"
-        :photoName="
-          photoToDelete ? getPhotoDisplayName(photoToDelete.name) : ''
-        "
+        :photoName="photoToDelete ? getPhotoDisplayName(photoToDelete.name) : ''"
         :deleting="deletingPhoto"
         @cancel="closeDeletePhotoDialog"
         @delete="handleDialogDelete"
       />
     </div>
+
     <!-- Lightbox Viewer -->
     <PhotoLightbox
       :show="showLightbox"
@@ -81,7 +82,7 @@
       @previous-photo="previousPhoto"
       @delete-photo="confirmDeletePhoto"
     />
-
+  </div>
 </template>
 
 <script setup>
@@ -106,6 +107,10 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(["back", "photoOpened"]);
 
+// Constants
+const BUCKET_NAME = "photovault";
+const ITEMS_PER_PAGE = 24; // Changed from 50 to 24
+
 // Core reactive state
 const loading = ref(false);
 const error = ref(null);
@@ -115,9 +120,11 @@ const photoMetadataLookup = ref({});
 const locationCache = ref(new Map());
 const imageLoadedMap = ref({});
 
+// Pagination state
+const currentPage = ref(1);
+
 // Upload/Delete state
 const showUploadDialog = ref(false);
-console.log("[AlbumDetail] showUploadDialog initial:", showUploadDialog.value);
 
 // Lightbox state
 const showLightbox = ref(false);
@@ -175,29 +182,37 @@ const lightboxPhotos = computed(() => {
   return visiblePhotos.value;
 });
 
-// Virtual scrolling
-const currentPage = ref(1);
-const paginatedVisiblePhotos = computed(() => {
-  const endIndex = currentPage.value * ITEMS_PER_PAGE;
-  return visiblePhotos.value.slice(0, endIndex);
-});
-
-// Constants
-const BUCKET_NAME = "photovault";
-const ITEMS_PER_PAGE = 50;
-
 // Core Methods
 const handleUploadDialogClose = (payload) => {
-  console.log(
-    "[AlbumDetail] handleUploadDialogClose called, payload:",
-    payload
-  );
+  console.log("[AlbumViewer] handleUploadDialogClose called, payload:", payload);
   showUploadDialog.value = false;
-  console.log("[AlbumDetail] showUploadDialog set to false");
+  console.log("[AlbumViewer] showUploadDialog set to false");
   if (payload?.jobId) {
     console.log("Upload jobId received from child:", payload.jobId);
     startProcessingListener(payload.jobId);
   }
+};
+
+// NEW: Handle page changes from PhotoGrid
+const handlePageChange = (newPage) => {
+  console.log('📄 Page changed to:', newPage);
+  currentPage.value = newPage;
+  
+  // Clear image loading states for new page to force fresh loading
+  Object.keys(imageLoadedMap.value).forEach(key => {
+    delete imageLoadedMap.value[key];
+  });
+  
+  // Trigger preloading for new page after a short delay
+  setTimeout(() => {
+    startAggressivePreloading();
+    preloadVisibleImages();
+  }, 100);
+};
+
+// NEW: Reset pagination to page 1
+const resetPagination = () => {
+  currentPage.value = 1;
 };
 
 const loadPhotos = async () => {
@@ -232,7 +247,7 @@ const loadPhotos = async () => {
         metadataCount: Object.keys(photoMetadataLookup.value).length,
       });
 
-      resetVirtualScrolling();
+      resetPagination(); // Reset to page 1 when loading new album
     } else {
       throw new Error(response.error || "Failed to load album photos");
     }
@@ -263,7 +278,6 @@ const loadAlbumMetadata = async (albumName) => {
       const metadata = await response.json();
       albumMetadata.value = metadata;
 
-      // debuggin metadata
       const keys = Object.keys(metadata);
       console.log(`keys: ${keys}`);
       console.log(`metadata: ${metadata.media} >> ${typeof metadata.media}`);
@@ -281,15 +295,10 @@ const loadAlbumMetadata = async (albumName) => {
           }
         });
       } else {
-        console.log(
-          `📄 No media array found in metadata: ${
-            metadata.media
-          } >> ${typeof metadata.media}`
-        );
+        console.log(`📄 No media array found in metadata: ${metadata.media} >> ${typeof metadata.media}`);
       }
 
       photoMetadataLookup.value = lookup;
-
       console.log("📄 Metadata loaded:", Object.keys(lookup).length, "entries");
 
       // FORCE REACTIVITY: If photos are already loaded, trigger re-render
@@ -308,111 +317,12 @@ const loadAlbumMetadata = async (albumName) => {
   }
 };
 
-/*
-const formatPhotoTimestamp = (photo) => {
-  // Return loading state if metadata isn't ready yet
-  if (Object.keys(photoMetadataLookup.value).length === 0) {
-    return "Loading...";
-  }
-
-  const filename = photo.name.split("/").pop();
-  let metadata =
-    photoMetadataLookup.value[filename] ||
-    photoMetadataLookup.value[photo.name];
-
-  // AVIF fallback logic
-  if (!metadata && photo.name.includes(".avif")) {
-    const baseName = filename.replace(/\.avif$/i, "");
-    const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(
-      (key) => {
-        const originalBase = key.replace(/\.[^.]+$/, "");
-        return (
-          baseName.includes(originalBase) || originalBase.includes(baseName)
-        );
-      }
-    );
-
-    if (possibleOriginals.length > 0) {
-      metadata = photoMetadataLookup.value[possibleOriginals[0]];
-    }
-  }
-
-  if (!metadata || !metadata.timestamp) {
-    return "No date";
-  }
-
-  try {
-    const date = new Date(metadata.timestamp);
-    return (
-      date.toLocaleDateString("en-GB") +
-      " " +
-      date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    );
-  } catch {
-    return "Invalid date";
-  }
-};
-
-
-const formatPhotoGPS = (photo) => {
-  // Return loading state if metadata isn't ready yet
-  if (Object.keys(photoMetadataLookup.value).length === 0) {
-    return "Loading...";
-  }
-
-  const cacheKey = photo.name;
-
-  if (locationCache.value.has(cacheKey)) {
-    return locationCache.value.get(cacheKey);
-  }
-
-  const filename = photo.name.split("/").pop();
-  let metadata =
-    photoMetadataLookup.value[filename] ||
-    photoMetadataLookup.value[photo.name];
-
-  // AVIF fallback
-  if (!metadata && photo.name.includes(".avif")) {
-    const baseName = filename.replace(/\.avif$/i, "");
-    const possibleOriginals = Object.keys(photoMetadataLookup.value).filter(
-      (key) => {
-        const originalBase = key.replace(/\.[^.]+$/, "");
-        return (
-          baseName.includes(originalBase) || originalBase.includes(baseName)
-        );
-      }
-    );
-
-    if (possibleOriginals.length > 0) {
-      metadata = photoMetadataLookup.value[possibleOriginals[0]];
-    }
-  }
-
-  if (metadata && metadata.location) {
-    locationCache.value.set(cacheKey, metadata.location);
-    return metadata.location;
-  }
-
-  if (metadata && metadata.coordinates) {
-    locationCache.value.set(cacheKey, metadata.coordinates);
-    return metadata.coordinates;
-  }
-
-  return "No location";
-};
-
-// Photo URL methods
-const getPhotoUrl = (photo) => {
-  return apiService.getObjectUrl(BUCKET_NAME, photo.name);
-};
-
-const getOptimizedPhotoUrl = (photo) => {
-  return apiService.getObjectUrl(BUCKET_NAME, photo.name);
-};
-*/
-
 const getPhotoDisplayName = (filename) => {
   return filename.split("/").pop() || filename;
+};
+
+const getPhotoUrl = (photo) => {
+  return apiService.getObjectUrl(BUCKET_NAME, photo.name);
 };
 
 // Image loading and preloading
@@ -428,17 +338,14 @@ const preloadImage = (src) => {
 const loadImageProgressively = async (photo, imgElement) => {
   try {
     const photoSrc = getPhotoUrl(photo);
-
     preloadStats.value.currentlyFetchingFullSize = photo.name;
 
     preloadImage(photoSrc)
       .then(() => {
         imgElement.dataset.fullLoaded = "true";
-
         if (!preloadStats.value.readyImages.includes(photo.name)) {
           preloadStats.value.readyImages.push(photo.name);
         }
-
         preloadStats.value.currentlyFetchingFullSize = null;
         trackProgressiveLoadingStats();
       })
@@ -458,9 +365,7 @@ const handleImageError = (event) => {
   const photoName = imgElement.alt || "unknown";
 
   console.error("❌ Image failed to load:", photoName, "from", originalSrc);
-
-  event.target.src =
-    "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvcnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=";
+  event.target.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvcnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=";
 };
 
 const handleImageLoadStart = (event) => {
@@ -470,7 +375,6 @@ const handleImageLoadStart = (event) => {
 };
 
 const handleImageLoad = (event) => {
-  // Image loaded successfully - could add tracking here if needed
   const photoName = event.target.alt;
   imageLoadedMap.value[photoName] = true;
 };
@@ -478,18 +382,14 @@ const handleImageLoad = (event) => {
 // Lightbox methods
 const openPhoto = async (photo) => {
   console.log("LIGHTBOX REFACTORED");
-  const targetPhotoIndex = lightboxPhotos.value.findIndex(
-    (p) => p.name === photo.name
-  );
+  const targetPhotoIndex = lightboxPhotos.value.findIndex((p) => p.name === photo.name);
 
   if (targetPhotoIndex === -1) {
     console.error(`Could not find photo in lightbox array: ${photo.name}`);
     return;
   }
 
-  const gridImage = document.querySelector(
-    `img[alt="${photo.name}"][data-full-loaded="true"]`
-  );
+  const gridImage = document.querySelector(`img[alt="${photo.name}"][data-full-loaded="true"]`);
   const isPreloaded = gridImage && gridImage.dataset.fullLoaded === "true";
 
   currentPhotoIndex.value = targetPhotoIndex;
@@ -508,16 +408,12 @@ const closeLightbox = () => {
 const nextPhoto = () => {
   if (currentPhotoIndex.value < lightboxPhotos.value.length - 1) {
     const nextPhoto = lightboxPhotos.value[currentPhotoIndex.value + 1];
-    const nextGridImage = document.querySelector(
-      `img[alt="${nextPhoto.name}"][data-full-loaded="true"]`
-    );
-    const isNextPreloaded =
-      nextGridImage && nextGridImage.dataset.fullLoaded === "true";
+    const nextGridImage = document.querySelector(`img[alt="${nextPhoto.name}"][data-full-loaded="true"]`);
+    const isNextPreloaded = nextGridImage && nextGridImage.dataset.fullLoaded === "true";
 
     if (!isNextPreloaded) {
       lightboxLoading.value = true;
     }
-
     currentPhotoIndex.value++;
   }
 };
@@ -525,16 +421,12 @@ const nextPhoto = () => {
 const previousPhoto = () => {
   if (currentPhotoIndex.value > 0) {
     const prevPhoto = lightboxPhotos.value[currentPhotoIndex.value - 1];
-    const prevGridImage = document.querySelector(
-      `img[alt="${prevPhoto.name}"][data-full-loaded="true"]`
-    );
-    const isPrevPreloaded =
-      prevGridImage && prevGridImage.dataset.fullLoaded === "true";
+    const prevGridImage = document.querySelector(`img[alt="${prevPhoto.name}"][data-full-loaded="true"]`);
+    const isPrevPreloaded = prevGridImage && prevGridImage.dataset.fullLoaded === "true";
 
     if (!isPrevPreloaded) {
       lightboxLoading.value = true;
     }
-
     currentPhotoIndex.value--;
   }
 };
@@ -551,22 +443,15 @@ const handleDialogDelete = async () => {
   await deletePhoto();
 };
 
-// Replace your existing deletePhoto function with this version (just adds debug logs)
 const deletePhoto = async () => {
   if (!photoToDelete.value) return;
   deletingPhoto.value = true;
   error.value = null;
 
   try {
-    console.log(
-      "[Delete] Token check:",
-      localStorage.getItem("hbvu_auth_token")?.substring(0, 20)
-    );
+    console.log("[Delete] Token check:", localStorage.getItem("hbvu_auth_token")?.substring(0, 20));
     console.log("[Delete] Making API call...");
-    const response = await apiService.deleteObject(
-      BUCKET_NAME,
-      photoToDelete.value.name
-    );
+    const response = await apiService.deleteObject(BUCKET_NAME, photoToDelete.value.name);
     console.log("[Delete] API response:", response);
 
     if (response.success) {
@@ -584,12 +469,7 @@ const deletePhoto = async () => {
         if (lightboxPhotos.value.length > 1) {
           if (currentPhotoIndex.value >= lightboxPhotos.value.length - 1) {
             const newIndex = Math.max(0, lightboxPhotos.value.length - 2);
-            console.log(
-              "[Delete] Adjusting index from",
-              currentPhotoIndex.value,
-              "to",
-              newIndex
-            );
+            console.log("[Delete] Adjusting index from", currentPhotoIndex.value, "to", newIndex);
             currentPhotoIndex.value = newIndex;
           }
         } else {
@@ -621,13 +501,10 @@ const closeDeletePhotoDialog = () => {
 // Progressive loading and performance
 const trackProgressiveLoadingStats = () => {
   const allImages = document.querySelectorAll(".photo-image");
-  const preloadedImages = document.querySelectorAll(
-    '.photo-image[data-full-loaded="true"]'
-  );
+  const preloadedImages = document.querySelectorAll('.photo-image[data-full-loaded="true"]');
   const totalImages = allImages.length;
   const preloadedCount = preloadedImages.length;
-  const preloadPercentage =
-    totalImages > 0 ? Math.round((preloadedCount / totalImages) * 100) : 0;
+  const preloadPercentage = totalImages > 0 ? Math.round((preloadedCount / totalImages) * 100) : 0;
 
   preloadStats.value = {
     total: totalImages,
@@ -646,11 +523,9 @@ const trackProgressiveLoadingStats = () => {
 
 const startAggressivePreloading = () => {
   const imageElements = document.querySelectorAll(".photo-image");
-
   imageElements.forEach((img, index) => {
     const photoName = img.alt;
     const photo = visiblePhotos.value.find((p) => p.name === photoName);
-
     if (photo) {
       setTimeout(() => {
         loadImageProgressively(photo, img);
@@ -660,9 +535,7 @@ const startAggressivePreloading = () => {
 };
 
 const preloadVisibleImages = () => {
-  const imageElements = document.querySelectorAll(
-    '.photo-image[loading="lazy"]'
-  );
+  const imageElements = document.querySelectorAll('.photo-image[loading="lazy"]');
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -670,54 +543,16 @@ const preloadVisibleImages = () => {
           const img = entry.target;
           const photoName = img.alt;
           const photo = visiblePhotos.value.find((p) => p.name === photoName);
-
           if (photo) {
             loadImageProgressively(photo, img);
           }
-
           observer.unobserve(img);
         }
       });
     },
-    {
-      rootMargin: "100px",
-      threshold: 0.1,
-    }
+    { rootMargin: "100px", threshold: 0.1 }
   );
-
   imageElements.forEach((img) => observer.observe(img));
-};
-
-// Virtual scrolling
-const loadMorePhotos = () => {
-  if (paginatedVisiblePhotos.value.length < visiblePhotos.value.length) {
-    currentPage.value++;
-  }
-};
-
-const resetVirtualScrolling = () => {
-  currentPage.value = 1;
-};
-
-const setupInfiniteScroll = () => {
-  const sentinel = document.querySelector(".load-more-trigger");
-  if (!sentinel) return;
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (
-          entry.isIntersecting &&
-          paginatedVisiblePhotos.value.length < visiblePhotos.value.length
-        ) {
-          loadMorePhotos();
-        }
-      });
-    },
-    { threshold: 0.1 }
-  );
-
-  observer.observe(sentinel);
 };
 
 // SSE Methods for Upload Processing
@@ -766,25 +601,21 @@ const handleProcessingUpdate = (data) => {
     case "connected":
       processingStatus.value = "Connected to photo processing service...";
       break;
-
     case "complete":
       processingStatus.value = "Photo processing complete! 🎉";
       showProcessingCompleteNotification();
-
       setTimeout(async () => {
         await refreshAlbum();
         console.log("Album refreshed after processing complete");
         stopProcessingListener();
       }, 2000);
       break;
-
     case "failed":
       processingStatus.value = "Photo processing failed. Please try again.";
       setTimeout(() => {
         stopProcessingListener();
       }, 5000);
       break;
-
     default:
       processingStatus.value = data.message || "Processing photos...";
   }
@@ -797,7 +628,6 @@ const showProcessingCompleteNotification = () => {
       icon: "/favicon.ico",
     });
   }
-
   console.log("📸 Photo processing complete notification");
 };
 
@@ -807,7 +637,6 @@ const stopProcessingListener = () => {
     eventSource.value.close();
     eventSource.value = null;
   }
-
   processingNotifications.value = false;
   processingStatus.value = "";
   processingJobId.value = null;
@@ -820,7 +649,6 @@ onMounted(async () => {
   setTimeout(() => {
     startAggressivePreloading();
     preloadVisibleImages();
-    setupInfiniteScroll();
     trackProgressiveLoadingStats();
 
     progressTracker.value = setInterval(() => {

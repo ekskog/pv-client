@@ -139,18 +139,18 @@ const getOptimizedPhotoUrl = (photo) => {
 };
 
 onMounted(() => {
-  console.log('🖼️ PhotoCard: mounted for photo', props.photo.name)
-  console.log('🖼️ PhotoCard: imageLoaded =', props.imageLoaded)
-  console.log('🖼️ PhotoCard: has metadata =', Object.keys(props.photoMetadataLookup).length > 0)
+  //console.log('🖼️ PhotoCard: mounted for photo', props.photo.name)
+  //console.log('🖼️ PhotoCard: imageLoaded =', props.imageLoaded)
+  //console.log('🖼️ PhotoCard: has metadata =', Object.keys(props.photoMetadataLookup).length > 0)
 })
 
 onUnmounted(() => {
-  console.log('🖼️ PhotoCard: unmounted for photo', props.photo.name)
+  //console.log('🖼️ PhotoCard: unmounted for photo', props.photo.name)
 })
 
 // Add to the emit handlers to see events
 const handleClick = () => {
-  console.log('🖼️ PhotoCard: clicked', props.photo.name)
+  //console.log('🖼️ PhotoCard: clicked', props.photo.name)
   emit('click', props.photo)
 }
 
@@ -160,12 +160,12 @@ const handleImageLoad = (event) => {
 }
 
 const handleImageError = (event) => {
-  console.log('🖼️ PhotoCard: image error for', props.photo.name)
+  //console.log('🖼️ PhotoCard: image error for', props.photo.name)
   emit('imageError', event)
 }
 
 const handleImageLoadStart = (event) => {
-  console.log('🖼️ PhotoCard: image load start for', props.photo.name)
+  //console.log('🖼️ PhotoCard: image load start for', props.photo.name)
   emit('imageLoadStart', event)
 }
 

@@ -19,7 +19,7 @@
         @navigate="handleNavigation"
         @openAlbum="handleAlbumOpen"
       />
-      <AlbumDetail
+      <AlbumViewer
         v-else-if="currentView === 'album-detail'"
         :albumName="selectedAlbumName"
         @back="handleBackToAlbums"
@@ -53,7 +53,7 @@ import { ref, computed, onMounted, onUnmounted } from "vue";
 import AppHeader from "./components/AppHeader.vue";
 import Home from "./components/Home.vue";
 import Albums from "./components/Albums.vue";
-import AlbumDetail from "./components/AlbumDetail.vue";
+import AlbumViewer from "./components/AlbumViewer.vue";
 import Login from "./components/Login.vue";
 import UserManagement from "./components/UserManagement.vue";
 import Settings from "./components/Settings.vue";
