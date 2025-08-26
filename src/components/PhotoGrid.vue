@@ -144,12 +144,14 @@ const goToPage = (page) => {
 
 // Debug logs
 onMounted(() => {
+  /*
   console.log('📋 PhotoGrid: mounted')
   console.log('📋 PhotoGrid: total photos =', props.photos.length)
   console.log('📋 PhotoGrid: currentPage =', props.currentPage)
   console.log('📋 PhotoGrid: itemsPerPage =', props.itemsPerPage)
   console.log('📋 PhotoGrid: totalPages =', totalPages.value)
   console.log('📋 PhotoGrid: showing photos', startItem.value, '-', endItem.value)
+  */
 })
 
 watch(() => props.currentPage, (newPage) => {
@@ -157,3 +159,7 @@ watch(() => props.currentPage, (newPage) => {
   console.log('📋 PhotoGrid: now showing photos', startItem.value, '-', endItem.value)
 })
 </script>
+
+
+
+
