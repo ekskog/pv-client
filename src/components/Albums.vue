@@ -182,30 +182,23 @@ const loadAlbums = async () => {
   error.value = null
   
   try {
-    const response = await apiService.getBucketContents(BUCKET_NAME)
+    const response = await apiService.getAlbums(BUCKET_NAME)
     
     if (response.success && response.data) {
-      
       // Filter only folders (albums) from the response
       // Check both folders array and objects array for folder-like items
-      const foldersFromFolders = response.data.folders || []
-      const foldersFromObjects = (response.data.objects || []).filter(obj => 
-        obj.name && obj.name.endsWith('/') && obj.name !== '/'
-      ).map(obj => ({
-        ...obj,
-        name: obj.name.replace(/\/$/, '') // Remove trailing slash for display
-      }))
-      
-      const foundAlbums = [...foldersFromFolders, ...foldersFromObjects]
-      
+      const foldersFromFolders = response.data      
+      const foundAlbums = [...foldersFromFolders]
+      console.log(`foundAlbums:`, foundAlbums)
+
       // For each album, fetch the files inside to get the earliest creation date
       const albumsWithDates = await Promise.all(foundAlbums.map(async (album) => {
         try {
           // Use the album name directly like AlbumViewer does
-          let cleanAlbumName = album.name.trim()
+          let cleanAlbumName = album.trim()
           cleanAlbumName = cleanAlbumName.replace(/\/+$/, '')
           const prefix = cleanAlbumName + '/'
-          
+
           const albumResponse = await apiService.getBucketContents(BUCKET_NAME, prefix)
           if (albumResponse.success && albumResponse.data && albumResponse.data.objects) {
             const files = albumResponse.data.objects.filter(obj => 

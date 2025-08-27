@@ -79,8 +79,8 @@ class ApiService {
           .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
         throw new Error(
           errorData.message ||
-            errorData.error ||
-            `HTTP error! status: ${response.status}`
+          errorData.error ||
+          `HTTP error! status: ${response.status}`
         );
       }
 
@@ -95,11 +95,14 @@ class ApiService {
     return this.request("/health");
   }
 
-  // Folder/Object operations
   async getBucketContents(bucketName, prefix = "", options = {}) {
-    const endpoint = prefix
-      ? `/buckets/${bucketName}/objects?prefix=${encodeURIComponent(prefix)}`
-      : `/buckets/${bucketName}/objects`;
+    const endpoint = `/buckets/${bucketName}/objects?prefix=${encodeURIComponent(prefix)}`;
+    return this.request(endpoint, options);
+  }
+
+  // Folder/Object operations
+  async getAlbums(bucketName, options = {}) {
+    const endpoint = `/albums`;
     return this.request(endpoint, options);
   }
 
