@@ -6,19 +6,12 @@
         <p class="text-lg text-gray-600 mb-8">Organize your photos into albums</p>
       </div>
       <div class="flex items-center gap-3 justify-center flex-wrap">
-        <button
-          @click="refreshAlbums"
-          :disabled="loading"
-          title="Refresh albums"
-          class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm font-medium transition hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
+        <button @click="refreshAlbums" :disabled="loading" title="Refresh albums"
+          class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm font-medium transition hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed">
           <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i> Refresh
         </button>
-        <button
-          v-if="canCreateAlbum"
-          @click="showCreateDialog = true"
-          class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 hover:-translate-y-[1px] hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
-        >
+        <button v-if="canCreateAlbum" @click="showCreateDialog = true"
+          class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 hover:-translate-y-[1px] hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
           <i class="fas fa-plus"></i> Create New Album
         </button>
       </div>
@@ -33,33 +26,23 @@
     <!-- Error State -->
     <div v-if="error" class="text-center py-8 text-red-500">
       <p><i class="fas fa-exclamation-triangle"></i> {{ error }}</p>
-      <button
-        @click="loadAlbums"
-        class="mt-4 bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200"
-      >
+      <button @click="loadAlbums"
+        class="mt-4 bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200">
         Try Again
       </button>
     </div>
 
     <!-- Albums Grid -->
     <div v-if="!loading && !error" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <div
-        v-for="album in albums"
-        :key="album.name"
-        @click="openAlbum(album)"
-        class="bg-white border border-gray-200 rounded-xl p-6 text-center transition cursor-pointer relative hover:border-blue-500 hover:shadow-lg hover:-translate-y-[2px]"
-      >
+      <div v-for="album in albums" :key="album.name" @click="openAlbum(album)"
+        class="bg-white border border-gray-200 rounded-xl p-6 text-center transition cursor-pointer relative hover:border-blue-500 hover:shadow-lg hover:-translate-y-[2px]">
         <div class="text-4xl mb-4"><i class="fas fa-images"></i></div>
         <h3 class="text-base font-semibold text-gray-800 mb-2">{{ getAlbumDisplayName(album.name) }}</h3>
         <p class="text-sm text-blue-500 font-medium mb-2">{{ album.fileCount || 0 }} photos</p>
         <p class="text-xs text-gray-500 mb-4">Created {{ formatDate(album.lastModified) }}</p>
         <div class="absolute top-3 right-3 opacity-0 hover:opacity-100 transition">
-          <button
-            v-if="canDeleteAlbum"
-            @click.stop="confirmDelete(album)"
-            title="Delete Album"
-            class="bg-red-500 text-white px-2 py-2 rounded text-xs transition hover:bg-red-600"
-          >
+          <button v-if="canDeleteAlbum" @click.stop="confirmDelete(album)" title="Delete Album"
+            class="bg-red-500 text-white px-2 py-2 rounded text-xs transition hover:bg-red-600">
             <i class="fas fa-trash"></i>
           </button>
         </div>
@@ -73,44 +56,31 @@
           <span v-if="canCreateAlbum">Create your first photo album to get started!</span>
           <span v-else>No albums available to view.</span>
         </p>
-        <button
-          v-if="canCreateAlbum"
-          @click="showCreateDialog = true"
-          class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600"
-        >
+        <button v-if="canCreateAlbum" @click="showCreateDialog = true"
+          class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600">
           Create Album
         </button>
       </div>
     </div>
 
     <!-- Create Album Dialog -->
-    <div v-if="showCreateDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]" @click="closeDialog">
+    <div v-if="showCreateDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
+      @click="closeDialog">
       <div class="bg-white rounded-xl p-8 w-full max-w-md shadow-xl" @click.stop>
         <h3 class="text-lg font-semibold text-gray-800 mb-6">Create New Album</h3>
         <div class="mb-6">
           <label for="albumName" class="block mb-2 font-medium text-gray-800">Album Name:</label>
-          <input
-            id="albumName"
-            v-model="newAlbumName"
-            type="text"
-            placeholder="Enter album name..."
-            @keyup.enter="createAlbum"
-            ref="albumNameInput"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-          />
+          <input id="albumName" v-model="newAlbumName" type="text" placeholder="Enter album name..."
+            @keyup.enter="createAlbum" ref="albumNameInput"
+            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
         </div>
         <div class="flex justify-end gap-4 flex-wrap sm:flex-nowrap">
-          <button
-            @click="closeDialog"
-            class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200"
-          >
+          <button @click="closeDialog"
+            class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200">
             Cancel
           </button>
-          <button
-            @click="createAlbum"
-            :disabled="!newAlbumName.trim() || creating"
-            class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
+          <button @click="createAlbum" :disabled="!newAlbumName.trim() || creating"
+            class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed">
             {{ creating ? 'Creating...' : 'Create Album' }}
           </button>
         </div>
@@ -118,23 +88,21 @@
     </div>
 
     <!-- Delete Confirmation Dialog -->
-    <div v-if="showDeleteDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]" @click="closeDeleteDialog">
+    <div v-if="showDeleteDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
+      @click="closeDeleteDialog">
       <div class="bg-white rounded-xl p-8 w-full max-w-md shadow-xl" @click.stop>
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Delete Album</h3>
-        <p class="mb-4">Are you sure you want to delete the album "<strong>{{ getAlbumDisplayName(albumToDelete?.name) }}</strong>"?</p>
-        <p class="text-orange-500 text-sm mb-6"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone and will delete all photos in this album.</p>
+        <p class="mb-4">Are you sure you want to delete the album "<strong>{{ getAlbumDisplayName(albumToDelete?.name)
+        }}</strong>"?</p>
+        <p class="text-orange-500 text-sm mb-6"><i class="fas fa-exclamation-triangle"></i> This action cannot be undone
+          and will delete all photos in this album.</p>
         <div class="flex justify-end gap-4 flex-wrap sm:flex-nowrap">
-          <button
-            @click="closeDeleteDialog"
-            class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200"
-          >
+          <button @click="closeDeleteDialog"
+            class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200">
             Cancel
           </button>
-          <button
-            @click="deleteAlbum"
-            :disabled="deleting"
-            class="bg-red-500 text-white px-4 py-3 rounded-md text-sm font-semibold transition hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
+          <button @click="deleteAlbum" :disabled="deleting"
+            class="bg-red-500 text-white px-4 py-3 rounded-md text-sm font-semibold transition hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed">
             {{ deleting ? 'Deleting...' : 'Delete Album' }}
           </button>
         </div>
@@ -180,84 +148,29 @@ const BUCKET_NAME = 'photovault' // The correct bucket name
 const loadAlbums = async () => {
   loading.value = true
   error.value = null
-  
+
   try {
     const response = await apiService.getAlbums(BUCKET_NAME)
-    
-    if (response.success && response.data) {
-      // Filter only folders (albums) from the response
-      // Check both folders array and objects array for folder-like items
-      const foldersFromFolders = response.data      
-      const foundAlbums = [...foldersFromFolders]
-      console.log(`foundAlbums:`, foundAlbums)
+    console.log('[ALBUMS LINE 155] API response:', response)
 
-      // For each album, fetch the files inside to get the earliest creation date
-      const albumsWithDates = await Promise.all(foundAlbums.map(async (album) => {
-        try {
-          // Use the album name directly like AlbumViewer does
-          let cleanAlbumName = album.trim()
-          cleanAlbumName = cleanAlbumName.replace(/\/+$/, '')
-          const prefix = cleanAlbumName + '/'
-
-          const albumResponse = await apiService.getBucketContents(BUCKET_NAME, prefix)
-          if (albumResponse.success && albumResponse.data && albumResponse.data.objects) {
-            const files = albumResponse.data.objects.filter(obj => 
-              obj.name && !obj.name.endsWith('/')
-            )
-            
-            // Find the earliest file date (album creation date)
-            if (files.length > 0) {
-              const earliestDate = files.reduce((earliest, file) => {
-                if (!file.lastModified) return earliest
-                const fileDate = new Date(file.lastModified)
-                return !earliest || fileDate < earliest ? fileDate : earliest
-              }, null)
-              
-              // Count actual photos using the same logic as AlbumViewer
-              // Filter out folders and JSON metadata files, then count all image files
-              const imageFiles = files.filter(obj => {
-                // Only exclude folders (names ending with '/')
-                if (obj.name && obj.name.endsWith('/')) return false
-                
-                // Skip metadata JSON files from the count
-                if (obj.name.endsWith('.json') && obj.name.includes('/')) {
-                  const pathParts = obj.name.split('/')
-                  const fileName = pathParts[pathParts.length - 1]
-                  const folderName = pathParts[pathParts.length - 2]
-                  if (fileName === `${folderName}.json`) {
-                    return false
-                  }
-                }
-                
-                // Skip thumbnail files from the count
-                if (obj.name.includes('_thumb.')) {
-                  return false
-                }
-                
-                return true
-              })
-              
-              const actualPhotoCount = imageFiles.length
-              
-              return {
-                ...album,
-                lastModified: earliestDate?.toISOString(),
-                fileCount: actualPhotoCount
-              }
-            }
-          }
-          return { ...album, lastModified: null, fileCount: 0 }
-        } catch (err) {
-          console.warn(`Failed to get file dates for album ${album.name}:`, err)
-          return { ...album, lastModified: null, fileCount: 0 }
+    if (response.success && response.albums) {
+      // Map backend fields to the shape expected by your frontend
+      const albumsWithDates = response.albums.map((album) => {
+        return {
+          name: album.name,                                // keep the name as is
+          lastModified: album.updated_at 
+            ? new Date(album.updated_at).toISOString() 
+            : null,                                       // use DB updated_at
+          fileCount: album.fileCount ?? 0,                 // backend already gives this
         }
-      }))
-      
+      })
+
       albums.value = albumsWithDates
     } else {
       throw new Error(response.error || 'Failed to load albums - API returned unsuccessful response')
     }
   } catch (err) {
+    console.error('[ALBUMS ERROR]', err)
     error.value = `Error loading albums: ${err.message}. Check browser console for details.`
   } finally {
     loading.value = false
@@ -266,22 +179,22 @@ const loadAlbums = async () => {
 
 const createAlbum = async () => {
   if (!newAlbumName.value.trim()) return
-  
+
   // Check permission before proceeding
   if (!authService.canPerformAction('create_album')) {
     error.value = 'You do not have permission to create albums'
     return
   }
-  
+
   creating.value = true
   error.value = null
-  
+
   try {
     const albumName = newAlbumName.value.trim()
 
     // Use the correct API endpoint to create a folder
     const response = await apiService.createFolder(BUCKET_NAME, albumName)
-    
+
     if (response.success) {
       closeDialog() // Close dialog first to show loading state
       await loadAlbums() // Refresh the list
@@ -301,20 +214,20 @@ const confirmDelete = (album) => {
     error.value = 'You do not have permission to delete albums'
     return
   }
-  
+
   albumToDelete.value = album
   showDeleteDialog.value = true
 }
 
 const deleteAlbum = async () => {
   if (!albumToDelete.value) return
-  
+
   deleting.value = true
   error.value = null
-  
+
   try {
     const response = await apiService.deleteFolder(BUCKET_NAME, albumToDelete.value.name)
-    
+
     if (response.success) {
       await loadAlbums() // Refresh the list
       closeDeleteDialog()
@@ -346,7 +259,7 @@ const closeDeleteDialog = () => {
 
 const getAlbumDisplayName = (folderName) => {
   // Remove trailing slash if present
-  return folderName.replace(/\/$/, '')
+  return folderName.replace(/\.+/g, ' '); // or whatever formatting you want
 }
 
 const formatDate = (dateString) => {
@@ -378,4 +291,3 @@ onMounted(() => {
   loadAlbums()
 })
 </script>
-

@@ -159,7 +159,3 @@ watch(() => props.currentPage, (newPage) => {
   console.log('📋 PhotoGrid: now showing photos', startItem.value, '-', endItem.value)
 })
 </script>
-
-
-
-

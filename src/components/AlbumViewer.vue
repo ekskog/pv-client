@@ -126,7 +126,7 @@ const loadPhotos = async () => {
     console.log(`Normalized album name: ${albumName}`);
     const prefix = albumName + "/";
     await loadAlbumMetadata(albumName);
-    const response = await apiService.getBucketContents(BUCKET_NAME, prefix);
+    const response = await apiService.getAlbumContents(BUCKET_NAME, prefix);
     if (response.success && response.data) {
       const allFiles = response.data.objects.filter(obj => obj.name && !obj.name.endsWith("/"));
       photos.value = allFiles;

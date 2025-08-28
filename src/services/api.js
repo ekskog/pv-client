@@ -45,10 +45,8 @@ class ApiService {
     const token = this.getAuthToken();
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
-    } else {
-      console.log("No auth token found");
-    }
-
+    } 
+    
     const config = {
       headers,
       ...options,
@@ -95,7 +93,7 @@ class ApiService {
     return this.request("/health");
   }
 
-  async getBucketContents(bucketName, prefix = "", options = {}) {
+  async getAlbumContents(bucketName, prefix = "", options = {}) {
     const endpoint = `/buckets/${bucketName}/objects?prefix=${encodeURIComponent(prefix)}`;
     return this.request(endpoint, options);
   }
