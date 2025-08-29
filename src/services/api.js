@@ -234,7 +234,6 @@ class ApiService {
 
   // Object URL generation for downloading/viewing files
   getObject(albumName, objectName) {
-    console.log(`Generating object URL for album: ${albumName}, object: ${objectName}`);
     const API_BASE_URL = this.getApiBaseUrl();
     return `${API_BASE_URL}/albums/${albumName}/object/${objectName}`;
   }

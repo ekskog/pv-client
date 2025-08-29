@@ -9,15 +9,3 @@
     </p>
   </div>
 </template>
-
-<script setup>
-import { onMounted, onUnmounted } from 'vue'
-
-onMounted(() => {
-  console.log('📭 PhotoGridEmpty: mounted')
-})
-
-onUnmounted(() => {
-  console.log('📭 PhotoGridEmpty: unmounted')
-})
-</script>
