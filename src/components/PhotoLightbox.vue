@@ -121,6 +121,10 @@ const props = defineProps({
     type: String,
     default: 'photovault'
   },
+  albumName: {
+    type: String,
+    required: true
+  },
   photoMetadataLookup: { type: Object, default: () => ({}) }
 })
 
@@ -154,8 +158,9 @@ const handleImageError = (event) => {
 }
 
 const getPhotoUrl = (photo) => {
-  return apiService.getObjectUrl(props.bucketName, photo.name)
-}
+  let url =  apiService.getObject(props.albumName, photo.name);
+  return url;
+};
 
 const getPhotoDisplayName = (filename) => {
   return filename.split('/').pop() || filename
@@ -163,7 +168,7 @@ const getPhotoDisplayName = (filename) => {
 
 const downloadPhoto = (photo) => {
   if (!photo) return
-  const url = getPhotoUrl(photo)
+  const url = getPhoto(photo)
   const link = document.createElement('a')
   link.href = url
   link.download = getPhotoDisplayName(photo.name)
@@ -173,7 +178,6 @@ const downloadPhoto = (photo) => {
 }
 
 const nextPhoto = () => {
-  console.log("NEXT BUTTON PRESSED");
   if (props.currentIndex < props.photos.length - 1) {
     emit('next-photo')
   }

@@ -1,13 +1,21 @@
 <template>
   <div class="max-w-6xl mx-auto p-8">
     <!-- Use the new AlbumHeader component -->
-    <AlbumHeader :album-name="albumName" :photo-count="visiblePhotos.length" :loading="loading"
-      :can-upload-photos="canUploadPhotos" @back="$emit('back')" @refresh="refreshAlbum"
-      @upload="showUploadDialog = true" />
+    <AlbumHeader
+      :album-name="albumName"
+      :photo-count="visiblePhotos.length"
+      :loading="loading"
+      :can-upload-photos="canUploadPhotos"
+      @back="$emit('back')"
+      @refresh="refreshAlbum"
+      @upload="showUploadDialog = true"
+    />
 
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
-      <div class="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+      <div
+        class="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"
+      ></div>
       <p class="text-gray-600">Loading album photos...</p>
     </div>
 
@@ -18,7 +26,8 @@
       </p>
       <button
         class="bg-gray-100 text-gray-700 border border-gray-300 px-6 py-3 rounded-md hover:bg-gray-200 transition-colors"
-        @click="loadPhotos">
+        @click="loadPhotos"
+      >
         Try Again
       </button>
     </div>
@@ -27,26 +36,56 @@
     <PhotoGridEmpty v-if="!loading && !error && visiblePhotos.length === 0" />
 
     <!-- Photos Grid with Pagination -->
-    <PhotoGrid v-if="!loading && !error && visiblePhotos.length > 0" :photos="visiblePhotos"
-      :photo-metadata-lookup="photoMetadataLookup" :image-loaded-map="imageLoadedMap" :bucket-name="BUCKET_NAME"
-      :current-page="currentPage" :items-per-page="ITEMS_PER_PAGE" @photo-click="openPhoto"
-      @image-load="handleImageLoad" @image-error="handleImageError" @image-load-start="handleImageLoadStart"
-      @page-change="handlePageChange" />
+    <PhotoGrid
+      v-if="!loading && !error && visiblePhotos.length > 0"
+      :photos="visiblePhotos"
+      :photo-metadata-lookup="photoMetadataLookup"
+      :image-loaded-map="imageLoadedMap"
+      :bucket-name="BUCKET_NAME"
+      :album-name="albumName"
+      :current-page="currentPage"
+      :items-per-page="ITEMS_PER_PAGE"
+      @photo-click="openPhoto"
+      @image-load="handleImageLoad"
+      @image-error="handleImageError"
+      @image-load-start="handleImageLoadStart"
+      @page-change="handlePageChange"
+    />
 
     <!-- Upload Dialog -->
-    <MediaUpload :showUploadDialog="showUploadDialog" :album-name="albumName" @close="handleUploadDialogClose" />
+    <MediaUpload
+      :showUploadDialog="showUploadDialog"
+      :album-name="albumName"
+      @close="handleUploadDialogClose"
+    />
 
     <!-- Delete Photo Dialog -->
     <div v-if="showDeletePhotoDialog">
-      <DeletePhotoDialog :show="showDeletePhotoDialog"
-        :photoName="photoToDelete ? getPhotoDisplayName(photoToDelete.name) : ''" :deleting="deletingPhoto"
-        @cancel="closeDeletePhotoDialog" @delete="handleDialogDelete" />
+      <DeletePhotoDialog
+        :show="showDeletePhotoDialog"
+        :photoName="
+          photoToDelete ? getPhotoDisplayName(photoToDelete.name) : ''
+        "
+        :deleting="deletingPhoto"
+        @cancel="closeDeletePhotoDialog"
+        @delete="handleDialogDelete"
+      />
     </div>
 
     <!-- Lightbox Viewer -->
-    <PhotoLightbox :show="showLightbox" :photos="lightboxPhotos" :current-index="currentPhotoIndex"
-      :loading="lightboxLoading" :can-delete="canDeletePhoto" bucket-name="photovault" @close="closeLightbox"
-      @next-photo="nextPhoto" @previous-photo="previousPhoto" @delete-photo="confirmDeletePhoto" />
+    <PhotoLightbox
+      :show="showLightbox"
+      :photos="lightboxPhotos"
+      :current-index="currentPhotoIndex"
+      :loading="lightboxLoading"
+      :can-delete="canDeletePhoto"
+      bucket-name="photovault"
+      :album-name="albumName"
+      @close="closeLightbox"
+      @next-photo="nextPhoto"
+      @previous-photo="previousPhoto"
+      @delete-photo="confirmDeletePhoto"
+    />
   </div>
 </template>
 
@@ -61,7 +100,7 @@ import MediaUpload from "./MediaUpload.vue";
 import PhotoLightbox from "./PhotoLightbox.vue";
 import DeletePhotoDialog from "./DeletePhotoDialog.vue";
 import PhotoGridEmpty from "./PhotoGridEmpty.vue";
-import PhotoGrid from './PhotoGrid.vue';
+import PhotoGrid from "./PhotoGrid.vue";
 
 const props = defineProps({ albumName: String });
 const emit = defineEmits(["back", "photoOpened"]);
@@ -84,7 +123,13 @@ const lightboxLoading = ref(false);
 const showDeletePhotoDialog = ref(false);
 const photoToDelete = ref(null);
 const deletingPhoto = ref(false);
-const preloadStats = ref({ total: 0, preloaded: 0, percentage: 0, currentlyFetchingFullSize: null, readyImages: [] });
+const preloadStats = ref({
+  total: 0,
+  preloaded: 0,
+  percentage: 0,
+  currentlyFetchingFullSize: null,
+  readyImages: [],
+});
 const progressTracker = ref(null);
 
 const processingNotifications = ref(false);
@@ -92,10 +137,20 @@ const processingStatus = ref("");
 const processingJobId = ref(null);
 let sseService = null;
 
-const currentPhoto = computed(() => lightboxPhotos.value[currentPhotoIndex.value] || null);
-const canUploadPhotos = computed(() => authService.canPerformAction("upload_photos"));
+const currentPhoto = computed(
+  () => lightboxPhotos.value[currentPhotoIndex.value] || null
+);
+const canUploadPhotos = computed(() =>
+  authService.canPerformAction("upload_photos")
+);
 const canDeletePhoto = computed(() => true);
-const visiblePhotos = computed(() => photos.value.filter(p => /\.(avif|jpg|jpeg|png|gif|heic)$/i.test(p.name) && !/_thumb\./i.test(p.name)));
+const visiblePhotos = computed(() =>
+  photos.value.filter(
+    (p) =>
+      /\.(avif|jpg|jpeg|png|gif|heic)$/i.test(p.name) &&
+      !/_thumb\./i.test(p.name)
+  )
+);
 const lightboxPhotos = computed(() => visiblePhotos.value);
 
 const handleUploadDialogClose = (payload) => {
@@ -107,29 +162,44 @@ const handleUploadDialogClose = (payload) => {
 
 const handlePageChange = (newPage) => {
   currentPage.value = newPage;
-  Object.keys(imageLoadedMap.value).forEach(key => delete imageLoadedMap.value[key]);
+  Object.keys(imageLoadedMap.value).forEach(
+    (key) => delete imageLoadedMap.value[key]
+  );
   setTimeout(() => {
     startAggressivePreloading();
     preloadVisibleImages();
   }, 100);
 };
 
-const resetPagination = () => currentPage.value = 1;
+const resetPagination = () => (currentPage.value = 1);
 
 const loadPhotos = async () => {
   loading.value = true;
   error.value = null;
   try {
-    console.log(`Loading photos for album: ${props.albumName}`);
-
-    const albumName = props.albumName.trim().replace(/\/+$/, ""); // removes trailing slashes
-    console.log(`Normalized album name: ${albumName}`);
-    const prefix = albumName + "/";
+    const albumName = props.albumName.trim().replace(/\/+$/, "");
     await loadAlbumMetadata(albumName);
-    const response = await apiService.getAlbumContents(BUCKET_NAME, prefix);
-    if (response.success && response.data) {
-      const allFiles = response.data.objects.filter(obj => obj.name && !obj.name.endsWith("/"));
+
+    const response = await apiService.getAlbumContents(albumName);
+
+    if (response.success && response.album.objects) {
+      const allFiles = response.album.objects
+        .filter((obj) => obj.name && !obj.name.endsWith("/"))
+        .map((obj) => {
+          // Remove album prefix from the object name
+          const nameWithoutAlbum = obj.name.startsWith(`${albumName}/`)
+            ? obj.name.slice(albumName.length + 1)
+            : obj.name;
+
+          return {
+            ...obj,
+            name: nameWithoutAlbum, // safe name for keys and display
+            fullPath: obj.name,     // full path for fetching from backend/MinIO
+          };
+        });
+
       photos.value = allFiles;
+
       resetPagination();
     } else {
       throw new Error(response.error || "Failed to load album photos");
@@ -145,15 +215,14 @@ const refreshAlbum = async () => await loadPhotos();
 
 const loadAlbumMetadata = async (albumName) => {
   try {
-    console.log(`album name: ${albumName}`);
-    const metadataUrl = apiService.getObjectUrl(BUCKET_NAME, `${albumName}/${albumName}.json`);
+    const metadataUrl = apiService.getObject(albumName, `${albumName}.json`);
     const response = await fetch(metadataUrl);
     if (response.ok) {
       const metadata = await response.json();
       albumMetadata.value = metadata;
       const lookup = {};
       if (Array.isArray(metadata.media)) {
-        metadata.media.forEach(mediaMeta => {
+        metadata.media.forEach((mediaMeta) => {
           if (mediaMeta.sourceImage) {
             const filename = mediaMeta.sourceImage.split("/").pop();
             lookup[filename] = mediaMeta;
@@ -175,13 +244,15 @@ const loadAlbumMetadata = async (albumName) => {
 };
 
 const getPhotoDisplayName = (filename) => filename.split("/").pop() || filename;
-const getPhotoUrl = (photo) => apiService.getObjectUrl(BUCKET_NAME, photo.name);
-const preloadImage = (src) => new Promise((resolve, reject) => {
-  const img = new Image();
-  img.onload = () => resolve(img);
-  img.onerror = reject;
-  img.src = src;
-});
+const getPhotoUrl = (photo) =>
+  apiService.getObject(photo.albumName, photo.name);
+const preloadImage = (src) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
 
 const loadImageProgressively = async (photo, imgElement) => {
   try {
@@ -208,13 +279,18 @@ const handleImageError = (event) => {
   event.target.src = "data:image/svg+xml;base64,...";
 };
 
-const handleImageLoadStart = (event) => { };
-const handleImageLoad = (event) => imageLoadedMap.value[event.target.alt] = true;
+const handleImageLoadStart = (event) => {};
+const handleImageLoad = (event) =>
+  (imageLoadedMap.value[event.target.alt] = true);
 
 const openPhoto = async (photo) => {
-  const targetPhotoIndex = lightboxPhotos.value.findIndex(p => p.name === photo.name);
+  const targetPhotoIndex = lightboxPhotos.value.findIndex(
+    (p) => p.name === photo.name
+  );
   if (targetPhotoIndex === -1) return;
-  const gridImage = document.querySelector(`img[alt="${photo.name}"][data-full-loaded="true"]`);
+  const gridImage = document.querySelector(
+    `img[alt="${photo.name}"][data-full-loaded="true"]`
+  );
   const isPreloaded = gridImage?.dataset.fullLoaded === "true";
   currentPhotoIndex.value = targetPhotoIndex;
   showLightbox.value = true;
@@ -229,7 +305,9 @@ const closeLightbox = () => {
 const nextPhoto = () => {
   if (currentPhotoIndex.value < lightboxPhotos.value.length - 1) {
     const nextPhoto = lightboxPhotos.value[currentPhotoIndex.value + 1];
-    const nextGridImage = document.querySelector(`img[alt="${nextPhoto.name}"][data-full-loaded="true"]`);
+    const nextGridImage = document.querySelector(
+      `img[alt="${nextPhoto.name}"][data-full-loaded="true"]`
+    );
     if (!nextGridImage?.dataset.fullLoaded) lightboxLoading.value = true;
     currentPhotoIndex.value++;
   }
@@ -238,7 +316,9 @@ const nextPhoto = () => {
 const previousPhoto = () => {
   if (currentPhotoIndex.value > 0) {
     const prevPhoto = lightboxPhotos.value[currentPhotoIndex.value - 1];
-    const prevGridImage = document.querySelector(`img[alt="${prevPhoto.name}"][data-full-loaded="true"]`);
+    const prevGridImage = document.querySelector(
+      `img[alt="${prevPhoto.name}"][data-full-loaded="true"]`
+    );
     if (!prevGridImage?.dataset.fullLoaded) lightboxLoading.value = true;
     currentPhotoIndex.value--;
   }
@@ -256,13 +336,19 @@ const deletePhoto = async () => {
   deletingPhoto.value = true;
   error.value = null;
   try {
-    const response = await apiService.deleteObject(BUCKET_NAME, photoToDelete.value.name);
+    const response = await apiService.deleteObject(
+      BUCKET_NAME,
+      photoToDelete.value.name
+    );
     if (response.success) {
       await loadPhotos();
       if (showLightbox.value) {
         if (lightboxPhotos.value.length > 1) {
           if (currentPhotoIndex.value >= lightboxPhotos.value.length - 1) {
-            currentPhotoIndex.value = Math.max(0, lightboxPhotos.value.length - 2);
+            currentPhotoIndex.value = Math.max(
+              0,
+              lightboxPhotos.value.length - 2
+            );
           }
         } else {
           closeLightbox();
@@ -287,19 +373,32 @@ const closeDeletePhotoDialog = () => {
 
 const trackProgressiveLoadingStats = () => {
   const allImages = document.querySelectorAll(".photo-image");
-  const preloadedImages = document.querySelectorAll('.photo-image[data-full-loaded="true"]');
+  const preloadedImages = document.querySelectorAll(
+    '.photo-image[data-full-loaded="true"]'
+  );
   const totalImages = allImages.length;
   const preloadedCount = preloadedImages.length;
-  const preloadPercentage = totalImages > 0 ? Math.round((preloadedCount / totalImages) * 100) : 0;
-  preloadStats.value = { total: totalImages, preloaded: preloadedCount, percentage: preloadPercentage, currentlyFetchingFullSize: preloadStats.value.currentlyFetchingFullSize, readyImages: preloadStats.value.readyImages };
-  return { total: totalImages, preloaded: preloadedCount, percentage: preloadPercentage };
+  const preloadPercentage =
+    totalImages > 0 ? Math.round((preloadedCount / totalImages) * 100) : 0;
+  preloadStats.value = {
+    total: totalImages,
+    preloaded: preloadedCount,
+    percentage: preloadPercentage,
+    currentlyFetchingFullSize: preloadStats.value.currentlyFetchingFullSize,
+    readyImages: preloadStats.value.readyImages,
+  };
+  return {
+    total: totalImages,
+    preloaded: preloadedCount,
+    percentage: preloadPercentage,
+  };
 };
 
 const startAggressivePreloading = () => {
   const imageElements = document.querySelectorAll(".photo-image");
   imageElements.forEach((img, index) => {
     const photoName = img.alt;
-    const photo = visiblePhotos.value.find(p => p.name === photoName);
+    const photo = visiblePhotos.value.find((p) => p.name === photoName);
     if (photo) {
       setTimeout(() => loadImageProgressively(photo, img), index * 100);
     }
@@ -307,18 +406,23 @@ const startAggressivePreloading = () => {
 };
 
 const preloadVisibleImages = () => {
-  const imageElements = document.querySelectorAll('.photo-image[loading="lazy"]');
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        const img = entry.target;
-        const photoName = img.alt;
-        const photo = visiblePhotos.value.find(p => p.name === photoName);
-        if (photo) loadImageProgressively(photo, img);
-        observer.unobserve(img);
-      }
-    });
-  }, { rootMargin: "100px", threshold: 0.1 });
+  const imageElements = document.querySelectorAll(
+    '.photo-image[loading="lazy"]'
+  );
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const img = entry.target;
+          const photoName = img.alt;
+          const photo = visiblePhotos.value.find((p) => p.name === photoName);
+          if (photo) loadImageProgressively(photo, img);
+          observer.unobserve(img);
+        }
+      });
+    },
+    { rootMargin: "100px", threshold: 0.1 }
+  );
   imageElements.forEach((img) => observer.observe(img));
 };
 
@@ -327,7 +431,12 @@ const startProcessingListener = (jobId) => {
   processingJobId.value = jobId;
   processingNotifications.value = true;
   processingStatus.value = "Starting photo processing...";
-  sseService = new SSEService(apiService, jobId, handleProcessingUpdate, () => { });
+  sseService = new SSEService(
+    apiService,
+    jobId,
+    handleProcessingUpdate,
+    () => {}
+  );
   sseService.start();
 };
 

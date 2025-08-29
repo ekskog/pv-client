@@ -34,7 +34,7 @@ class ApiService {
 
     const API_BASE_URL = this.getApiBaseUrl();
     const url = `${API_BASE_URL}${endpoint}`;
-
+    console.log(`API Request: ${url}`);
     // Add authentication headers
     const headers = {
       "Content-Type": "application/json",
@@ -45,8 +45,8 @@ class ApiService {
     const token = this.getAuthToken();
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
-    } 
-    
+    }
+
     const config = {
       headers,
       ...options,
@@ -77,8 +77,8 @@ class ApiService {
           .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
         throw new Error(
           errorData.message ||
-          errorData.error ||
-          `HTTP error! status: ${response.status}`
+            errorData.error ||
+            `HTTP error! status: ${response.status}`
         );
       }
 
@@ -93,14 +93,16 @@ class ApiService {
     return this.request("/health");
   }
 
-  async getAlbumContents(bucketName, prefix = "", options = {}) {
-    const endpoint = `/buckets/${bucketName}/objects?prefix=${encodeURIComponent(prefix)}`;
+  async getAlbumContents(name, options = {}) {
+    const endpoint = `/objects/${name}`;
     return this.request(endpoint, options);
   }
 
   // Folder/Object operations
   async getAlbums(bucketName, options = {}) {
     const endpoint = `/albums`;
+    const API_BASE_URL = this.getApiBaseUrl();
+    const url = `${API_BASE_URL}/buckets/${bucketName}/upload`;
     return this.request(endpoint, options);
   }
 
@@ -231,11 +233,10 @@ class ApiService {
   }
 
   // Object URL generation for downloading/viewing files
-  getObjectUrl(bucketName, objectName) {
+  getObject(albumName, objectName) {
+    console.log(`Generating object URL for album: ${albumName}, object: ${objectName}`);
     const API_BASE_URL = this.getApiBaseUrl();
-    return `${API_BASE_URL}/buckets/${bucketName}/download?object=${encodeURIComponent(
-      objectName
-    )}`;
+    return `${API_BASE_URL}/albums/${albumName}/object/${objectName}`;
   }
 
   // User registration

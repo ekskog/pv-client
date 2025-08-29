@@ -12,7 +12,7 @@
         @loadstart="$emit('imageLoadStart', $event)"
         class="w-full h-full object-cover transition-opacity duration-300"
         loading="lazy"
-        :data-full-src="getPhotoUrl(photo)"
+        :data-full-src="getPhoto(photo)"
       />
       <!-- Loading placeholder for images -->
       <div
@@ -46,7 +46,8 @@ const props = defineProps({
   photo: { type: Object, required: true },
   photoMetadataLookup: { type: Object, required: true },
   imageLoaded: { type: Boolean, default: false },
-  bucketName: { type: String, required: true }
+  bucketName: { type: String, required: true },
+  albumName: { type: String, required: true }
 })
 
 const emit = defineEmits(['click', 'imageLoad', 'imageError', 'imageLoadStart'])
@@ -130,42 +131,24 @@ const formatPhotoGPS = (photo) => {
   return "No location";
 };
 
-const getPhotoUrl = (photo) => {
-  return apiService.getObjectUrl(props.bucketName, photo.name);
+const getPhoto = (photo) => {
+  return apiService.getObject(props.albumName, photo.name);
 };
 
 const getOptimizedPhotoUrl = (photo) => {
-  return apiService.getObjectUrl(props.bucketName, photo.name);
+  return apiService.getObject(props.albumName, photo.name);
 };
 
-onMounted(() => {
-  //console.log('🖼️ PhotoCard: mounted for photo', props.photo.name)
-  //console.log('🖼️ PhotoCard: imageLoaded =', props.imageLoaded)
-  //console.log('🖼️ PhotoCard: has metadata =', Object.keys(props.photoMetadataLookup).length > 0)
-})
-
-onUnmounted(() => {
-  //console.log('🖼️ PhotoCard: unmounted for photo', props.photo.name)
-})
-
-// Add to the emit handlers to see events
-const handleClick = () => {
-  //console.log('🖼️ PhotoCard: clicked', props.photo.name)
-  emit('click', props.photo)
-}
 
 const handleImageLoad = (event) => {
-  console.log('🖼️ PhotoCard: image loaded for', props.photo.name)
   emit('imageLoad', event)
 }
 
 const handleImageError = (event) => {
-  //console.log('🖼️ PhotoCard: image error for', props.photo.name)
   emit('imageError', event)
 }
 
 const handleImageLoadStart = (event) => {
-  //console.log('🖼️ PhotoCard: image load start for', props.photo.name)
   emit('imageLoadStart', event)
 }
 

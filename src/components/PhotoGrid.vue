@@ -10,7 +10,8 @@
         :photo="photo"
         :photo-metadata-lookup="photoMetadataLookup"
         :image-loaded="imageLoadedMap[photo.name]"
-        :bucket-name="bucketName"
+        :bucketName="bucketName"
+        :albumName="albumName"
         @click="$emit('photoClick', photo)"
         @image-load="$emit('imageLoad', $event)"
         @image-error="$emit('imageError', $event)"
@@ -57,6 +58,7 @@ const props = defineProps({
   photoMetadataLookup: { type: Object, required: true },
   imageLoadedMap: { type: Object, required: true },
   bucketName: { type: String, required: true },
+  albumName: { type: String, required: true },
   currentPage: { type: Number, required: true },
   itemsPerPage: { type: Number, default: 24 }
 })
@@ -132,7 +134,6 @@ const showLastEllipsis = computed(() => {
 // THIS IS THE KEY METHOD - EMITS PAGE CHANGE TO PARENT
 const goToPage = (page) => {
   if (page >= 1 && page <= totalPages.value && page !== props.currentPage) {
-    console.log('📄 PhotoGrid: emitting pageChange event for page', page)
     emit('pageChange', page)
     
     // Scroll to top
@@ -141,18 +142,6 @@ const goToPage = (page) => {
     }, 50)
   }
 }
-
-// Debug logs
-onMounted(() => {
-  /*
-  console.log('📋 PhotoGrid: mounted')
-  console.log('📋 PhotoGrid: total photos =', props.photos.length)
-  console.log('📋 PhotoGrid: currentPage =', props.currentPage)
-  console.log('📋 PhotoGrid: itemsPerPage =', props.itemsPerPage)
-  console.log('📋 PhotoGrid: totalPages =', totalPages.value)
-  console.log('📋 PhotoGrid: showing photos', startItem.value, '-', endItem.value)
-  */
-})
 
 watch(() => props.currentPage, (newPage) => {
   console.log('📋 PhotoGrid: currentPage prop changed to', newPage)
