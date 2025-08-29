@@ -103,7 +103,7 @@ import DeletePhotoDialog from "./DeletePhotoDialog.vue";
 import PhotoGridEmpty from "./PhotoGridEmpty.vue";
 import PhotoGrid from "./PhotoGrid.vue";
 
-const props = defineProps({ albumName: String });
+const props = defineProps({ albumName: String, isPublic: Boolean });
 const emit = defineEmits(["back", "photoOpened"]);
 
 const BUCKET_NAME = "photovault";
@@ -195,7 +195,7 @@ const loadPhotos = async () => {
           return {
             ...obj,
             name: nameWithoutAlbum, // safe name for keys and display
-            fullPath: obj.name,     // full path for fetching from backend/MinIO
+            fullPath: obj.name, // full path for fetching from backend/MinIO
           };
         });
 

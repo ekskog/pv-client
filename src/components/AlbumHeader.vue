@@ -42,12 +42,22 @@
       >
         <i class="fas fa-plus"></i>
       </button>
+
+      <!-- Icon-only Share Button -->
+      <button
+        @click="handleShare"
+        class="bg-blue-100 hover:bg-blue-200 text-gray-800 border border-gray-300 px-3 py-2 rounded-md text-sm transition flex items-center justify-center"
+        title="Share this album"
+      >
+        <i class="fas fa-share-alt"></i>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { computed, onMounted } from "vue";
+import urlService from "../services/urlService.js";
 
 const props = defineProps({
   albumName: { type: String, required: true },
@@ -57,16 +67,43 @@ const props = defineProps({
   isPublic: { type: Boolean, default: false },
 });
 
+const emit = defineEmits(["back", "refresh", "upload"]);
+
 const cleanAlbumName = computed(() => {
   const match = props.albumName.match(/^(.*)\.(\d{2})\/$/);
   return match ? `${match[1]} (${match[2]})` : props.albumName;
 });
 
-const emit = defineEmits(["back", "refresh", "upload"]);
-
-const isPublic = ref(false);
-
 onMounted(() => {
-  isPublic.value = window.location.hash.startsWith("#/public/");
+  console.log("[AlbumHeader] Mounted");
+  console.log("[AlbumHeader] albumName:", props.albumName);
+  console.log("[AlbumHeader] isPublic:", props.isPublic);
 });
+
+const handleShare = async () => {
+  const shareUrl = urlService.generateShareableUrl(props.albumName, true);
+  console.log("[AlbumHeader] Share button clicked");
+  console.log("[AlbumHeader] Generated share URL:", shareUrl);
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "Shared Album",
+        text: `Check out this album: ${props.albumName}`,
+        url: shareUrl,
+      });
+      console.log("[AlbumHeader] Native share triggered");
+    } catch (err) {
+      console.error("[AlbumHeader] Share failed:", err);
+    }
+  } else {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      alert("Link copied to clipboard!");
+      console.log("[AlbumHeader] Fallback: copied to clipboard");
+    } catch (err) {
+      console.error("[AlbumHeader] Clipboard copy failed:", err);
+    }
+  }
+};
 </script>
