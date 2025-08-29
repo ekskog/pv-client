@@ -6,6 +6,7 @@
       :photo-count="visiblePhotos.length"
       :loading="loading"
       :can-upload-photos="canUploadPhotos"
+      :is-public="isPublic"
       @back="$emit('back')"
       @refresh="refreshAlbum"
       @upload="showUploadDialog = true"

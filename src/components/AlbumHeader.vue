@@ -4,6 +4,7 @@
   >
     <!-- Back Button -->
     <button
+      v-if="!isPublic"
       class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-4 py-2 rounded-md text-sm transition"
       @click="$emit('back')"
     >
@@ -12,7 +13,9 @@
 
     <!-- Album Info -->
     <div class="flex items-center gap-3 flex-grow min-w-0">
-      <h2 class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 truncate">
+      <h2
+        class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 truncate"
+      >
         <i class="fas fa-images text-blue-500"></i> {{ cleanAlbumName }}
       </h2>
       <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
@@ -23,6 +26,7 @@
     <!-- Header Actions -->
     <div class="flex items-center gap-3 flex-shrink-0">
       <button
+        v-if="!isPublic"
         class="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-3 py-2 rounded-md text-sm transition flex items-center justify-center disabled:opacity-60"
         @click="$emit('refresh')"
         :disabled="loading"
@@ -43,13 +47,14 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { onMounted, ref, computed } from "vue";
 
 const props = defineProps({
   albumName: { type: String, required: true },
   photoCount: { type: Number, default: 0 },
   loading: { type: Boolean, default: false },
   canUploadPhotos: { type: Boolean, default: false },
+  isPublic: { type: Boolean, default: false },
 });
 
 const cleanAlbumName = computed(() => {
@@ -58,4 +63,10 @@ const cleanAlbumName = computed(() => {
 });
 
 const emit = defineEmits(["back", "refresh", "upload"]);
+
+const isPublic = ref(false);
+
+onMounted(() => {
+  isPublic.value = window.location.hash.startsWith("#/public/");
+});
 </script>
