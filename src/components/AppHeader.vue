@@ -282,8 +282,18 @@ const checkHealth = async () => {
   }
 };
 const handleClickOutside = (e) => {
+  // Close user dropdown if clicking outside
   if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
     showUserDropdown.value = false;
+  }
+  
+  // Close mobile menu if clicking outside
+  // Check if the click target is not the hamburger button or within the mobile menu
+  const hamburgerButton = e.target.closest('button[class*="md:hidden"]');
+  const mobileMenu = e.target.closest('[class*="absolute top-full left-0"]');
+  
+  if (showMobileMenu.value && !hamburgerButton && !mobileMenu) {
+    showMobileMenu.value = false;
   }
 };
 onMounted(() => {

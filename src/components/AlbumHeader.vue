@@ -43,10 +43,10 @@
         <i class="fas fa-plus"></i>
       </button>
 
-      <!-- Icon-only Share Button -->
+      <!-- Icon-only Share Button (hidden on small screens) -->
       <button
         @click="handleShare"
-        class="bg-blue-100 hover:bg-blue-200 text-gray-800 border border-gray-300 px-3 py-2 rounded-md text-sm transition flex items-center justify-center"
+        class="hidden md:flex bg-blue-100 hover:bg-blue-200 text-gray-800 border border-gray-300 px-3 py-2 rounded-md text-sm transition items-center justify-center"
         title="Share this album"
       >
         <i class="fas fa-share-alt"></i>

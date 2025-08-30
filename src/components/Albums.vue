@@ -12,7 +12,7 @@
         </button>
         <button v-if="canCreateAlbum" @click="showCreateDialog = true"
           class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 hover:-translate-y-[1px] hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
-          <i class="fas fa-plus"></i> Create New Album
+          <i class="fas fa-plus"></i>
         </button>
       </div>
     </div>
@@ -192,8 +192,8 @@ const createAlbum = async () => {
   try {
     const albumName = newAlbumName.value.trim()
 
-    // Use the correct API endpoint to create a folder
-    const response = await apiService.createFolder(BUCKET_NAME, albumName)
+    // Use the correct API endpoint to create an Album
+    const response = await apiService.createFolder(albumName)
 
     if (response.success) {
       closeDialog() // Close dialog first to show loading state

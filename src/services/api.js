@@ -106,10 +106,9 @@ class ApiService {
     return this.request(endpoint, options);
   }
 
-  async createFolder(bucketName, folderPath) {
-    return this.request(`/buckets/${bucketName}/folders`, {
+  async createFolder(folderPath) {
+    return this.request(`/album/${folderPath}`, {
       method: "POST",
-      body: JSON.stringify({ folderPath }),
     });
   }
 
@@ -121,10 +120,9 @@ class ApiService {
   }
 
   // Delete object
-  async deleteObject(bucketName, objectName) {
-    return this.request(`/buckets/${bucketName}/objects`, {
+  async deleteObject(folderPath, objectName) {
+    return this.request(`/objects/${folderPath}/${objectName}`, {
       method: "DELETE",
-      body: JSON.stringify({ objectName }),
     });
   }
 

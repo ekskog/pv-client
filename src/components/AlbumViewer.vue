@@ -327,6 +327,7 @@ const previousPhoto = () => {
 
 const confirmDeletePhoto = (photo) => {
   photoToDelete.value = photo;
+  console.log(`Confirm delete photo: ${photo.name}`);
   showDeletePhotoDialog.value = true;
 };
 
@@ -338,8 +339,7 @@ const deletePhoto = async () => {
   error.value = null;
   try {
     const response = await apiService.deleteObject(
-      BUCKET_NAME,
-      photoToDelete.value.name
+      props.albumName, photoToDelete.value.name
     );
     if (response.success) {
       await loadPhotos();

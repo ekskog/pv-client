@@ -38,10 +38,10 @@
       <Settings v-else-if="currentView === 'settings'" v-if="isAuthenticated" />
     </main>
 
-    <!-- Share Button (only in private album view) -->
+    <!-- Share Button (only in private album view, visible on small screens only) -->
     <div
       v-if="currentView === 'album-detail' && selectedAlbumName"
-      class="fixed bottom-4 right-4 z-50"
+      class="md:hidden fixed bottom-4 right-4 z-50"
     >
       <button
         @click="showShareDialog = true"
