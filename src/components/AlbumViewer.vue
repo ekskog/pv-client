@@ -82,6 +82,7 @@
       :can-delete="canDeletePhoto"
       bucket-name="photovault"
       :album-name="albumName"
+      :photo-metadata-lookup="photoMetadataLookup"
       @close="closeLightbox"
       @next-photo="nextPhoto"
       @previous-photo="previousPhoto"
