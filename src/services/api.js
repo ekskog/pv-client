@@ -128,6 +128,14 @@ class ApiService {
     });
   }
 
+  // Update photo metadata
+  async updatePhotoMetadata(folderPath, objectName, metadata) {
+    return this.request(`/objects/${folderPath}/${objectName}`, {
+      method: "PUT",
+      body: JSON.stringify({ metadata }),
+    });
+  }
+
   // File upload - Updated to match API spec
   async uploadFile(bucketName, files, folderPath = "") {
     const formData = new FormData();

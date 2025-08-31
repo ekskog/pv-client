@@ -78,6 +78,14 @@
             >
               <i class="fas fa-trash"></i>
             </button>
+            <button 
+              v-if="canShowEditButton"
+              @click="showMetadataEditor = true"
+              class="bg-white bg-opacity-10 text-white w-10 h-10 rounded-full text-base flex items-center justify-center transition-all duration-200 backdrop-blur-sm hover:bg-opacity-20 hover:scale-110" 
+              title="Edit Metadata"
+            >
+              <i class="fas fa-edit"></i>
+            </button>
           </div>
         </div>
 
@@ -99,6 +107,14 @@
             :photo-metadata-lookup="photoMetadataLookup" 
           />
         </div>
+
+        <!-- Metadata Editor Modal -->
+        <EditPhotoMetadata 
+          v-if="showMetadataEditor" 
+          :photo="currentPhoto" 
+          :photo-metadata-lookup="photoMetadataLookup" 
+          @close="showMetadataEditor = false"
+        />
       </div>
     </div>
   </div>
@@ -109,6 +125,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
 import PhotoMetadataDetailed from './PhotoMetadataDetailed.vue'
+import EditPhotoMetadata from './EditPhotoMetadata.vue'
 
 // Props
 const props = defineProps({
@@ -134,12 +151,17 @@ const emit = defineEmits(['close', 'next-photo', 'previous-photo', 'delete-photo
 // Local state
 const imageLoaded = ref(false)
 const showMetadata = ref(false)
+const showMetadataEditor = ref(false)
 
 // Computed
 const currentPhoto = computed(() => props.photos[props.currentIndex] || null)
 
 const canShowDeleteButton = computed(() => {
   return props.canDelete && authService.isAuthenticated()
+})
+
+const canShowEditButton = computed(() => {
+  return authService.isAuthenticated() && authService.canPerformAction('edit_metadata')
 })
 
 // Watch for photo changes

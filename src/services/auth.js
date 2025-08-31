@@ -55,6 +55,7 @@ async function apiLogin(username, password) {
               "create_album",
               "delete_album",
               "delete_photo",
+              "edit_metadata",
               "manage_users",
             ]
           : [],
@@ -160,6 +161,7 @@ class AuthService {
                     "create_album",
                     "delete_album",
                     "delete_photo",
+                    "edit_metadata",
                     "manage_users",
                   ]
                 : [],
@@ -247,6 +249,7 @@ class AuthService {
       "create_album",
       "delete_album",
       "delete_photo",
+      "edit_metadata",
       "manage_users",
     ];
     if (adminActions.includes(action)) {
