@@ -45,7 +45,39 @@
           <strong>{{ selectedFiles.length }}</strong>
           file{{ selectedFiles.length > 1 ? 's' : '' }} selected —
           <strong>{{ totalSizeMB }}</strong> MB total
+          <span class="text-gray-500">(max 10 files)</span>
         </p>
+      </div>
+      
+      <!-- File Limit Warning -->
+      <div v-if="filesRejectedDueToLimit" class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p class="text-sm text-yellow-800">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          Maximum file limit reached (10 files). Remove some files to add more.
+        </p>
+      </div>
+      
+      <!-- Selected Files List -->
+      <div v-if="filesRejectedDueToLimit && selectedFiles.length > 0" class="mb-6 max-h-40 overflow-y-auto">
+        <div class="space-y-2">
+          <div 
+            v-for="(file, index) in selectedFiles" 
+            :key="index"
+            class="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+          >
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">{{ file.name }}</p>
+              <p class="text-xs text-gray-500">{{ (file.size / (1024 * 1024)).toFixed(2) }} MB</p>
+            </div>
+            <button
+              @click="removeFile(index)"
+              class="ml-2 p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+              title="Remove file"
+            >
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Upload Progress -->
@@ -144,12 +176,14 @@ const error = ref(null)
 const fileInput = ref(null)
 const showUploadCompleteModal = ref(false)
 const pendingJobId = ref(null)
+const filesRejectedDueToLimit = ref(false)
 
 
 // Trigger upload flow
 const triggerUpload = (type) => {
   uploadType.value = type
   selectedFiles.value = []
+  filesRejectedDueToLimit.value = false
   fileInput.value?.click()
 }
 
@@ -162,10 +196,28 @@ const handleFileSelect = (event) => {
       : file.type.startsWith('video/')
   )
 
-  selectedFiles.value.push(...validFiles)
+  // Check if adding these files would exceed the 10 file limit
+  const totalFilesAfterAdd = selectedFiles.value.length + validFiles.length
+  if (totalFilesAfterAdd > 10) {
+    const allowedFiles = validFiles.slice(0, 10 - selectedFiles.value.length)
+    selectedFiles.value.push(...allowedFiles)
+    filesRejectedDueToLimit.value = true
+    alert(`Maximum 10 files allowed. Only ${allowedFiles.length} files were added.`)
+  } else {
+    selectedFiles.value.push(...validFiles)
+  }
 
   if (validFiles.length !== files.length) {
     alert(`Some files were skipped. Only ${uploadType.value} are allowed.`)
+  }
+}
+
+// Remove a file from the selection
+const removeFile = (index) => {
+  selectedFiles.value.splice(index, 1)
+  // Reset the flag if we're now below the limit
+  if (selectedFiles.value.length < 10) {
+    filesRejectedDueToLimit.value = false
   }
 }
 

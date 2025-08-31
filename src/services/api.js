@@ -106,9 +106,11 @@ class ApiService {
     return this.request(endpoint, options);
   }
 
-  async createFolder(folderPath) {
+  async createFolder(folderPath, description = null) {
+    const body = { description };
     return this.request(`/album/${folderPath}`, {
       method: "POST",
+      body: JSON.stringify(body),
     });
   }
 

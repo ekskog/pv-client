@@ -74,6 +74,16 @@
             @keyup.enter="createAlbum" ref="albumNameInput"
             class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
         </div>
+        <div class="mb-6">
+          <label for="albumDescription" class="block mb-2 font-medium text-gray-800">Description (optional):</label>
+          <textarea 
+            id="albumDescription" 
+            v-model="newAlbumDescription" 
+            placeholder="Enter album description..."
+            rows="3"
+            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none"
+          ></textarea>
+        </div>
         <div class="flex justify-end gap-4 flex-wrap sm:flex-nowrap">
           <button @click="closeDialog"
             class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200">
@@ -127,6 +137,7 @@ const albums = ref([])
 const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const newAlbumName = ref('')
+const newAlbumDescription = ref('')
 const creating = ref(false)
 const deleting = ref(false)
 const albumToDelete = ref(null)
@@ -191,9 +202,10 @@ const createAlbum = async () => {
 
   try {
     const albumName = newAlbumName.value.trim()
+    const albumDescription = newAlbumDescription.value.trim() || null
 
     // Use the correct API endpoint to create an Album
-    const response = await apiService.createFolder(albumName)
+    const response = await apiService.createFolder(albumName, albumDescription)
 
     if (response.success) {
       closeDialog() // Close dialog first to show loading state
@@ -248,6 +260,7 @@ const openAlbum = (album) => {
 const closeDialog = () => {
   showCreateDialog.value = false
   newAlbumName.value = ''
+  newAlbumDescription.value = ''
   creating.value = false
 }
 
