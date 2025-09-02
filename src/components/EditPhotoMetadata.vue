@@ -1,12 +1,12 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-lg">
+  <div class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-40">
+    <div class="bg-white rounded-lg p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
       <h2 class="text-lg font-semibold mb-4">Edit Photo Metadata</h2>
 
       <form @submit.prevent="saveMetadata">
         <div v-for="(value, key) in editableMetadata" :key="key" class="mb-6">
           <!-- Skip location field as it's calculated from coordinates -->
-          <div v-if="key === 'location'" class="border-l pl-4">
+          <div v-if="key === 'location'" class="border-l-2 border-indigo-200 pl-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">{{ key }}</label>
             <div class="text-sm text-gray-500 italic">
               {{ value }} (calculated from coordinates)
@@ -14,7 +14,7 @@
           </div>
           
           <!-- Special handling for coordinates - split into lat/lng -->
-          <div v-else-if="key === 'coordinates'" class="border-l pl-4">
+          <div v-else-if="key === 'coordinates'" class="border-l-2 border-indigo-200 pl-4">
             <label class="block text-sm font-medium text-gray-700 mb-1">Coordinates</label>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -24,7 +24,7 @@
                   step="any"
                   id="latitude" 
                   v-model="latitude" 
-                  class="block w-full border border-black rounded-md px-2 py-1 text-sm"
+                  class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="e.g., 59.3293"
                 />
               </div>
@@ -35,7 +35,7 @@
                   step="any"
                   id="longitude" 
                   v-model="longitude" 
-                  class="block w-full border border-black rounded-md px-2 py-1 text-sm"
+                  class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   placeholder="e.g., 18.0686"
                 />
               </div>
@@ -43,48 +43,64 @@
           </div>
 
           <!-- Handle strings and numbers -->
-          <div v-else-if="typeof value === 'string' || typeof value === 'number'" class="border-l pl-4">
+          <div v-else-if="typeof value === 'string' || typeof value === 'number'" class="border-l-2 border-indigo-200 pl-4">
             <label :for="key" class="block text-sm font-medium text-gray-700 mb-1">{{ key }}</label>
-            <input 
-              type="text" 
-              :id="key" 
-              v-model="editableMetadata[key]" 
-              class="block w-full border border-black rounded-md px-2 py-1 text-sm"
-            />
+            <template v-if="key === 'timestamp'">
+              <div class="relative">
+                <input 
+                  type="datetime-local" 
+                  v-model="timestampValue"
+                  class="block w-full border border-gray-300 rounded-md px-3 py-2 pr-10 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              </div>
+            </template>
+            <template v-else>
+              <input 
+                type="text" 
+                :id="key" 
+                v-model="editableMetadata[key]" 
+                class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </template>
           </div>
 
           <!-- Handle nested objects -->
-          <div v-else-if="typeof value === 'object' && !Array.isArray(value)" class="border-l pl-4">
-            <div class="flex justify-between items-center cursor-pointer mb-2" @click="toggleExpand(key)">
+          <div v-else-if="typeof value === 'object' && !Array.isArray(value)" class="border-l-2 border-indigo-200 pl-4">
+            <div class="flex justify-between items-center cursor-pointer mb-2 hover:bg-gray-50 rounded px-2 py-1" @click="toggleExpand(key)">
               <h3 class="text-sm font-medium text-gray-900">{{ key }}</h3>
-              <span class="text-gray-700 text-sm">{{ expanded[key] ? '−' : '+' }}</span>
+              <span class="text-gray-700 text-sm font-mono">{{ expanded[key] ? '−' : '+' }}</span>
             </div>
-            <div v-if="expanded[key]" class="mt-2">
-              <div v-for="(nestedValue, nestedKey) in value" :key="nestedKey" class="mb-4">
+            <div v-if="expanded[key]" class="mt-2 space-y-3">
+              <div v-for="(nestedValue, nestedKey) in value" :key="nestedKey">
                 <label :for="nestedKey" class="block text-sm font-medium text-gray-700 mb-1">{{ nestedKey }}</label>
                 <input 
                   v-if="typeof nestedValue === 'string' || typeof nestedValue === 'number'" 
                   type="text" 
                   v-model="editableMetadata[key][nestedKey]" 
-                  class="block w-full border border-black rounded-md px-2 py-1 text-sm"
+                  class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
             </div>
           </div>
 
           <!-- Handle arrays -->
-          <div v-else-if="Array.isArray(value)" class="border-l pl-4 space-y-2">
+          <div v-else-if="Array.isArray(value)" class="border-l-2 border-indigo-200 pl-4 space-y-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">{{ key }}</label>
             <div v-for="(item, index) in value" :key="index" class="flex items-center gap-2">
               <input 
                 type="text" 
                 v-model="editableMetadata[key][index]" 
-                class="block w-full border border-black rounded-md px-2 py-1 text-sm"
+                class="block w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
               />
               <button 
                 type="button" 
                 @click="removeArrayItem(key, index)" 
-                class="text-red-500 hover:text-red-700 text-sm"
+                class="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50 transition-colors"
               >
                 Remove
               </button>
@@ -92,26 +108,26 @@
             <button 
               type="button" 
               @click="addArrayItem(key)" 
-              class="text-blue-500 hover:text-blue-700 text-sm mt-2"
+              class="text-indigo-500 hover:text-indigo-700 text-sm mt-2 px-2 py-1 rounded hover:bg-indigo-50 transition-colors"
             >
-              Add Item
+              + Add Item
             </button>
           </div>
         </div>
 
-        <div class="flex justify-end gap-4 border-t pt-4 mt-6">
+        <div class="flex justify-end gap-3 border-t pt-4 mt-6">
           <button 
             type="button" 
             @click="$emit('close')" 
-            class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+            class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors duration-150"
           >
             Cancel
           </button>
           <button 
             type="submit" 
-            class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+            class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-150"
           >
-            Save
+            Save Changes
           </button>
         </div>
       </form>
@@ -147,10 +163,8 @@ export default {
 };
 </script>
 
-
-
 <script setup>
-import { reactive, toRefs, ref } from 'vue';
+import { reactive, toRefs, ref, watch } from 'vue';
 import apiService from '../services/api.js';
 
 const props = defineProps({
@@ -162,6 +176,34 @@ const emit = defineEmits(['save', 'close']);
 
 const editableMetadata = reactive({ ...props.photoMetadataLookup[props.photo.name] });
 const expanded = reactive({});
+
+// Timestamp value for native datetime-local input (YYYY-MM-DDTHH:mm format)
+const timestampValue = ref('');
+
+// Initialize timestamp value with proper format and error handling
+if (editableMetadata.timestamp && editableMetadata.timestamp !== 'Invalid Date Invalid Date') {
+  try {
+    const date = new Date(editableMetadata.timestamp);
+    // Check if the date is valid
+    if (!isNaN(date.getTime())) {
+      // Convert to YYYY-MM-DDTHH:MM format (local timezone)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      timestampValue.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+  } catch (error) {
+    console.log('Invalid timestamp format:', editableMetadata.timestamp);
+    // Leave timestampValue as empty string for invalid dates
+  }
+}
+
+// Keep editableMetadata.timestamp in sync with picker
+watch(timestampValue, (newVal) => {
+  editableMetadata.timestamp = newVal ? new Date(newVal).toISOString() : '';
+});
 
 // Parse coordinates into separate lat/lng fields
 const parseCoordinates = (coordString) => {
@@ -234,7 +276,3 @@ const toggleExpand = (key) => {
   expanded[key] = !expanded[key];
 };
 </script>
-
-<style scoped>
-/* Add any necessary styles here */
-</style>
