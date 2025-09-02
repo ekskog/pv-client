@@ -48,9 +48,30 @@
           />
         </div>
 
+        <!-- Turnstile Widget -->
+        <div class="flex justify-center">
+          <div 
+            ref="turnstileRef"
+            class="cf-turnstile" 
+            :data-sitekey="TURNSTILE_SITE_KEY"
+            data-callback="onTurnstileSuccess"
+            data-error-callback="onTurnstileError"
+            data-theme="light"
+            data-size="normal"
+          ></div>
+        </div>
+        
+        <div
+          v-if="turnstileError"
+          class="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm"
+        >
+          <i class="fas fa-exclamation-triangle"></i>
+          {{ turnstileError }}
+        </div>
+
         <button
           type="submit"
-          :disabled="loading || !isFormValid"
+          :disabled="loading || !isFormValid || !turnstileToken"
           class="w-full flex items-center justify-center gap-2 px-4 py-3 text-white font-semibold text-base rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed min-h-[50px]"
         >
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
@@ -95,27 +116,80 @@ const password = ref('')
 const loading = ref(false)
 const error = ref('')
 const usernameInput = ref(null)
+const turnstileRef = ref(null)
+const turnstileToken = ref('')
+const turnstileError = ref('')
+const widgetId = ref(null)
+
+// Replace with your actual Turnstile site key
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY
 
 const isFormValid = computed(() => {
   return username.value.trim() && password.value.trim()
 })
 
+// Global callback functions for Turnstile
+window.onTurnstileSuccess = (token) => {
+  turnstileToken.value = token
+  turnstileError.value = ''
+}
+
+window.onTurnstileError = (errorCode) => {
+  turnstileError.value = 'Security verification failed. Please try again.'
+  turnstileToken.value = ''
+}
+
+const renderTurnstile = () => {
+  if (window.turnstile && turnstileRef.value && !widgetId.value) {
+    try {
+      widgetId.value = window.turnstile.render(turnstileRef.value, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: 'onTurnstileSuccess',
+        'error-callback': 'onTurnstileError',
+        theme: 'light',
+        size: 'normal'
+      })
+    } catch (err) {
+      console.error('Failed to render Turnstile:', err)
+      turnstileError.value = 'Security widget failed to load'
+    }
+  }
+}
+
+const resetTurnstile = () => {
+  if (window.turnstile && widgetId.value) {
+    window.turnstile.reset(widgetId.value)
+    turnstileToken.value = ''
+    turnstileError.value = ''
+  }
+}
+
 const handleLogin = async () => {
   if (!isFormValid.value) return
+  
+  if (!turnstileToken.value) {
+    turnstileError.value = 'Please complete the security verification'
+    return
+  }
+
   loading.value = true
   error.value = ''
 
   try {
-    const result = await authService.login(username.value.trim(), password.value)
+    // Pass the Turnstile token to your auth service
+    const result = await authService.login(username.value.trim(), password.value, turnstileToken.value)
     if (result.success) {
       emit('login-success', result.user)
       username.value = ''
       password.value = ''
+      turnstileToken.value = ''
     } else {
       error.value = result.error || 'Login failed'
+      resetTurnstile() // Reset on failure
     }
   } catch (err) {
     error.value = err.message || 'An unexpected error occurred'
+    resetTurnstile() // Reset on error
   } finally {
     loading.value = false
   }
@@ -130,9 +204,22 @@ onMounted(() => {
   if (usernameInput.value) {
     usernameInput.value.focus()
   }
+
+  // Wait for Turnstile script to load and render widget
+  const checkTurnstile = () => {
+    if (window.turnstile) {
+      renderTurnstile()
+    } else {
+      setTimeout(checkTurnstile, 100)
+    }
+  }
+  checkTurnstile()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+  // Clean up global functions
+  delete window.onTurnstileSuccess
+  delete window.onTurnstileError
 })
 </script>

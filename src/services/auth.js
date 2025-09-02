@@ -1,5 +1,5 @@
 // HBVU PHOTOS Authentication Service
-// Supports both demo and database authentication modes
+// S2025-09-02T06:32:35.317Z - Turnstyle integration
 
 import configService from "./config.js";
 
@@ -15,15 +15,19 @@ const getConfig = () => ({
   statusEndpoint: "/auth/status",
 });
 
-// API authentication function (production)
-async function apiLogin(username, password) {
+// API authentication function (production) - UPDATED to include Turnstile
+async function apiLogin(username, password, turnstileToken) {
   const config = getConfig();
   const response = await fetch(`${config.apiUrl}${config.authEndpoint}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ 
+      username, 
+      password, 
+      turnstileToken 
+    }),
   });
 
   if (!response.ok) {
@@ -177,13 +181,13 @@ class AuthService {
     }
   }
 
-  // Login with username and password
-  async login(username, password) {
+  // Login with username and password - UPDATED to pass Turnstile token
+  async login(username, password, turnstileToken) {
     const config = getConfig();
     try {
       let response;
 
-      response = await apiLogin(username, password);
+      response = await apiLogin(username, password, turnstileToken);
 
       this.token = response.token;
       this.currentUser = response.user;
