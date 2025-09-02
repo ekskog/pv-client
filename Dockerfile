@@ -27,6 +27,8 @@ ARG VITE_TURNSTILE_SITE_KEY
 
 # Make it available as an environment variable inside the container
 ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+RUN echo "Turnstile key length: ${#VITE_TURNSTILE_SITE_KEY}"
+
 
 # Build the app
 RUN npm run build

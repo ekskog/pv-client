@@ -26,8 +26,7 @@ jobs:
       run: |
         echo "Length of Turnstile key: ${#VITE_TURNSTILE_SITE_KEY}"
       env:
-        VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
-
+        VITE_TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
 
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -55,7 +54,6 @@ jobs:
           VITE_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_SITE_KEY }}
         tags: |
           ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }}
-          ${{ env.IMAGE_NAME }}:latest
 
     - name: Decode and write kubeconfig
       run: |
@@ -64,18 +62,15 @@ jobs:
     - name: Set KUBECONFIG env var
       run: echo "KUBECONFIG=$GITHUB_WORKSPACE/kubeconfig.yaml" >> $GITHUB_ENV
 
-    - name: Update Deployment image (on code changes only)
-      if: |
-        contains(github.event.head_commit.message, '[skip-deploy]') == false &&
-        !contains(join(github.event.commits.*.modified), 'k8s/')
+    - name: Update Deployment image
       run: |
+        # Always update to the SHA tag
         kubectl set image deployment/${{ env.DEPLOYMENT }} \
           photovault-client=${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} \
           --namespace=${{ env.NAMESPACE }}
+        kubectl rollout status deployment/${{ env.DEPLOYMENT }} --namespace=${{ env.NAMESPACE }}
 
     - name: Apply manifests (if k8s files changed)
-      if: |
-        contains(github.event.head_commit.message, '[skip-deploy]') == false &&
-        contains(join(github.event.commits.*.modified), 'k8s/')
+      if: contains(join(github.event.commits.*.modified), 'k8s/')
       run: |
         kubectl apply -f k8s/
