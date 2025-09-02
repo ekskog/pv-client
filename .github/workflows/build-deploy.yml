@@ -44,7 +44,7 @@ jobs:
         context: .
         push: true
         build-args: |
-          VITE_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_SITE_KEY_PUBLIC }}
+          VITE_TURNSTILE_SITE_KEY=${{ secrets.TURNSTILE_SITE_KEY }}
         tags: |
           ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }}
           ${{ env.IMAGE_NAME }}:latest
