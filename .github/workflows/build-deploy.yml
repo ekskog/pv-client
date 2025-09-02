@@ -21,6 +21,14 @@ jobs:
       DEPLOYMENT: photovault-client
 
     steps:
+
+    - name: Debug Turnstile secret
+      run: |
+        echo "Length of Turnstile key: ${#VITE_TURNSTILE_SITE_KEY}"
+      env:
+        VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+
+
     - name: Checkout repository
       uses: actions/checkout@v4
 

@@ -22,11 +22,15 @@ ARG VITE_API_URL=https://vault-api.hbvu.su
 # Set environment variables for build
 ENV VITE_API_URL=$VITE_API_URL
 
-# Tunrstile envsARG VITE_TURNSTILE_SITE_KEY
-ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY_PUBLIC
+# Declare the build argument
+ARG VITE_TURNSTILE_SITE_KEY
 
-# Build the application
+# Make it available as an environment variable inside the container
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+
+# Build the app
 RUN npm run build
+
 
 # Production stage
 FROM nginx:alpine AS production-stage
