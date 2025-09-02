@@ -22,6 +22,11 @@ ARG VITE_API_URL=https://vault-api.hbvu.su
 # Set environment variables for build
 ENV VITE_API_URL=$VITE_API_URL
 
+# Tunrstile envs
+ARG VITE_TURNSTILE_SITE_KEY
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+
+
 # Build the application
 RUN npm run build
 
