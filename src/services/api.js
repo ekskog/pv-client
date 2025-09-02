@@ -29,64 +29,77 @@ class ApiService {
     return localStorage.getItem("hbvu_auth_token");
   }
 
-  async request(endpoint, options = {}) {
-    // Add this logging
+async request(endpoint, options = {}) {
+  // Debug: inspect configService + API URL
+  console.log("🔧 apiService.request called");
+  console.log("  endpoint:", endpoint);
+  console.log("  options:", options);
+  console.log("  configService:", configService);
+  console.log("  typeof configService.getApiUrl:", typeof configService.getApiUrl);
 
-    const API_BASE_URL = this.getApiBaseUrl();
-    const url = `${API_BASE_URL}${endpoint}`;
-    console.log(`API Request: ${url}`);
-    // Add authentication headers
-    const headers = {
-      "Content-Type": "application/json",
-      ...options.headers,
-    };
+  const API_BASE_URL = this.getApiBaseUrl();
+  const url = `${API_BASE_URL}${endpoint}`;
+  console.log("  API_BASE_URL:", API_BASE_URL);
+  console.log("  Final request URL:", url);
 
-    // Add auth token if available
-    const token = this.getAuthToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
+  // Build headers
+  const headers = {
+    "Content-Type": "application/json",
+    ...options.headers,
+  };
 
-    const config = {
-      headers,
-      ...options,
-    };
-
-    try {
-      const response = await fetch(url, config);
-
-      // Handle 401 Unauthorized - token might be expired
-      if (response.status === 401) {
-        // console.warn('Authentication failed - clearing tokens and redirecting to login');
-
-        // Clear invalid token
-        localStorage.removeItem("hbvu_auth_token");
-        localStorage.removeItem("hbvu_user_data");
-
-        // Clear auth service state if available
-        if (this.authService) {
-          this.authService.clearAuth();
-        }
-
-        throw new Error("Invalid or expired token");
-      }
-
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
-        throw new Error(
-          errorData.message ||
-            errorData.error ||
-            `HTTP error! status: ${response.status}`
-        );
-      }
-
-      return await response.json();
-    } catch (error) {
-      throw error;
-    }
+  // Add auth token if available
+  const token = this.getAuthToken();
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
   }
+
+  const config = {
+    headers,
+    ...options,
+  };
+
+  console.log("  Fetch config:", config);
+
+  try {
+    const response = await fetch(url, config);
+
+    // Handle 401 Unauthorized - token might be expired
+    if (response.status === 401) {
+      console.warn("⚠️ Authentication failed (401) – clearing tokens");
+
+      // Clear invalid token
+      localStorage.removeItem("hbvu_auth_token");
+      localStorage.removeItem("hbvu_user_data");
+
+      // Clear auth service state if available
+      if (this.authService) {
+        console.log("  Clearing authService state");
+        this.authService.clearAuth();
+      }
+
+      throw new Error("Invalid or expired token");
+    }
+
+    if (!response.ok) {
+      const errorData = await response
+        .json()
+        .catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+      throw new Error(
+        errorData.message ||
+          errorData.error ||
+          `HTTP error! status: ${response.status}`
+      );
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("🔥 apiService.request error:", error);
+    console.error("🔥 Call stack:", new Error().stack);
+    throw error;
+  }
+}
+
 
   // Health check
   async getHealth() {

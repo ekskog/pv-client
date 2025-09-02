@@ -3,14 +3,10 @@
     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm overflow-y-auto p-8"
     ref="loginContainer"
   >
-    <div
-      class="w-full max-w-md bg-white rounded-2xl p-12 shadow-2xl"
-    >
+    <div class="w-full max-w-md bg-white rounded-2xl p-12 shadow-2xl">
       <!-- Header -->
       <div class="text-center mb-8">
-        <div
-          class="w-20 h-20 mx-auto mb-6 flex items-center justify-center text-white text-3xl rounded-full bg-gradient-to-br from-blue-500 to-blue-700"
-        >
+        <div class="w-20 h-20 mx-auto mb-6 flex items-center justify-center text-white text-3xl rounded-full bg-gradient-to-br from-blue-500 to-blue-700">
           <i class="fas fa-camera"></i>
         </div>
         <h1 class="text-2xl font-bold text-gray-800 mb-2">HBVU PHOTOS</h1>
@@ -50,21 +46,10 @@
 
         <!-- Turnstile Widget -->
         <div class="flex justify-center">
-          <div 
-            ref="turnstileRef"
-            class="cf-turnstile" 
-            :data-sitekey="TURNSTILE_SITE_KEY"
-            data-callback="onTurnstileSuccess"
-            data-error-callback="onTurnstileError"
-            data-theme="light"
-            data-size="normal"
-          ></div>
+          <div ref="turnstileRef"></div>
         </div>
-        
-        <div
-          v-if="turnstileError"
-          class="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm"
-        >
+
+        <div v-if="turnstileError" class="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm">
           <i class="fas fa-exclamation-triangle"></i>
           {{ turnstileError }}
         </div>
@@ -78,10 +63,7 @@
           <span>{{ loading ? 'Signing in...' : 'Sign In' }}</span>
         </button>
 
-        <div
-          v-if="error"
-          class="mt-4 flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm"
-        >
+        <div v-if="error" class="mt-4 flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm">
           <i class="fas fa-exclamation-triangle"></i>
           {{ error }}
         </div>
@@ -97,7 +79,6 @@
         </button>
       </form>
 
-      <!-- Security Notice -->
       <div class="text-center text-sm text-gray-500">
         <small class="flex items-center justify-center gap-1">🔒 Your credentials are transmitted securely</small>
       </div>
@@ -115,44 +96,41 @@ const username = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
-const usernameInput = ref(null)
-const turnstileRef = ref(null)
 const turnstileToken = ref('')
 const turnstileError = ref('')
+const usernameInput = ref(null)
+const turnstileRef = ref(null)
 const widgetId = ref(null)
 
-// Replace with your actual Turnstile site key
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY
 
-const isFormValid = computed(() => {
-  return username.value.trim() && password.value.trim()
-})
+const isFormValid = computed(() => username.value.trim() && password.value.trim())
 
-// Global callback functions for Turnstile
-window.onTurnstileSuccess = (token) => {
+// Programmatic Turnstile callbacks
+const onTurnstileSuccess = (token) => {
   turnstileToken.value = token
   turnstileError.value = ''
 }
 
-window.onTurnstileError = (errorCode) => {
-  turnstileError.value = 'Security verification failed. Please try again.'
+const onTurnstileError = () => {
   turnstileToken.value = ''
+  turnstileError.value = 'Security verification failed. Please try again.'
 }
 
+// Render Turnstile widget once script is loaded
 const renderTurnstile = () => {
-  if (window.turnstile && turnstileRef.value && !widgetId.value) {
-    try {
-      widgetId.value = window.turnstile.render(turnstileRef.value, {
-        sitekey: TURNSTILE_SITE_KEY,
-        callback: 'onTurnstileSuccess',
-        'error-callback': 'onTurnstileError',
-        theme: 'light',
-        size: 'normal'
-      })
-    } catch (err) {
-      console.error('Failed to render Turnstile:', err)
-      turnstileError.value = 'Security widget failed to load'
-    }
+  if (!window.turnstile || !turnstileRef.value || widgetId.value) return
+  try {
+    widgetId.value = window.turnstile.render(turnstileRef.value, {
+      sitekey: TURNSTILE_SITE_KEY,
+      callback: onTurnstileSuccess,
+      'error-callback': onTurnstileError,
+      theme: 'light',
+      size: 'normal'
+    })
+  } catch (err) {
+    console.error('Failed to render Turnstile:', err)
+    turnstileError.value = 'Security widget failed to load'
   }
 }
 
@@ -166,7 +144,6 @@ const resetTurnstile = () => {
 
 const handleLogin = async () => {
   if (!isFormValid.value) return
-  
   if (!turnstileToken.value) {
     turnstileError.value = 'Please complete the security verification'
     return
@@ -176,20 +153,19 @@ const handleLogin = async () => {
   error.value = ''
 
   try {
-    // Pass the Turnstile token to your auth service
     const result = await authService.login(username.value.trim(), password.value, turnstileToken.value)
     if (result.success) {
       emit('login-success', result.user)
       username.value = ''
       password.value = ''
-      turnstileToken.value = ''
+      resetTurnstile()
     } else {
       error.value = result.error || 'Login failed'
-      resetTurnstile() // Reset on failure
+      resetTurnstile()
     }
   } catch (err) {
     error.value = err.message || 'An unexpected error occurred'
-    resetTurnstile() // Reset on error
+    resetTurnstile()
   } finally {
     loading.value = false
   }
@@ -201,25 +177,22 @@ const handleKeyDown = (e) => {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
-  if (usernameInput.value) {
-    usernameInput.value.focus()
-  }
+  usernameInput.value?.focus()
 
-  // Wait for Turnstile script to load and render widget
-  const checkTurnstile = () => {
-    if (window.turnstile) {
-      renderTurnstile()
-    } else {
-      setTimeout(checkTurnstile, 100)
-    }
+  // Load Turnstile script if not present
+  if (!window.turnstile) {
+    const script = document.createElement('script')
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+    script.async = true
+    script.defer = true
+    script.onload = renderTurnstile
+    document.head.appendChild(script)
+  } else {
+    renderTurnstile()
   }
-  checkTurnstile()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
-  // Clean up global functions
-  delete window.onTurnstileSuccess
-  delete window.onTurnstileError
 })
 </script>
