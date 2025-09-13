@@ -47,7 +47,7 @@
               @keydown.escape="isOpen = false"
             >
               <span v-if="selectedUser" class="block">
-                {{ selectedUser.username }} ({{ selectedUser.email }})
+                {{ selectedUser.username }}
               </span>
               <span v-else class="block text-gray-500 dark:text-gray-400">
                 -- Choose a user --
@@ -71,11 +71,11 @@
               class="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto"
               @click.stop
             >
+            <!-- TODO : selectUser(null) does fuck all for selecting a user -->
               <div
                 @click="selectUser(null)"
                 class="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-500 dark:text-gray-400"
               >
-                -- Choose a user --
               </div>
               <div
                 v-for="user in users"
@@ -83,7 +83,7 @@
                 @click="selectUser(user)"
                 class="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-gray-800 dark:text-white"
               >
-                {{ user.username }} ({{ user.email }}) role: {{ user.role }}
+                {{ user.username }} - role:  <span class="font-semibold">{{ user.role }}</span>
               </div>
             </div>
           </div>
@@ -364,7 +364,8 @@ const fetchUsers = async () => {
   passwordResetMessage.value = null;
 
   try {
-    const response = await fetch(`${formData.apiUrl}/auth/users`, {
+    //TODO : refactor this endpoint URL after the change in the API 
+    const response = await fetch(`${formData.apiUrl}/user`, {
       headers: { Authorization: `Bearer ${authService.getToken()}` },
     });
 

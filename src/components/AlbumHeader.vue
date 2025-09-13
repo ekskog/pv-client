@@ -1,17 +1,49 @@
 <template>
   <div
-    class="flex items-center justify-between gap-4 mb-8 pb-4 border-b border-gray-200 dark:border-gray-700 flex-wrap"
+    class="flex flex-col space-y-6 pb-8 border-b border-gray-200 dark:border-gray-700"
   >
     <!-- Back Button -->
-    <button
-      v-if="!isPublic"
-      class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-4 py-2 rounded-md text-sm transition"
-      @click="$emit('back')"
-    >
-      <i class="fas fa-arrow-left"></i>
-    </button>
+    <div class="flex items-center gap-3 justify-start">
+      <button
+        v-if="!isPublic"
+        class="flex-shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-400 px-4 py-2 rounded-md text-sm transition h-10 w-12"
+        @click="$emit('back')"
+      >
+        <i class="fas fa-arrow-left"></i>
+      </button>
+      <!-- Header Actions -->
+      <div class="flex items-center gap-3 flex-shrink-0">
+        <button
+          v-if="!isPublic"
+          class="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-400 px-4 py-2 rounded-md text-sm transition flex items-center justify-center disabled:opacity-60 h-10 w-12"
+          @click="$emit('refresh')"
+          :disabled="loading"
+          title="Refresh album"
+        >
+          <i class="fas fa-sync-alt"  :class="{ 'fa-spin': loading }"></i>
+        </button>
 
-    <!-- Album Info -->
+         <!-- Icon-only Share Button -->
+        <button
+          @click="handleShare"
+          class="flex bg-blue-100 hover:bg-blue-200 text-gray-800 border border-gray-400 px-4 py-2 rounded-md text-sm transition items-center justify-center h-10 w-12"
+          title="Share this album"
+        >
+          <i class="fas fa-share-alt"></i>
+        </button>
+
+        <button
+          v-if="canUploadPhotos"
+          class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold transition disabled:opacity-60 h-10 w-12"
+          @click="$emit('upload')"
+        >
+          <i class="fas fa-plus"></i>
+        </button>
+       
+      </div>
+    </div>
+
+       <!-- Album Info -->
     <div class="flex items-center gap-3 flex-grow min-w-0">
       <h2
         class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 truncate"
@@ -21,36 +53,6 @@
       <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
         {{ photoCount }} photos
       </span>
-    </div>
-
-    <!-- Header Actions -->
-    <div class="flex items-center gap-3 flex-shrink-0">
-      <button
-        v-if="!isPublic"
-        class="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 px-3 py-2 rounded-md text-sm transition flex items-center justify-center disabled:opacity-60"
-        @click="$emit('refresh')"
-        :disabled="loading"
-        title="Refresh album"
-      >
-        <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i>
-      </button>
-
-      <button
-        v-if="canUploadPhotos"
-        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-semibold transition disabled:opacity-60"
-        @click="$emit('upload')"
-      >
-        <i class="fas fa-plus"></i>
-      </button>
-
-      <!-- Icon-only Share Button (hidden on small screens) -->
-      <button
-        @click="handleShare"
-        class="hidden md:flex bg-blue-100 hover:bg-blue-200 text-gray-800 border border-gray-300 px-3 py-2 rounded-md text-sm transition items-center justify-center"
-        title="Share this album"
-      >
-        <i class="fas fa-share-alt"></i>
-      </button>
     </div>
   </div>
 </template>
