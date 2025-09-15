@@ -5,7 +5,7 @@
       class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 transform-gpu"
     >
       <PhotoCard
-        v-for="photo in currentPagePhotos"
+        v-for="photo in displayedPhotos"
         :key="photo.name"
         :photo="photo"
         :photo-metadata-lookup="photoMetadataLookup"
@@ -19,38 +19,44 @@
       />
     </div>
 
-    <!-- Pagination Controls -->
-    <div class="flex justify-center items-center gap-2 flex-wrap mt-8" v-if="totalPages > 1">
-      <!-- Previous Button -->
+    <!-- Load More Button -->
+    <div class="flex justify-center mt-8" v-if="hasMorePhotos">
       <button 
-        @click="goToPage(currentPage - 1)"
-        :disabled="currentPage === 1"
-        class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 transition-colors font-medium"
+        @click="loadMore"
+        :disabled="isLoading"
+        class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors font-medium flex items-center gap-2"
       >
-        <i class="fas fa-chevron-left mr-2"></i>
-      </button>
-
-
-
-      <!-- Next Button -->
-      <button 
-        @click="goToPage(currentPage + 1)"
-        :disabled="currentPage === totalPages"
-        class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-blue-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200 transition-colors font-medium"
-      >
-        <i class="fas fa-chevron-right ml-2"></i>
+        <span v-if="!isLoading">Load More Photos</span>
+        <span v-else class="flex items-center gap-2">
+          <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Loading...
+        </span>
       </button>
     </div>
 
-    <!-- Pagination Info -->
+    <!-- Photo Count Info -->
     <div class="text-center mt-4 text-sm text-gray-600" v-if="photos.length > 0">
-      Showing {{ startItem }} - {{ endItem }} of {{ photos.length }} photos
+      Showing {{ displayedPhotos.length }} of {{ photos.length }} photos
     </div>
+
+    <!-- Infinite Scroll Trigger (Optional - uncomment to enable auto-loading) -->
+    <!-- 
+    <div 
+      ref="scrollTrigger" 
+      class="h-10 flex items-center justify-center"
+      v-if="hasMorePhotos && autoLoad"
+    >
+      <span class="text-sm text-gray-500">Loading more photos...</span>
+    </div>
+    -->
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import PhotoCard from './PhotoCard.vue'
 
 const props = defineProps({
@@ -59,92 +65,96 @@ const props = defineProps({
   imageLoadedMap: { type: Object, required: true },
   bucketName: { type: String, required: true },
   albumName: { type: String, required: true },
-  currentPage: { type: Number, required: true },
-  itemsPerPage: { type: Number, default: 24 }
+  itemsPerPage: { type: Number, default: 24 },
+  autoLoad: { type: Boolean, default: false } // Set to true for infinite scroll
 })
 
 const emit = defineEmits([
   'photoClick', 
   'imageLoad', 
   'imageError', 
-  'imageLoadStart',
-  'pageChange'
+  'imageLoadStart'
 ])
 
-// THIS IS THE KEY CHANGE - PROPER PAGINATION SLICE
-const currentPagePhotos = computed(() => {
-  const startIndex = (props.currentPage - 1) * props.itemsPerPage
-  const endIndex = startIndex + props.itemsPerPage
-  return props.photos.slice(startIndex, endIndex)
+// State for load more functionality
+const currentlyDisplayed = ref(props.itemsPerPage)
+const isLoading = ref(false)
+
+// Computed properties
+const displayedPhotos = computed(() => {
+  return props.photos.slice(0, currentlyDisplayed.value)
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(props.photos.length / props.itemsPerPage)
+const hasMorePhotos = computed(() => {
+  return currentlyDisplayed.value < props.photos.length
 })
 
-const startItem = computed(() => {
-  if (props.photos.length === 0) return 0
-  return (props.currentPage - 1) * props.itemsPerPage + 1
-})
+// Load more functionality
+const loadMore = async () => {
+  if (isLoading.value || !hasMorePhotos.value) return
+  
+  isLoading.value = true
+  
+  // Simulate loading delay (remove this in production if not needed)
+  await new Promise(resolve => setTimeout(resolve, 300))
+  
+  currentlyDisplayed.value = Math.min(
+    currentlyDisplayed.value + props.itemsPerPage,
+    props.photos.length
+  )
+  
+  isLoading.value = false
+  
+  console.log('📋 PhotoGrid: Loaded more photos. Now showing:', currentlyDisplayed.value)
+}
 
-const endItem = computed(() => {
-  return Math.min(props.currentPage * props.itemsPerPage, props.photos.length)
-})
+// Reset displayed count when photos array changes
+watch(() => props.photos, () => {
+  currentlyDisplayed.value = Math.min(props.itemsPerPage, props.photos.length)
+  console.log('📋 PhotoGrid: Photos changed, reset to show:', currentlyDisplayed.value)
+}, { deep: true })
 
-// Smart pagination controls
-const visiblePages = computed(() => {
-  const maxVisible = 5
-  const delta = Math.floor(maxVisible / 2)
-  let start = Math.max(2, props.currentPage - delta)
-  let end = Math.min(totalPages.value - 1, props.currentPage + delta)
+// Optional: Infinite scroll functionality
+const scrollTrigger = ref(null)
+let observer = null
 
-  if (props.currentPage <= delta + 1) {
-    end = Math.min(totalPages.value - 1, maxVisible - 1)
-  }
-  if (props.currentPage >= totalPages.value - delta) {
-    start = Math.max(2, totalPages.value - maxVisible + 2)
-  }
-
-  const pages = []
-  for (let i = start; i <= end; i++) {
-    if (i > 1 && i < totalPages.value) {
-      pages.push(i)
+const setupInfiniteScroll = () => {
+  if (!props.autoLoad || !scrollTrigger.value) return
+  
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting && hasMorePhotos.value && !isLoading.value) {
+      loadMore()
     }
-  }
-  return pages
-})
+  }, {
+    threshold: 0.1,
+    rootMargin: '100px'
+  })
+  
+  observer.observe(scrollTrigger.value)
+}
 
-const showFirstPage = computed(() => {
-  return totalPages.value > 1 && !visiblePages.value.includes(1)
-})
-
-const showLastPage = computed(() => {
-  return totalPages.value > 1 && !visiblePages.value.includes(totalPages.value)
-})
-
-const showFirstEllipsis = computed(() => {
-  return visiblePages.value.length > 0 && visiblePages.value[0] > 2
-})
-
-const showLastEllipsis = computed(() => {
-  const lastVisible = visiblePages.value[visiblePages.value.length - 1]
-  return visiblePages.value.length > 0 && lastVisible < totalPages.value - 1
-})
-
-// THIS IS THE KEY METHOD - EMITS PAGE CHANGE TO PARENT
-const goToPage = (page) => {
-  if (page >= 1 && page <= totalPages.value && page !== props.currentPage) {
-    emit('pageChange', page)
-    
-    // Scroll to top
-    setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }, 50)
+const cleanupInfiniteScroll = () => {
+  if (observer) {
+    observer.disconnect()
+    observer = null
   }
 }
 
-watch(() => props.currentPage, (newPage) => {
-  console.log('📋 PhotoGrid: currentPage prop changed to', newPage)
-  console.log('📋 PhotoGrid: now showing photos', startItem.value, '-', endItem.value)
+onMounted(() => {
+  if (props.autoLoad) {
+    setupInfiniteScroll()
+  }
+})
+
+onUnmounted(() => {
+  cleanupInfiniteScroll()
+})
+
+// Expose loadMore method for parent component if needed
+defineExpose({
+  loadMore,
+  resetToInitial: () => {
+    currentlyDisplayed.value = props.itemsPerPage
+  }
 })
 </script>

@@ -38,19 +38,17 @@
 
     <!-- Photos Grid with Pagination -->
     <PhotoGrid
-      v-if="!loading && !error && visiblePhotos.length > 0"
-      :photos="visiblePhotos"
+      :photos="photos"
       :photo-metadata-lookup="photoMetadataLookup"
       :image-loaded-map="imageLoadedMap"
-      :bucket-name="BUCKET_NAME"
+      :bucket-name="bucketName"
       :album-name="albumName"
-      :current-page="currentPage"
-      :items-per-page="ITEMS_PER_PAGE"
-      @photo-click="openPhoto"
+      :items-per-page="24"
+      :auto-load="false"
+      @photo-click="handlePhotoClick"
       @image-load="handleImageLoad"
       @image-error="handleImageError"
       @image-load-start="handleImageLoadStart"
-      @page-change="handlePageChange"
     />
 
     <!-- Upload Dialog -->
@@ -340,7 +338,8 @@ const deletePhoto = async () => {
   error.value = null;
   try {
     const response = await apiService.deleteObject(
-      props.albumName, photoToDelete.value.name
+      props.albumName,
+      photoToDelete.value.name
     );
     if (response.success) {
       await loadPhotos();
