@@ -45,7 +45,7 @@
       :album-name="albumName"
       :items-per-page="24"
       :auto-load="false"
-      @photo-click="handlePhotoClick"
+      @photo-click="openPhoto"
       @image-load="handleImageLoad"
       @image-error="handleImageError"
       @image-load-start="handleImageLoadStart"
