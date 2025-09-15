@@ -1,3 +1,4 @@
+<!-- force rebuilt to before load more meltdown -->
 <template>
   <div id="app" class="min-h-screen font-sans bg-gray-50">
 
