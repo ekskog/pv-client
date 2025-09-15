@@ -41,7 +41,6 @@
       :photos="photos"
       :photo-metadata-lookup="photoMetadataLookup"
       :image-loaded-map="imageLoadedMap"
-      :bucket-name="bucketName"
       :album-name="albumName"
       :items-per-page="24"
       :auto-load="false"
