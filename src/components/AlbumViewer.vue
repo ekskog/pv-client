@@ -218,6 +218,7 @@ const loadAlbumMetadata = async (albumName) => {
     const response = await fetch(metadataUrl);
     if (response.ok) {
       const metadata = await response.json();
+      console.log(`DEBUG METADATA: ${Date.now()} >> ${JSON.stringify(metadata)}`);
       albumMetadata.value = metadata;
       const lookup = {};
       if (Array.isArray(metadata.media)) {
