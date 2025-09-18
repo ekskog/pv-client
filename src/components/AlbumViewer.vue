@@ -12,6 +12,37 @@
       @upload="showUploadDialog = true"
     />
 
+    <!-- Sort Controls - Add this section -->
+    <div v-if="!loading && !error && visiblePhotos.length > 0" class="flex justify-end items-center mb-6">
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600">Sort by:</span>
+        <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button 
+            @click="sortOrder = 'chronological'"
+            :class="[
+              'px-3 py-1 text-sm rounded-md transition-colors',
+              sortOrder === 'chronological' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            ]"
+          >
+            Oldest First
+          </button>
+          <button 
+            @click="sortOrder = 'reverse'"
+            :class="[
+              'px-3 py-1 text-sm rounded-md transition-colors',
+              sortOrder === 'reverse' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            ]"
+          >
+            Newest First
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
       <div
@@ -36,9 +67,9 @@
     <!-- Empty State -->
     <PhotoGridEmpty v-if="!loading && !error && visiblePhotos.length === 0" />
 
-    <!-- Photos Grid with Pagination -->
+    <!-- Photos Grid with Pagination (now uses sortedPhotos) -->
     <PhotoGrid
-      :photos="photos"
+      :photos="sortedPhotos"
       :photo-metadata-lookup="photoMetadataLookup"
       :image-loaded-map="imageLoadedMap"
       :album-name="albumName"
@@ -70,10 +101,10 @@
       />
     </div>
 
-    <!-- Lightbox Viewer -->
+    <!-- Lightbox Viewer (now uses sortedLightboxPhotos) -->
     <PhotoLightbox
       :show="showLightbox"
-      :photos="lightboxPhotos"
+      :photos="sortedLightboxPhotos"
       :current-index="currentPhotoIndex"
       :loading="lightboxLoading"
       :can-delete="canDeletePhoto"
@@ -136,13 +167,41 @@ const processingStatus = ref("");
 const processingJobId = ref(null);
 let sseService = null;
 
+// NEW: Sort order state
+const sortOrder = ref('chronological'); // 'chronological' or 'reverse'
+
+// Helper function to sort photos by timestamp
+const sortPhotosByTimestamp = (photosArray, order = 'chronological') => {
+  return [...photosArray].sort((a, b) => {
+    const metadataA = photoMetadataLookup.value[a.fullPath] || photoMetadataLookup.value[a.name];
+    const metadataB = photoMetadataLookup.value[b.fullPath] || photoMetadataLookup.value[b.name];
+    
+    const timestampA = metadataA?.timestamp;
+    const timestampB = metadataB?.timestamp;
+    
+    // Handle missing timestamps - put them at the end
+    if (!timestampA && !timestampB) return 0;
+    if (!timestampA) return 1;
+    if (!timestampB) return -1;
+    
+    // Parse timestamps and sort
+    const dateA = new Date(timestampA);
+    const dateB = new Date(timestampB);
+    
+    // Switch direction based on sort order
+    const direction = order === 'reverse' ? -1 : 1;
+    return direction * (dateA - dateB);
+  });
+};
+
 const currentPhoto = computed(
-  () => lightboxPhotos.value[currentPhotoIndex.value] || null
+  () => sortedLightboxPhotos.value[currentPhotoIndex.value] || null
 );
 const canUploadPhotos = computed(() =>
   authService.canPerformAction("upload_photos")
 );
 const canDeletePhoto = computed(() => true);
+
 const visiblePhotos = computed(() =>
   photos.value.filter(
     (p) =>
@@ -150,24 +209,21 @@ const visiblePhotos = computed(() =>
       !/_thumb\./i.test(p.name)
   )
 );
-const lightboxPhotos = computed(() => visiblePhotos.value);
+
+// NEW: Sorted photos computed property
+const sortedPhotos = computed(() => {
+  if (!visiblePhotos.value.length) return [];
+  return sortPhotosByTimestamp(visiblePhotos.value, sortOrder.value);
+});
+
+// NEW: Sorted lightbox photos computed property
+const sortedLightboxPhotos = computed(() => sortedPhotos.value);
 
 const handleUploadDialogClose = (payload) => {
   showUploadDialog.value = false;
   if (payload?.jobId) {
     startProcessingListener(payload.jobId);
   }
-};
-
-const handlePageChange = (newPage) => {
-  currentPage.value = newPage;
-  Object.keys(imageLoadedMap.value).forEach(
-    (key) => delete imageLoadedMap.value[key]
-  );
-  setTimeout(() => {
-    startAggressivePreloading();
-    preloadVisibleImages();
-  }, 100);
 };
 
 const resetPagination = () => (currentPage.value = 1);
@@ -284,7 +340,8 @@ const handleImageLoad = (event) =>
   (imageLoadedMap.value[event.target.alt] = true);
 
 const openPhoto = async (photo) => {
-  const targetPhotoIndex = lightboxPhotos.value.findIndex(
+  // UPDATED: Find photo in sorted array
+  const targetPhotoIndex = sortedLightboxPhotos.value.findIndex(
     (p) => p.name === photo.name
   );
   if (targetPhotoIndex === -1) return;
@@ -303,8 +360,9 @@ const closeLightbox = () => {
 };
 
 const nextPhoto = () => {
-  if (currentPhotoIndex.value < lightboxPhotos.value.length - 1) {
-    const nextPhoto = lightboxPhotos.value[currentPhotoIndex.value + 1];
+  // UPDATED: Use sorted lightbox photos
+  if (currentPhotoIndex.value < sortedLightboxPhotos.value.length - 1) {
+    const nextPhoto = sortedLightboxPhotos.value[currentPhotoIndex.value + 1];
     const nextGridImage = document.querySelector(
       `img[alt="${nextPhoto.name}"][data-full-loaded="true"]`
     );
@@ -314,8 +372,9 @@ const nextPhoto = () => {
 };
 
 const previousPhoto = () => {
+  // UPDATED: Use sorted lightbox photos
   if (currentPhotoIndex.value > 0) {
-    const prevPhoto = lightboxPhotos.value[currentPhotoIndex.value - 1];
+    const prevPhoto = sortedLightboxPhotos.value[currentPhotoIndex.value - 1];
     const prevGridImage = document.querySelector(
       `img[alt="${prevPhoto.name}"][data-full-loaded="true"]`
     );
@@ -344,11 +403,12 @@ const deletePhoto = async () => {
     if (response.success) {
       await loadPhotos();
       if (showLightbox.value) {
-        if (lightboxPhotos.value.length > 1) {
-          if (currentPhotoIndex.value >= lightboxPhotos.value.length - 1) {
+        // UPDATED: Use sorted lightbox photos
+        if (sortedLightboxPhotos.value.length > 1) {
+          if (currentPhotoIndex.value >= sortedLightboxPhotos.value.length - 1) {
             currentPhotoIndex.value = Math.max(
               0,
-              lightboxPhotos.value.length - 2
+              sortedLightboxPhotos.value.length - 2
             );
           }
         } else {
@@ -399,7 +459,8 @@ const startAggressivePreloading = () => {
   const imageElements = document.querySelectorAll(".photo-image");
   imageElements.forEach((img, index) => {
     const photoName = img.alt;
-    const photo = visiblePhotos.value.find((p) => p.name === photoName);
+    // UPDATED: Use sorted photos for preloading
+    const photo = sortedPhotos.value.find((p) => p.name === photoName);
     if (photo) {
       setTimeout(() => loadImageProgressively(photo, img), index * 100);
     }
@@ -416,7 +477,8 @@ const preloadVisibleImages = () => {
         if (entry.isIntersecting) {
           const img = entry.target;
           const photoName = img.alt;
-          const photo = visiblePhotos.value.find((p) => p.name === photoName);
+          // UPDATED: Use sorted photos for preloading
+          const photo = sortedPhotos.value.find((p) => p.name === photoName);
           if (photo) loadImageProgressively(photo, img);
           observer.unobserve(img);
         }
