@@ -119,8 +119,8 @@ async request(endpoint, options = {}) {
     return this.request(endpoint, options);
   }
 
-  async createFolder(folderPath, description = null) {
-    const body = { description };
+  async createFolder(folderPath, description = null, month = null, year = null) {
+    const body = { description, month, year };
     return this.request(`/album/${folderPath}`, {
       method: "POST",
       body: JSON.stringify(body),

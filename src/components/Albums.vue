@@ -84,6 +84,30 @@
             class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none"
           ></textarea>
         </div>
+        <div class="mb-6">
+          <label for="albumMonth" class="block mb-2 font-medium text-gray-800">Month:</label>
+          <select id="albumMonth" v-model="newAlbumMonth"
+            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
+            <option value="">Select month...</option>
+            <option value="01">January</option>
+            <option value="02">February</option>
+            <option value="03">March</option>
+            <option value="04">April</option>
+            <option value="05">May</option>
+            <option value="06">June</option>
+            <option value="07">July</option>
+            <option value="08">August</option>
+            <option value="09">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+        </div>
+        <div class="mb-6">
+          <label for="albumYear" class="block mb-2 font-medium text-gray-800">Year:</label>
+          <input id="albumYear" v-model="newAlbumYear" type="number" placeholder="Enter year (e.g., 2025)" min="1900" max="2100"
+            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+        </div>
         <div class="flex justify-end gap-4 flex-wrap sm:flex-nowrap">
           <button @click="closeDialog"
             class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200">
@@ -138,6 +162,8 @@ const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const newAlbumName = ref('')
 const newAlbumDescription = ref('')
+const newAlbumMonth = ref('')
+const newAlbumYear = ref('')
 const creating = ref(false)
 const deleting = ref(false)
 const albumToDelete = ref(null)
@@ -203,9 +229,11 @@ const createAlbum = async () => {
   try {
     const albumName = newAlbumName.value.trim()
     const albumDescription = newAlbumDescription.value.trim() || null
+    const albumMonth = newAlbumMonth.value || null
+    const albumYear = newAlbumYear.value || null
 
     // Use the correct API endpoint to create an Album
-    const response = await apiService.createFolder(albumName, albumDescription)
+    const response = await apiService.createFolder(albumName, albumDescription, albumMonth, albumYear)
 
     if (response.success) {
       closeDialog() // Close dialog first to show loading state
@@ -261,6 +289,8 @@ const closeDialog = () => {
   showCreateDialog.value = false
   newAlbumName.value = ''
   newAlbumDescription.value = ''
+  newAlbumMonth.value = ''
+  newAlbumYear.value = ''
   creating.value = false
 }
 
