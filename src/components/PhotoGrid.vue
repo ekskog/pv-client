@@ -11,6 +11,7 @@
         :photo-metadata-lookup="photoMetadataLookup"
         :image-loaded="imageLoadedMap[photo.name]"
         :albumName="albumName"
+        :bucketName="bucketName"
         @click="$emit('photoClick', photo)"
         @image-load="$emit('imageLoad', $event)"
         @image-error="$emit('imageError', $event)"
@@ -63,6 +64,7 @@ const props = defineProps({
   photoMetadataLookup: { type: Object, required: true },
   imageLoadedMap: { type: Object, required: true },
   albumName: { type: String, required: true },
+  bucketName: { type: String, required: true },
   itemsPerPage: { type: Number, default: 24 },
   autoLoad: { type: Boolean, default: false } // Set to true for infinite scroll
 })

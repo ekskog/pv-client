@@ -73,6 +73,7 @@
       :photo-metadata-lookup="photoMetadataLookup"
       :image-loaded-map="imageLoadedMap"
       :album-name="albumName"
+      :bucket-name="BUCKET_NAME"
       :items-per-page="24"
       :auto-load="false"
       @photo-click="openPhoto"
