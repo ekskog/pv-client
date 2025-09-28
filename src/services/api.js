@@ -127,6 +127,13 @@ async request(endpoint, options = {}) {
     });
   }
 
+  async renameFolder(currentName, newName) {
+    return this.request(`/album/${currentName}`, {
+      method: "PUT",
+      body: JSON.stringify({ newName }),
+    });
+  }
+
   async deleteFolder(bucketName, folderPath) {
     return this.request(`/buckets/${bucketName}/folders`, {
       method: "DELETE",

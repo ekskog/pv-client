@@ -40,7 +40,11 @@
         <h3 class="text-base font-semibold text-gray-800 mb-2">{{ getAlbumDisplayName(album.name) }}</h3>
         <p class="text-sm text-blue-500 font-medium mb-2">{{ album.fileCount || 0 }} photos</p>
         <p class="text-xs text-gray-500 mb-4">Created {{ formatDate(album.lastModified) }}</p>
-        <div class="absolute top-3 right-3 opacity-0 hover:opacity-100 transition">
+        <div class="absolute top-3 right-3 opacity-0 hover:opacity-100 transition flex gap-1">
+          <button v-if="canRenameAlbum" @click.stop="confirmRename(album)" title="Rename Album"
+            class="bg-blue-500 text-white px-2 py-2 rounded text-xs transition hover:bg-blue-600">
+            <i class="fas fa-edit"></i>
+          </button>
           <button v-if="canDeleteAlbum" @click.stop="confirmDelete(album)" title="Delete Album"
             class="bg-red-500 text-white px-2 py-2 rounded text-xs transition hover:bg-red-600">
             <i class="fas fa-trash"></i>
@@ -142,6 +146,31 @@
         </div>
       </div>
     </div>
+
+    <!-- Rename Album Dialog -->
+    <div v-if="showRenameDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
+      @click="closeRenameDialog">
+      <div class="bg-white rounded-xl p-8 w-full max-w-md shadow-xl" @click.stop>
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">Rename Album</h3>
+        <p class="mb-4">Enter a new name for the album "<strong>{{ getAlbumDisplayName(albumToRename?.name) }}</strong>".</p>
+        <div class="mb-6">
+          <label for="renameAlbumName" class="block mb-2 font-medium text-gray-800">New Album Name:</label>
+          <input id="renameAlbumName" v-model="newAlbumNameForRename" type="text" placeholder="Enter new album name..."
+            @keyup.enter="renameAlbum" ref="renameAlbumNameInput"
+            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
+        </div>
+        <div class="flex justify-end gap-4 flex-wrap sm:flex-nowrap">
+          <button @click="closeRenameDialog"
+            class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200">
+            Cancel
+          </button>
+          <button @click="renameAlbum" :disabled="!newAlbumNameForRename.trim() || renaming || newAlbumNameForRename.trim() === albumToRename?.name"
+            class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed">
+            {{ renaming ? 'Renaming...' : 'Rename Album' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -160,14 +189,19 @@ const error = ref(null)
 const albums = ref([])
 const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
+const showRenameDialog = ref(false)
 const newAlbumName = ref('')
 const newAlbumDescription = ref('')
 const newAlbumMonth = ref('')
 const newAlbumYear = ref('')
+const newAlbumNameForRename = ref('')
 const creating = ref(false)
 const deleting = ref(false)
+const renaming = ref(false)
 const albumToDelete = ref(null)
+const albumToRename = ref(null)
 const albumNameInput = ref(null)
+const renameAlbumNameInput = ref(null)
 
 // Computed properties for permission checks
 const canCreateAlbum = computed(() => {
@@ -175,6 +209,10 @@ const canCreateAlbum = computed(() => {
 })
 
 const canDeleteAlbum = computed(() => {
+  return authService.canPerformAction('delete_album')
+})
+
+const canRenameAlbum = computed(() => {
   return authService.canPerformAction('delete_album')
 })
 
@@ -281,6 +319,39 @@ const deleteAlbum = async () => {
   }
 }
 
+const confirmRename = (album) => {
+  if (!authService.canPerformAction('delete_album')) {
+    error.value = 'You do not have permission to rename albums'
+    return
+  }
+
+  albumToRename.value = album
+  newAlbumNameForRename.value = album.name
+  showRenameDialog.value = true
+}
+
+const renameAlbum = async () => {
+  if (!albumToRename.value || !newAlbumNameForRename.value.trim()) return
+
+  renaming.value = true
+  error.value = null
+
+  try {
+    const response = await apiService.renameFolder(albumToRename.value.name, newAlbumNameForRename.value.trim())
+
+    if (response.success) {
+      await loadAlbums()
+      closeRenameDialog()
+    } else {
+      throw new Error(response.error || 'Failed to rename album')
+    }
+  } catch (err) {
+    error.value = `Failed to rename album: ${err.message}`
+  } finally {
+    renaming.value = false
+  }
+}
+
 const openAlbum = (album) => {
   emit('openAlbum', album)
 }
@@ -298,6 +369,13 @@ const closeDeleteDialog = () => {
   showDeleteDialog.value = false
   albumToDelete.value = null
   deleting.value = false
+}
+
+const closeRenameDialog = () => {
+  showRenameDialog.value = false
+  albumToRename.value = null
+  newAlbumNameForRename.value = ''
+  renaming.value = false
 }
 
 const getAlbumDisplayName = (folderName) => {
@@ -326,6 +404,20 @@ const focusInput = async () => {
 watch(showCreateDialog, (newVal) => {
   if (newVal) {
     focusInput()
+  }
+})
+
+const focusRenameInput = async () => {
+  await nextTick()
+  if (renameAlbumNameInput.value) {
+    renameAlbumNameInput.value.focus()
+    renameAlbumNameInput.value.select()
+  }
+}
+
+watch(showRenameDialog, (newVal) => {
+  if (newVal) {
+    focusRenameInput()
   }
 })
 
