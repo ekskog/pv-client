@@ -80,62 +80,12 @@
     </div>
 
     <!-- Create Album Dialog -->
-    <div v-if="showCreateDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
-      @click="closeDialog">
-      <div class="bg-white rounded-xl p-8 w-full max-w-md shadow-xl mx-4" @click.stop>
-        <h3 class="text-lg font-semibold text-gray-800 mb-6">Create New Album</h3>
-        <div class="mb-6">
-          <label for="albumName" class="block mb-2 font-medium text-gray-800">Album Name:</label>
-          <input id="albumName" v-model="newAlbumName" type="text" placeholder="Enter album name..."
-            @keyup.enter="createAlbum" ref="albumNameInput"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-        </div>
-        <div class="mb-6">
-          <label for="albumDescription" class="block mb-2 font-medium text-gray-800">Description (optional):</label>
-          <textarea 
-            id="albumDescription" 
-            v-model="newAlbumDescription" 
-            placeholder="Enter album description..."
-            rows="3"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none"
-          ></textarea>
-        </div>
-        <div class="mb-6">
-          <label for="albumMonth" class="block mb-2 font-medium text-gray-800">Month:</label>
-          <select id="albumMonth" v-model="newAlbumMonth"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200">
-            <option value="">Select month...</option>
-            <option value="01">January</option>
-            <option value="02">February</option>
-            <option value="03">March</option>
-            <option value="04">April</option>
-            <option value="05">May</option>
-            <option value="06">June</option>
-            <option value="07">July</option>
-            <option value="08">August</option>
-            <option value="09">September</option>
-            <option value="10">October</option>
-            <option value="11">November</option>
-            <option value="12">December</option>
-          </select>
-        </div>
-        <div class="mb-6">
-          <label for="albumYear" class="block mb-2 font-medium text-gray-800">Year:</label>
-          <input id="albumYear" v-model="newAlbumYear" type="number" placeholder="Enter year (e.g., 2025)" min="1900" max="2100"
-            class="w-full px-4 py-3 border border-gray-300 rounded-md text-base focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200" />
-        </div>
-        <div class="flex justify-end gap-4 flex-wrap sm:flex-nowrap">
-          <button @click="closeDialog"
-            class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm transition hover:bg-gray-200 min-w-[80px]">
-            Cancel
-          </button>
-          <button @click="createAlbum" :disabled="!newAlbumName.trim() || creating"
-            class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 disabled:opacity-60 disabled:cursor-not-allowed min-w-[120px]">
-            {{ creating ? 'Creating...' : 'Create Album' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <CreateAlbumDialog 
+      :visible="showCreateDialog" 
+      :creating="creating" 
+      @create="handleCreateAlbum" 
+      @close="closeCreateDialog" 
+    />
 
     <!-- Delete Confirmation Dialog -->
     <div v-if="showDeleteDialog" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]"
@@ -191,6 +141,7 @@
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import apiService from '../services/api.js'
 import authService from '../services/auth.js'
+import CreateAlbumDialog from './CreateAlbumDialog.vue'
 
 // Emits
 const emit = defineEmits(['navigate', 'openAlbum'])
@@ -202,17 +153,12 @@ const albums = ref([])
 const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
 const showRenameDialog = ref(false)
-const newAlbumName = ref('')
-const newAlbumDescription = ref('')
-const newAlbumMonth = ref('')
-const newAlbumYear = ref('')
 const newAlbumNameForRename = ref('')
 const creating = ref(false)
 const deleting = ref(false)
 const renaming = ref(false)
 const albumToDelete = ref(null)
 const albumToRename = ref(null)
-const albumNameInput = ref(null)
 const renameAlbumNameInput = ref(null)
 
 // Computed properties for permission checks
@@ -271,10 +217,8 @@ const loadAlbums = async () => {
   }
 }
 
-const createAlbum = async () => {
-  if (!newAlbumName.value.trim()) return
-
-  console.log('[ALBUMS DEBUG] Creating album:', newAlbumName.value.trim())
+const handleCreateAlbum = async (albumData) => {
+  console.log('[ALBUMS DEBUG] Creating album:', albumData.name)
 
   if (!authService.canPerformAction('create_album')) {
     console.log('[ALBUMS DEBUG] No permission to create albums')
@@ -286,23 +230,13 @@ const createAlbum = async () => {
   error.value = null
 
   try {
-    const albumName = newAlbumName.value.trim()
-    const albumDescription = newAlbumDescription.value.trim() || null
-    const albumMonth = newAlbumMonth.value || null
-    const albumYear = newAlbumYear.value || null
+    console.log('[ALBUMS DEBUG] Album creation params:', albumData)
 
-    console.log('[ALBUMS DEBUG] Album creation params:', {
-      name: albumName,
-      description: albumDescription,
-      month: albumMonth,
-      year: albumYear
-    })
-
-    const response = await apiService.createFolder(albumName, albumDescription, albumMonth, albumYear)
+    const response = await apiService.createFolder(albumData.name, albumData.description, albumData.month, albumData.year)
     console.log('[ALBUMS DEBUG] Create album response:', response)
 
     if (response.success) {
-      closeDialog()
+      closeCreateDialog()
       await loadAlbums()
     } else {
       throw new Error(response.error || 'Failed to create album')
@@ -313,6 +247,12 @@ const createAlbum = async () => {
   } finally {
     creating.value = false
   }
+}
+
+const closeCreateDialog = () => {
+  console.log('[ALBUMS DEBUG] Closing create dialog')
+  showCreateDialog.value = false
+  creating.value = false
 }
 
 const confirmDelete = (album) => {
@@ -437,20 +377,6 @@ const refreshAlbums = async () => {
   console.log('[ALBUMS DEBUG] Refreshing albums...')
   await loadAlbums()
 }
-
-// Focus input when dialog opens
-const focusInput = async () => {
-  await nextTick()
-  if (albumNameInput.value) {
-    albumNameInput.value.focus()
-  }
-}
-
-watch(showCreateDialog, (newVal) => {
-  if (newVal) {
-    focusInput()
-  }
-})
 
 const focusRenameInput = async () => {
   await nextTick()
