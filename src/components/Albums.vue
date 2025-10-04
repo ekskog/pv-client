@@ -1,18 +1,54 @@
 <template>
   <div class="max-w-[1200px] mx-auto px-4 py-8">
-    <div class="flex flex-wrap justify-between items-center mb-12 gap-4">
-      <div class="text-left md:text-center">
-        <h1 class="text-4xl font-bold text-gray-800 mb-2">Photo Albums</h1>
-        <p class="text-lg text-gray-600 mb-8">Organize your photos into albums</p>
-      </div>
-      <div class="flex items-center gap-3 justify-center flex-wrap">
+    <div class="flex flex-wrap justify-between items-center gap-4 mb-12">
+
+      <!-- Actions Section -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Sort Controls (only show when albums exist) -->
+        <div v-if="!loading && !error && albums.length > 0" class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm text-gray-600 hidden sm:inline">Sort by:</span>
+
+          <!-- Date sorting buttons -->
+          <div class="flex bg-white border border-gray-300 rounded-md overflow-hidden">
+            <button
+              @click="sortOrder = 'date-desc'"
+              :class="['px-3 py-2 text-sm transition whitespace-nowrap', sortOrder === 'date-desc' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
+            >
+              <i class="fas fa-calendar-alt mr-1"></i><span class="hidden lg:inline">Date</span> &darr;
+            </button>
+            <button
+              @click="sortOrder = 'date-asc'"
+              :class="['px-3 py-2 text-sm transition whitespace-nowrap', sortOrder === 'date-asc' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
+            >
+              <i class="fas fa-calendar-alt mr-1"></i><span class="hidden lg:inline">Date</span> &uarr;
+            </button>
+          </div>
+
+          <!-- Name sorting buttons -->
+          <div class="flex bg-white border border-gray-300 rounded-md overflow-hidden">
+            <button
+              @click="sortOrder = 'name-asc'"
+              :class="['px-3 py-2 text-sm transition whitespace-nowrap', sortOrder === 'name-asc' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
+            >
+              <i class="fas fa-sort-alpha-down mr-1"></i><span class="hidden lg:inline">Name</span> &darr;
+            </button>
+            <button
+              @click="sortOrder = 'name-desc'"
+              :class="['px-3 py-2 text-sm transition whitespace-nowrap', sortOrder === 'name-desc' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200']"
+            >
+              <i class="fas fa-sort-alpha-up mr-1"></i><span class="hidden lg:inline">Name</span> &uarr;
+            </button>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
         <button @click="refreshAlbums" :disabled="loading" title="Refresh albums"
-          class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm font-medium transition hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed">
-          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i> Refresh
+          class="bg-gray-100 text-gray-800 border border-gray-300 px-4 py-3 rounded-md text-sm font-medium transition hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap">
+          <i class="fas fa-sync-alt" :class="{ 'fa-spin': loading }"></i> <span class="hidden sm:inline">Refresh</span>
         </button>
         <button v-if="canCreateAlbum" @click="showCreateDialog = true"
-          class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 hover:-translate-y-[1px] hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
-          <i class="fas fa-plus"></i> Create Album
+          class="bg-blue-500 text-white px-4 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600 hover:-translate-y-[1px] hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed whitespace-nowrap">
+          <i class="fas fa-plus"></i> <span class="hidden sm:inline">Create Album</span>
         </button>
       </div>
     </div>
@@ -32,9 +68,11 @@
       </button>
     </div>
 
+
+
     <!-- Albums Grid with Always Visible Actions -->
     <div v-if="!loading && !error" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <div v-for="album in albums" :key="album.name" 
+      <div v-for="album in sortedAlbums" :key="album.name"
         class="bg-white border border-gray-200 rounded-xl overflow-hidden transition cursor-pointer hover:border-blue-500 hover:shadow-lg hover:-translate-y-[2px]">
         
         <!-- Album Content - Clickable area -->
@@ -214,6 +252,7 @@ const albumToDelete = ref(null)
 const albumToRename = ref(null)
 const albumNameInput = ref(null)
 const renameAlbumNameInput = ref(null)
+const sortOrder = ref('date-desc') // 'date-desc', 'date-asc', 'name-asc', 'name-desc'
 
 // Computed properties for permission checks
 const canCreateAlbum = computed(() => {
@@ -232,6 +271,28 @@ const canRenameAlbum = computed(() => {
   const result = authService.canPerformAction('delete_album')
   console.log('[ALBUMS DEBUG] canRenameAlbum:', result)
   return result
+})
+
+// Computed property for sorted albums
+const sortedAlbums = computed(() => {
+  return [...albums.value].sort((a, b) => {
+    switch (sortOrder.value) {
+      case 'date-desc':
+        if (!a.lastModified) return 1
+        if (!b.lastModified) return -1
+        return new Date(b.lastModified) - new Date(a.lastModified)
+      case 'date-asc':
+        if (!a.lastModified) return 1
+        if (!b.lastModified) return -1
+        return new Date(a.lastModified) - new Date(b.lastModified)
+      case 'name-asc':
+        return a.name.localeCompare(b.name)
+      case 'name-desc':
+        return b.name.localeCompare(a.name)
+      default:
+        return 0
+    }
+  })
 })
 
 // Constants
