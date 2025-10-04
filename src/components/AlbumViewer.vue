@@ -64,6 +64,21 @@
       </button>
     </div>
 
+    <!-- Processing Status -->
+    <div v-if="processingNotifications" class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div class="flex items-center gap-3">
+        <div class="flex-shrink-0">
+          <i class="fas fa-cog fa-spin text-blue-600"></i>
+        </div>
+        <div class="flex-grow">
+          <p class="text-sm font-medium text-blue-800">{{ processingStatus }}</p>
+          <div v-if="processingJobId" class="text-xs text-blue-600 mt-1">
+            Job ID: {{ processingJobId }}
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Empty State -->
     <PhotoGridEmpty v-if="!loading && !error && visiblePhotos.length === 0" />
 
@@ -86,6 +101,7 @@
     <MediaUpload
       :showUploadDialog="showUploadDialog"
       :album-name="albumName"
+      :currentJobId="processingJobId"
       @close="handleUploadDialogClose"
     />
 
@@ -134,7 +150,7 @@ import PhotoGridEmpty from "./PhotoGridEmpty.vue";
 import PhotoGrid from "./PhotoGrid.vue";
 
 const props = defineProps({ albumName: String, isPublic: Boolean });
-const emit = defineEmits(["back", "photoOpened"]);
+const emit = defineEmits(["back", "photoOpened", "uploadComplete"]);
 
 const BUCKET_NAME = "photovault";
 const ITEMS_PER_PAGE = 25;
@@ -166,6 +182,8 @@ const progressTracker = ref(null);
 const processingNotifications = ref(false);
 const processingStatus = ref("");
 const processingJobId = ref(null);
+const processingProgressDetails = ref(null);
+const pendingJobId = ref(null);
 let sseService = null;
 
 // NEW: Sort order state
@@ -223,7 +241,11 @@ const sortedLightboxPhotos = computed(() => sortedPhotos.value);
 const handleUploadDialogClose = (payload) => {
   showUploadDialog.value = false;
   if (payload?.jobId) {
-    startProcessingListener(payload.jobId);
+    processingJobId.value = payload.jobId;
+    // Delay SSE connection slightly to let server start processing
+    setTimeout(() => {
+      startProcessingListener(payload.jobId);
+    }, 1000);
   }
 };
 
@@ -275,7 +297,7 @@ const loadAlbumMetadata = async (albumName) => {
     const response = await fetch(metadataUrl);
     if (response.ok) {
       const metadata = await response.json();
-      console.log(`DEBUG METADATA: ${Date.now()} >> ${JSON.stringify(metadata)}`);
+      //console.log(`DEBUG METADATA: ${Date.now()} >> ${JSON.stringify(metadata)}`);
       albumMetadata.value = metadata;
       const lookup = {};
       if (Array.isArray(metadata.media)) {
@@ -492,9 +514,16 @@ const preloadVisibleImages = () => {
 
 // SSE Integration
 const startProcessingListener = (jobId) => {
+  // Prevent multiple SSE connections to the same job
+  if (processingJobId.value === jobId && sseService) {
+    console.log('[ALBUM VIEWER DEBUG] Already connected to job:', jobId);
+    return;
+  }
+
   processingJobId.value = jobId;
   processingNotifications.value = true;
   processingStatus.value = "Starting photo processing...";
+
   sseService = new SSEService(
     apiService,
     jobId,
@@ -502,6 +531,7 @@ const startProcessingListener = (jobId) => {
     () => {}
   );
   sseService.start();
+  console.log('[ALBUM VIEWER DEBUG] Started processing listener for job:', jobId);
 };
 
 const stopProcessingListener = () => {
@@ -510,15 +540,76 @@ const stopProcessingListener = () => {
   processingNotifications.value = false;
   processingStatus.value = "";
   processingJobId.value = null;
+  console.log('[ALBUM VIEWER DEBUG] Stopped processing listener');
 };
 
+const processingProgress = ref(0);
+
 const handleProcessingUpdate = (data) => {
+  console.log('[ALBUM VIEWER DEBUG] Processing update:', data.type, data);
+
   switch (data.type) {
     case "connected":
       processingStatus.value = "Connected to photo processing service...";
+      processingProgress.value = 0;
+      break;
+
+    case "started":
+      processingStatus.value = data.message || `Processing started for ${data.progress?.total || 0} files...`;
+      processingProgress.value = 0;
+      break;
+
+    case "progress":
+      if (data.progress) {
+        const { current, total, percentage, uploaded, failed, lastUploaded, lastFailed } = data.progress;
+
+        // Show detailed progress status
+        let statusText = `Processing: ${percentage}% complete`;
+        statusText += ` (${current}/${total} files)`;
+
+        if (uploaded > 0 || failed > 0) {
+          const parts = [];
+          if (uploaded > 0) parts.push(`${uploaded} successful`);
+          if (failed > 0) parts.push(`${failed} failed`);
+          statusText += ` - ${parts.join(', ')}`;
+        }
+
+        processingStatus.value = statusText;
+        processingProgress.value = percentage;
+
+        console.log(`[ALBUM VIEWER DEBUG] Progress: ${uploaded} uploaded, ${failed} failed`);
+
+        if (lastUploaded) {
+          console.log(`[ALBUM VIEWER DEBUG] ✓ Processed: ${lastUploaded}`);
+        }
+        if (lastFailed) {
+          console.log(`[ALBUM VIEWER DEBUG] ✗ Failed: ${lastFailed}`);
+        }
+      } else {
+        processingStatus.value = data.message || "Processing photos...";
+      }
       break;
     case "complete":
-      processingStatus.value = "Photo processing complete! 🎉";
+      if (data.results) {
+        const { uploaded, failed } = data.results;
+        let completeMessage = `Photo processing complete! 🎉`;
+
+        if (failed > 0) {
+          completeMessage += ` (${uploaded} uploaded, ${failed} failed)`;
+        } else {
+          completeMessage += ` All ${uploaded} photos processed successfully!`;
+        }
+
+        processingStatus.value = completeMessage;
+      } else {
+        processingStatus.value = "Photo processing complete! 🎉";
+      }
+
+      // Reset upload state
+      if (pendingJobId.value) {
+        emit('uploadComplete', pendingJobId.value);
+      }
+
       showProcessingCompleteNotification();
       setTimeout(async () => {
         await refreshAlbum();
@@ -526,7 +617,11 @@ const handleProcessingUpdate = (data) => {
       }, 2000);
       break;
     case "failed":
-      processingStatus.value = "Photo processing failed. Please try again.";
+      if (data.error) {
+        processingStatus.value = `Photo processing failed: ${data.error}`;
+      } else {
+        processingStatus.value = "Photo processing failed. Please try again.";
+      }
       setTimeout(() => stopProcessingListener(), 5000);
       break;
     default:

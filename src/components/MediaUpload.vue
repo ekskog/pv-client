@@ -142,7 +142,7 @@
 
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import authService from '../services/auth.js'
 import apiService from '../services/api.js'
 
@@ -155,6 +155,10 @@ const props = defineProps({
   albumName: {
     type: String,
     default: 'Test'
+  },
+  currentJobId: {
+    type: String,
+    default: null
   }
 })
 
@@ -177,6 +181,16 @@ const fileInput = ref(null)
 const showUploadCompleteModal = ref(false)
 const pendingJobId = ref(null)
 const filesRejectedDueToLimit = ref(false)
+
+// Watch for job completion
+watch(() => props.currentJobId, (newJobId, oldJobId) => {
+  if (newJobId !== oldJobId && oldJobId === pendingJobId.value) {
+    console.log('[MediaUpload] Processing completed for job:', newJobId);
+    // Reset uploading state when processing is complete
+    uploading.value = false;
+    uploadStatus.value = 'Processing complete!';
+  }
+});
 
 
 // Trigger upload flow
@@ -226,66 +240,87 @@ const totalSizeMB = computed(() => {
   return (totalBytes / (1024 * 1024)).toFixed(2)
 })
 
-// Upload files
-const uploadFiles = async () => {
-  if (selectedFiles.value.length === 0) return
+async function uploadFiles() {
+  if (selectedFiles.value.length === 0) return;
 
-  const actionType = uploadType.value === 'photos' ? 'upload_photos' : 'upload_photos'
+  const actionType = uploadType.value === 'photos' ? 'upload_photos' : 'upload_photos';
   if (!authService.canPerformAction(actionType)) {
-    error.value = `You do not have permission to upload ${uploadType.value}`
-    return
+    error.value = `You do not have permission to upload ${uploadType.value}`;
+    return;
   }
 
-  uploading.value = true
-  uploadProgress.value = 0
-  error.value = null
-  uploadedFiles.value = new Set()
-  failedFiles.value = new Set()
+  uploading.value = true;
+  uploadProgress.value = 0;
+  uploadStatus.value = `Preparing to upload ${selectedFiles.value.length} files...`;
+  error.value = null;
+  uploadedFiles.value = new Set();
+  failedFiles.value = new Set();
 
   try {
-    uploadStatus.value = `Starting upload of ${selectedFiles.value.length} files...`
     const response = await apiService.uploadFile(
       BUCKET_NAME,
       selectedFiles.value,
       props.albumName
-    )
+    );
 
     if (!response.success) {
-      throw new Error(response.error || 'Upload failed')
-    } else {
-      pendingJobId.value = response.data.jobId
-      emit('close', { jobId: pendingJobId.value })
-      console.log('close emitted')
-      showUploadCompleteModal.value = true
+      throw new Error(response.error || 'Upload failed');
     }
 
+    // Files uploaded successfully to server, now waiting for processing
+    uploadStatus.value = `Files uploaded. Waiting for processing to begin...`;
+    console.log('[MediaUpload] Upload complete, jobId:', response.data.jobId);
+
+    // Store jobId and emit close - let parent component handle SSE listening
+    pendingJobId.value = response.data.jobId;
+    emit('close', {
+      jobId: pendingJobId.value,
+      filesCount: selectedFiles.value.length
+    });
+
+    // Show success modal
+    showUploadCompleteModal.value = true;
+
+    // Keep uploading state as true until processing is complete
+    // The parent component will monitor SSE events and update the UI accordingly
+
   } catch (err) {
-    error.value = `Upload failed: ${err.message}`
-    console.error('Upload failed:', err)
-  } finally {
-    uploading.value = false
+    error.value = `Upload failed: ${err.message}`;
+    console.error('[MediaUpload] Upload failed:', err);
+    uploading.value = false; // Only set to false on actual error
   }
 }
 
 const confirmUploadComplete = () => {
   showUploadCompleteModal.value = false
-  closeUploadDialog(pendingJobId.value)
+  // Don't reset uploading state here - let processing finish
+  closeUploadDialog(pendingJobId.value, false) // false = don't reset uploading state
 }
 
 // Close dialog
-const closeUploadDialog = (jobId) => {
-  console.log('[MediaUpload] closeUploadDialog called, jobId:', jobId)
+const closeUploadDialog = (jobId = null, resetUploadingState = true) => {
+  console.log('[MediaUpload] closeUploadDialog called, jobId:', jobId, 'resetUploading:', resetUploadingState)
+
   selectedFiles.value = []
   uploadProgress.value = 0
   uploadStatus.value = ''
-  uploading.value = false
-  uploadedFiles.value = new Set()
-  failedFiles.value = new Set()
+
+  // Only reset uploading state if explicitly requested or if no jobId (meaning no processing is happening)
+  if (resetUploadingState || !jobId) {
+    uploading.value = false
+    uploadedFiles.value = new Set()
+    failedFiles.value = new Set()
+  }
+
   error.value = null
-  
+  pendingJobId.value = null
+
   // Emit close event with jobId if provided
   if (jobId) {
-    emit('close', { jobId })
+    emit('close', {
+      jobId: jobId,
+      filesCount: selectedFiles.value.length || 0
+    })
   } else {
     emit('close')
   }
