@@ -22,7 +22,7 @@ data:
   VITE_ENABLE_PHOTO_COMMENTS: "false"
   
   # Performance Settings
-  VITE_MAX_UPLOAD_SIZE: "10485760"  # 10MB in bytes
+  VITE_MAX_UPLOAD_SIZE: "20485760"  # 10MB in bytes
   VITE_THUMBNAIL_QUALITY: "80"
   VITE_LAZY_LOADING: "true"
   

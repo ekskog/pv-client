@@ -35,7 +35,7 @@ spec:
         env:
         # API Configuration
         - name: VITE_API_URL
-          value: "https://vault-api.hbvu.su"
+          value: "https://vault-api.ekskog.xyz"
         # Debug Configuration
         - name: VITE_DEBUG
           value: "false"  # Set to "true" or "ekskog:*" to enable debug logging
