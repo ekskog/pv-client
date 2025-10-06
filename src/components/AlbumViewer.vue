@@ -153,14 +153,12 @@ const props = defineProps({ albumName: String, isPublic: Boolean });
 const emit = defineEmits(["back", "photoOpened", "uploadComplete"]);
 
 const BUCKET_NAME = "photovault";
-const ITEMS_PER_PAGE = 25;
 
 const loading = ref(false);
 const error = ref(null);
 const photos = ref([]);
 const albumMetadata = ref(null);
 const photoMetadataLookup = ref({});
-const locationCache = ref(new Map());
 const imageLoadedMap = ref({});
 const currentPage = ref(1);
 const showUploadDialog = ref(false);
@@ -182,7 +180,6 @@ const progressTracker = ref(null);
 const processingNotifications = ref(false);
 const processingStatus = ref("");
 const processingJobId = ref(null);
-const processingProgressDetails = ref(null);
 const pendingJobId = ref(null);
 let sseService = null;
 
@@ -213,9 +210,6 @@ const sortPhotosByTimestamp = (photosArray, order = 'chronological') => {
   });
 };
 
-const currentPhoto = computed(
-  () => sortedLightboxPhotos.value[currentPhotoIndex.value] || null
-);
 const canUploadPhotos = computed(() =>
   authService.canPerformAction("upload_photos")
 );
@@ -639,6 +633,7 @@ const showProcessingCompleteNotification = () => {
 };
 
 onMounted(async () => {
+  console.log("[AlbumViewer] Mounted with album:", props.albumName);
   await loadPhotos();
   setTimeout(() => {
     startAggressivePreloading();

@@ -278,8 +278,8 @@ async function uploadFiles() {
       filesCount: selectedFiles.value.length
     });
 
-    // Show success modal
-    showUploadCompleteModal.value = true;
+    // Show success modal - skip that for now
+    // showUploadCompleteModal.value = true;
 
     // Keep uploading state as true until processing is complete
     // The parent component will monitor SSE events and update the UI accordingly

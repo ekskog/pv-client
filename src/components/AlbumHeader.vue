@@ -77,9 +77,7 @@ const cleanAlbumName = computed(() => {
 });
 
 onMounted(() => {
-  console.log("[AlbumHeader] Mounted");
-  console.log("[AlbumHeader] albumName:", props.albumName);
-  console.log("[AlbumHeader] isPublic:", props.isPublic);
+ console.log("[AlbumHeader] Mounted with album:", props.albumName);
 });
 
 const handleShare = async () => {

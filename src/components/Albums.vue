@@ -203,7 +203,6 @@ const sortOrder = ref('date-desc') // 'date-desc', 'date-asc', 'name-asc', 'name
 // Computed properties for permission checks
 const canCreateAlbum = computed(() => {
   const result = authService.canPerformAction('create_album')
-  console.log('[ALBUMS DEBUG] canCreateAlbum:', result)
   return result
 })
 
@@ -246,13 +245,11 @@ const BUCKET_NAME = 'photovault'
 
 // Methods
 const loadAlbums = async () => {
-  console.log('[ALBUMS DEBUG] Loading albums...')
   loading.value = true
   error.value = null
 
   try {
     const response = await apiService.getAlbums(BUCKET_NAME)
-    console.log('[ALBUMS DEBUG] API response:', response)
 
     if (response.success && response.albums) {
       const albumsWithDates = response.albums.map((album) => {
@@ -266,7 +263,6 @@ const loadAlbums = async () => {
       })
 
       albums.value = albumsWithDates
-      console.log('[ALBUMS DEBUG] Processed albums:', albumsWithDates)
     } else {
       throw new Error(response.error || 'Failed to load albums - API returned unsuccessful response')
     }
@@ -455,7 +451,7 @@ watch(showRenameDialog, (newVal) => {
 
 // Lifecycle
 onMounted(() => {
-  console.log('[ALBUMS DEBUG] Component mounted, loading albums...')
+  console.log('[Albums] Component mounted, loading albums...')
   loadAlbums()
 })
 </script>
