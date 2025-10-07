@@ -29,8 +29,11 @@
         </div>
 
         <!-- Turnstile Widget -->
-        <div class="flex justify-center">
-          <div ref="turnstileRef"></div>
+        <div>
+          <label class="block mb-2 font-semibold text-gray-800 text-sm">Security Verification</label>
+          <div class="w-full min-h-[65px] px-4 py-3 border-2 border-gray-200 rounded-lg bg-white flex items-center justify-center transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
+            <div ref="turnstileRef"></div>
+          </div>
         </div>
 
         <div v-if="turnstileError" class="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm">
@@ -102,6 +105,7 @@ const renderTurnstile = () => {
   }
 
   if (!window.turnstile || !turnstileRef.value || widgetId.value) return
+  
   try {
     widgetId.value = window.turnstile.render(turnstileRef.value, {
       sitekey: TURNSTILE_SITE_KEY,
@@ -178,3 +182,33 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 </script>
+
+<style scoped>
+/* Attempt to make Turnstile widget wider */
+/* Target the main widget container */
+:deep(.cf-turnstile) {
+  width: 100% !important;
+  min-width: 400px !important;
+  max-width: none !important;
+}
+
+/* Target the iframe directly */
+:deep(.cf-turnstile iframe) {
+  width: 100% !important;
+  min-width: 400px !important;
+  max-width: none !important;
+}
+
+/* Try to override any internal styles */
+:deep(.cf-turnstile *) {
+  width: 100% !important;
+  min-width: 400px !important;
+  max-width: none !important;
+}
+
+/* Alternative: try scaling approach */
+:deep(.cf-turnstile) {
+  transform: scaleX(1.5);
+  transform-origin: center;
+}
+</style>
