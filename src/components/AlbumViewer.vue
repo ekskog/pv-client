@@ -6,7 +6,6 @@
       :photo-count="visiblePhotos.length"
       :loading="loading"
       :can-upload-photos="canUploadPhotos"
-      :is-public="isPublic"
       @back="$emit('back')"
       @refresh="refreshAlbum"
       @upload="showUploadDialog = true"
@@ -250,12 +249,28 @@ const loadPhotos = async () => {
   error.value = null;
   try {
     const albumName = props.albumName.trim().replace(/\/+$/, "");
+    console.log("[AlbumViewer] Loading photos for album:", albumName, "type:", typeof albumName);
+    console.log("[AlbumViewer] Album name encoded:", encodeURIComponent(albumName));
     await loadAlbumMetadata(albumName);
 
     const response = await apiService.getAlbumContents(albumName);
+    console.log("[AlbumViewer] Album contents response:", response);
 
-    if (response.success && response.album.objects) {
-      const allFiles = response.album.objects
+    // Handle different response structures
+    let objects = [];
+    if (response.success) {
+      if (response.album && response.album.objects) {
+        objects = response.album.objects;
+      } else if (response.objects) {
+        objects = response.objects;
+      } else if (Array.isArray(response)) {
+        objects = response;
+      }
+    }
+
+    if (objects.length > 0) {
+      console.log("[AlbumViewer] Raw objects from API:", objects);
+      const allFiles = objects
         .filter((obj) => obj.name && !obj.name.endsWith("/"))
         .map((obj) => {
           // Remove album prefix from the object name
@@ -270,6 +285,7 @@ const loadPhotos = async () => {
           };
         });
 
+      console.log("[AlbumViewer] Processed photos:", allFiles.length, "files");
       photos.value = allFiles;
 
       resetPagination();
@@ -318,7 +334,7 @@ const loadAlbumMetadata = async (albumName) => {
 
 const getPhotoDisplayName = (filename) => filename.split("/").pop() || filename;
 const getPhotoUrl = (photo) =>
-  apiService.getObject(photo.albumName, photo.name);
+  apiService.getObject(props.albumName, photo.name);
 const preloadImage = (src) =>
   new Promise((resolve, reject) => {
     const img = new Image();
@@ -349,7 +365,15 @@ const loadImageProgressively = async (photo, imgElement) => {
 };
 
 const handleImageError = (event) => {
-  event.target.src = "data:image/svg+xml;base64,...";
+  // Create a simple SVG placeholder for failed images
+  const svgData = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+    <rect width="200" height="200" fill="#f3f4f6"/>
+    <circle cx="100" cy="80" r="30" fill="#d1d5db"/>
+    <path d="M70 120 Q100 140 130 120" stroke="#9ca3af" stroke-width="3" fill="none"/>
+    <text x="100" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#6b7280">Image Error</text>
+  </svg>`;
+  const encodedSvg = btoa(svgData);
+  event.target.src = `data:image/svg+xml;base64,${encodedSvg}`;
 };
 
 const handleImageLoadStart = (event) => {};

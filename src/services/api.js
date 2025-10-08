@@ -107,28 +107,25 @@ async request(endpoint, options = {}) {
   }
 
   async getAlbumContents(name, options = {}) {
-    const endpoint = `/objects/${name}`;
+    const endpoint = `/objects/${encodeURIComponent(name)}`;
     return this.request(endpoint, options);
   }
 
   // Folder/Object operations
-  async getAlbums(bucketName, options = {}) {
-    const endpoint = `/albums`;
-    const API_BASE_URL = this.getApiBaseUrl();
-    const url = `${API_BASE_URL}/buckets/${bucketName}/upload`;
-    return this.request(endpoint, options);
+  async getAlbums(options = {}) {
+    return this.request('/albums', options);
   }
 
   async createFolder(folderPath, description = null, month = null, year = null) {
     const body = { description, month, year };
-    return this.request(`/album/${folderPath}`, {
+    return this.request(`/album/${encodeURIComponent(folderPath)}`, {
       method: "POST",
       body: JSON.stringify(body),
     });
   }
 
   async renameFolder(currentName, newName) {
-    return this.request(`/album/${currentName}`, {
+    return this.request(`/album/${encodeURIComponent(currentName)}`, {
       method: "PUT",
       body: JSON.stringify({ newName }),
     });
@@ -137,20 +134,20 @@ async request(endpoint, options = {}) {
   async deleteFolder(bucketName, folderPath) {
     return this.request(`/buckets/${bucketName}/folders`, {
       method: "DELETE",
-      body: JSON.stringify({ folderPath }),
+      body: JSON.stringify({ folderPath: encodeURIComponent(folderPath) }),
     });
   }
 
   // Delete object
   async deleteObject(folderPath, objectName) {
-    return this.request(`/objects/${folderPath}/${objectName}`, {
+    return this.request(`/objects/${encodeURIComponent(folderPath)}/${encodeURIComponent(objectName)}`, {
       method: "DELETE",
     });
   }
 
   // Update photo metadata
   async updatePhotoMetadata(folderPath, objectName, metadata) {
-    return this.request(`/objects/${folderPath}/${objectName}`, {
+    return this.request(`/objects/${encodeURIComponent(folderPath)}/${encodeURIComponent(objectName)}`, {
       method: "PUT",
       body: JSON.stringify({ metadata }),
     });
@@ -171,7 +168,7 @@ async request(endpoint, options = {}) {
 
     // Add folder path if provided
     if (folderPath) {
-      formData.append("folderPath", folderPath);
+      formData.append("folderPath", folderPath); // Don't encode here, let the backend handle it
     }
 
     const API_BASE_URL = this.getApiBaseUrl();
@@ -263,7 +260,7 @@ async request(endpoint, options = {}) {
   // Object URL generation for downloading/viewing files
   getObject(albumName, objectName) {
     const API_BASE_URL = this.getApiBaseUrl();
-    return `${API_BASE_URL}/albums/${albumName}/object/${objectName}`;
+    return `${API_BASE_URL}/albums/${encodeURIComponent(albumName)}/object/${encodeURIComponent(objectName)}`;
   }
 
   // User registration

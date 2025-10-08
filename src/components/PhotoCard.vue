@@ -132,7 +132,8 @@ const formatPhotoGPS = (photo) => {
 };
 
 const getPhoto = (photo) => {
-  return apiService.getObject(props.albumName, photo.name);
+  const url = apiService.getObject(props.albumName, photo.name);
+  return url;
 };
 
 const getOptimizedPhotoUrl = (photo) => {

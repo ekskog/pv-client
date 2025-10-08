@@ -4,7 +4,22 @@
   >
     <!-- Left: Logo or Hamburger -->
     <div class="flex items-center gap-4 relative">
-      <!-- Hamburger (visible on md and below) -->
+      <!-- const props = defineProps({
+  currentView: String,
+  currentUser: Object,
+  isAuthenticated: Boolean,
+});
+const emit = defineEmits(["navigate", "logout", "login", "register", "search"]);
+
+const isHealthy = ref(false);
+const healthStatus = ref("Checking...");
+const showUserDropdown = ref(false);
+const showPasswordDialog = ref(false);
+const userMenuRef = ref(null);
+const showMobileMenu = ref(false);
+const showMobileUserDropdown = ref(false);
+const searchQuery = ref("");
+const mobileSearchQuery = ref("");ible on md and below) -->
       <button class="md:hidden text-xl text-gray-700" @click="toggleMobileMenu">
         <i class="fas fa-bars"></i>
       </button>
@@ -14,6 +29,20 @@
         v-if="showMobileMenu"
         class="absolute top-full left-0 mt-2 bg-white border border-gray-200 shadow-md z-40 rounded-lg w-max min-w-[10rem]"
       >
+        <!-- Search Input for Mobile -->
+        <div class="px-4 py-2 border-b border-gray-200">
+          <div class="relative">
+            <input
+              v-model="mobileSearchQuery"
+              type="text"
+              placeholder="Search albums..."
+              class="w-full px-3 py-2 pl-8 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              @keyup.enter="performMobileSearch"
+            />
+            <i class="fas fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs"></i>
+          </div>
+        </div>
+
         <!-- Navigation Buttons -->
         <button
           class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100"
@@ -93,8 +122,20 @@
       </div>
     </div>
 
-    <!-- Center: Navigation (hidden on md and below) -->
-    <div class="hidden md:flex gap-4 flex-wrap justify-center">
+    <!-- Center: Search + Navigation (hidden on md and below) -->
+    <div class="hidden md:flex gap-4 flex-wrap justify-center items-center">
+      <!-- Search Input -->
+      <div class="relative">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Search albums..."
+          class="w-64 px-4 py-2 pl-10 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          @keyup.enter="performSearch"
+        />
+        <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+      </div>
+
       <button
         class="text-sm px-4 py-2 border-b-2 transition-all"
         :class="
@@ -224,7 +265,7 @@ const props = defineProps({
   currentUser: Object,
   isAuthenticated: Boolean,
 });
-const emit = defineEmits(["navigate", "logout", "login", "register"]);
+const emit = defineEmits(["navigate", "logout", "login", "register", "search"]);
 
 const isHealthy = ref(false);
 const healthStatus = ref("Checking...");
@@ -232,7 +273,9 @@ const showUserDropdown = ref(false);
 const showPasswordDialog = ref(false);
 const userMenuRef = ref(null);
 const showMobileMenu = ref(false);
-const showMobileUserDropdown = ref(false)
+const showMobileUserDropdown = ref(false);
+const searchQuery = ref("");
+const mobileSearchQuery = ref("");
 
 const isAdmin = computed(() => props.currentUser?.role === "admin");
 
@@ -270,6 +313,19 @@ const handlePasswordSuccess = () => (showPasswordDialog.value = false);
 const logout = () => {
   showUserDropdown.value = false;
   emit("logout");
+};
+const performSearch = () => {
+  if (searchQuery.value.trim()) {
+    emit("search", searchQuery.value.trim());
+    searchQuery.value = ""; // Clear the search field
+  }
+};
+const performMobileSearch = () => {
+  if (mobileSearchQuery.value.trim()) {
+    showMobileMenu.value = false; // Close mobile menu
+    emit("search", mobileSearchQuery.value.trim());
+    mobileSearchQuery.value = ""; // Clear the mobile search field
+  }
 };
 const checkHealth = async () => {
   try {

@@ -13,6 +13,7 @@
       @logout="handleLogout"
       @login="handleLoginTrigger"
       @register="handleRegisterTrigger"
+      @search="handleSearch"
     />
 
     <!-- Main content -->
@@ -60,6 +61,14 @@
       @register-success="handleRegisterSuccess"
       @close="handleRegisterClose"
     />
+
+    <!-- Search Results Modal -->
+    <SearchResults
+      :visible="showSearchResults"
+      :search-query="currentSearchQuery"
+      @close="closeSearchResults"
+      @select-album="handleSearchAlbumSelect"
+    />
   </div>
 </template>
 
@@ -74,6 +83,7 @@ import UserManagement from "./components/UserManagement.vue";
 import Settings from "./components/Settings.vue";
 import Register from "./components/Register.vue";
 import ShareDialog from "./components/ShareDialog.vue";
+import SearchResults from "./components/SearchResults.vue";
 import authService from "./services/auth.js";
 import urlService from "./services/urlService.js";
 
@@ -83,6 +93,8 @@ const selectedAlbumName = ref("");
 const showLogin = ref(false);
 const showRegister = ref(false);
 const showShareDialog = ref(false);
+const showSearchResults = ref(false);
+const currentSearchQuery = ref("");
 const isAuthenticated = ref(false);
 const currentUser = ref(null);
 const userRole = computed(() => currentUser.value?.role || "guest");
@@ -198,5 +210,25 @@ const handleLogout = () => {
   if (["album-detail", "public-album"].includes(currentView.value)) {
     urlService.clearAlbumFromUrl();
   }
+};
+
+const handleSearch = (query) => {
+  console.log('App: handleSearch called with query:', query)
+  currentSearchQuery.value = query;
+  showSearchResults.value = true;
+};
+
+const closeSearchResults = () => {
+  console.log('App: Closing search results')
+  showSearchResults.value = false;
+  currentSearchQuery.value = "";
+};
+
+const handleSearchAlbumSelect = (album) => {
+  // Navigate to the selected album
+  selectedAlbumName.value = album.name;
+  currentView.value = "album-detail";
+  urlService.setAlbumInUrl(album.name);
+  closeSearchResults();
 };
 </script>

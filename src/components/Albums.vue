@@ -249,7 +249,7 @@ const loadAlbums = async () => {
   error.value = null
 
   try {
-    const response = await apiService.getAlbums(BUCKET_NAME)
+    const response = await apiService.getAlbums()
 
     if (response.success && response.albums) {
       const albumsWithDates = response.albums.map((album) => {
