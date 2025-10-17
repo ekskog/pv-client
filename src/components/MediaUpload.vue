@@ -256,33 +256,70 @@ async function uploadFiles() {
   uploadedFiles.value = new Set();
   failedFiles.value = new Set();
 
-  try {
-    const response = await apiService.uploadFile(
-      BUCKET_NAME,
-      selectedFiles.value,
-      props.albumName
-    );
+  const totalFiles = selectedFiles.value.length;
+  let completedFiles = 0;
+  let lastJobId = null;
 
-    if (!response.success) {
-      throw new Error(response.error || 'Upload failed');
+  try {
+    // Upload files one by one with progress tracking
+    for (let i = 0; i < selectedFiles.value.length; i++) {
+      const file = selectedFiles.value[i];
+      uploadStatus.value = `Uploading file ${i + 1} of ${totalFiles}: ${file.name}`;
+
+      try {
+        const response = await apiService.uploadSingleFile(
+          BUCKET_NAME,
+          file,
+          props.albumName,
+          (fileProgress) => {
+            // Calculate overall progress: 
+            // (completed files + current file progress) / total files
+            const overallProgress = ((completedFiles + (fileProgress / 100)) / totalFiles) * 100;
+            uploadProgress.value = Math.round(overallProgress);
+          }
+        );
+
+        if (!response.success) {
+          throw new Error(response.error || 'Upload failed');
+        }
+
+        // Track successful upload
+        uploadedFiles.value.add(file.name);
+        completedFiles++;
+        
+        // Store the jobId (assuming each upload returns one, or use the last one)
+        if (response.data?.jobId) {
+          lastJobId = response.data.jobId;
+        }
+
+        // Update progress to reflect completed file
+        uploadProgress.value = Math.round((completedFiles / totalFiles) * 100);
+
+      } catch (fileError) {
+        console.error(`[MediaUpload] Failed to upload ${file.name}:`, fileError);
+        failedFiles.value.add(file.name);
+        completedFiles++; // Still count as "processed" to move progress forward
+        uploadProgress.value = Math.round((completedFiles / totalFiles) * 100);
+      }
     }
 
-    // Files uploaded successfully to server, now waiting for processing
-    uploadStatus.value = `Files uploaded. Waiting for processing to begin...`;
-    console.log('[MediaUpload] Upload complete, jobId:', response.data.jobId);
+    // All files processed
+    if (failedFiles.value.size > 0) {
+      uploadStatus.value = `Completed: ${uploadedFiles.value.size} uploaded, ${failedFiles.value.size} failed`;
+    } else {
+      uploadStatus.value = `All ${totalFiles} files uploaded. Waiting for processing to begin...`;
+    }
+
+    console.log('[MediaUpload] Upload complete, jobId:', lastJobId);
 
     // Store jobId and emit close - let parent component handle SSE listening
-    pendingJobId.value = response.data.jobId;
-    emit('close', {
-      jobId: pendingJobId.value,
-      filesCount: selectedFiles.value.length
-    });
-
-    // Show success modal - skip that for now
-    // showUploadCompleteModal.value = true;
-
-    // Keep uploading state as true until processing is complete
-    // The parent component will monitor SSE events and update the UI accordingly
+    if (lastJobId) {
+      pendingJobId.value = lastJobId;
+      emit('close', {
+        jobId: pendingJobId.value,
+        filesCount: uploadedFiles.value.size
+      });
+    }
 
   } catch (err) {
     error.value = `Upload failed: ${err.message}`;
