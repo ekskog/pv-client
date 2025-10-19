@@ -163,7 +163,7 @@ const props = defineProps({
 })
 
 // Emits
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'jobReady'])
 
 // Constants
 const BUCKET_NAME = 'photovault'
@@ -281,6 +281,10 @@ async function uploadFiles() {
           const percentComplete = Math.round((event.loaded / event.total) * 100);
           uploadProgress.value = percentComplete;
           uploadStatus.value = `Uploading ${selectedFiles.value.length} files... ${percentComplete}%`;
+          if (percentComplete === 100) {
+            uploadStatus.value = `Upload complete! Processing starting...`;
+            emit('close', { filesCount: selectedFiles.value.length });
+          }
         }
       });
 
@@ -312,15 +316,11 @@ async function uploadFiles() {
     }
 
     // Files uploaded successfully to server, now waiting for processing
-    uploadStatus.value = `Files uploaded. Waiting for processing to begin...`;
     console.log('[MediaUpload] Upload complete, jobId:', response.data.jobId);
 
-    // Store jobId and emit close - let parent component handle SSE listening
+    // Store jobId and emit jobReady - dialog already closed on 100%
     pendingJobId.value = response.data.jobId;
-    emit('close', {
-      jobId: pendingJobId.value,
-      filesCount: selectedFiles.value.length
-    });
+    emit('jobReady', { jobId: pendingJobId.value });
 
     // Show success modal - skip that for now
     // showUploadCompleteModal.value = true;

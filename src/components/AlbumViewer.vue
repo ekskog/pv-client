@@ -102,6 +102,7 @@
       :album-name="albumName"
       :currentJobId="processingJobId"
       @close="handleUploadDialogClose"
+      @jobReady="handleJobReady"
     />
 
     <!-- Delete Photo Dialog -->
@@ -231,14 +232,18 @@ const sortedPhotos = computed(() => {
 // NEW: Sorted lightbox photos computed property
 const sortedLightboxPhotos = computed(() => sortedPhotos.value);
 
-const handleUploadDialogClose = (payload) => {
-  showUploadDialog.value = false;
+const handleJobReady = (payload) => {
   if (payload?.jobId) {
     processingJobId.value = payload.jobId;
-    // Delay SSE connection slightly to let server start processing
-    setTimeout(() => {
-      startProcessingListener(payload.jobId);
-    }, 1000);
+    startProcessingListener(payload.jobId);
+  }
+};
+
+const handleUploadDialogClose = (payload) => {
+  showUploadDialog.value = false;
+  if (payload?.filesCount) {
+    processingNotifications.value = true;
+    processingStatus.value = `Waiting for job ID...`;
   }
 };
 
