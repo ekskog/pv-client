@@ -118,7 +118,7 @@ kubectl patch secret photovault-frontend-secrets \
 ### Production
 ```yaml
 VITE_DEMO_MODE: false
-VITE_API_URL: https://vault-api.hbvu.su
+VITE_API_URL: https://vault-api.ekskog.xyz
 VITE_AUTH_ENDPOINT: /api/auth/login
 VITE_USER_ENDPOINT: /api/users
 ```
