@@ -1,4 +1,4 @@
-// force rebuild on 02/09/2025 - 13:46
+// force rebuild on 24/10/2025 - 17:30
 import { createApp } from 'vue'
 //import './assets/style.css'
 import '@fortawesome/fontawesome-free/css/all.css'
