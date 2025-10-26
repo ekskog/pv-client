@@ -330,6 +330,7 @@ const performMobileSearch = () => {
 const checkHealth = async () => {
   try {
     const health = await apiService.getHealth();
+    console.log("Health:", health);
     isHealthy.value = health.status === "healthy";
     healthStatus.value = isHealthy.value ? "Connected" : "Disconnected";
   } catch {

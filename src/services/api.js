@@ -33,14 +33,11 @@ async request(endpoint, options = {}) {
   // Debug: inspect configService + API URL
   console.log("🔧 apiService.request called");
   console.log("  endpoint:", endpoint);
-  console.log("  options:", options);
-  console.log("  configService:", configService);
-  console.log("  typeof configService.getApiUrl:", typeof configService.getApiUrl);
+
 
   const API_BASE_URL = this.getApiBaseUrl();
   const url = `${API_BASE_URL}${endpoint}`;
-  console.log("  API_BASE_URL:", API_BASE_URL);
-  console.log("  Final request URL:", url);
+
 
   // Build headers
   const headers = {
@@ -63,6 +60,7 @@ async request(endpoint, options = {}) {
 
   try {
     const response = await fetch(url, config);
+    console.log("  Response:", response.status);
 
     // Handle 401 Unauthorized - token might be expired
     if (response.status === 401) {
@@ -103,6 +101,7 @@ async request(endpoint, options = {}) {
 
   // Health check
   async getHealth() {
+
     return this.request("/health");
   }
 
