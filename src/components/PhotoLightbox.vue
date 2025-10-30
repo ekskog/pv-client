@@ -184,6 +184,10 @@ const getPhotoUrl = (photo) => {
   return url;
 };
 
+const getPhoto = (photo) => {
+  return apiService.getObject(props.albumName, photo.name);
+};
+
 const getPhotoDisplayName = (filename) => {
   return filename.split('/').pop() || filename
 }
