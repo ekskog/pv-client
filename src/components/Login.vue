@@ -13,47 +13,46 @@
       </div>
 
       <!-- Form -->
-      <form @submit.prevent="handleLogin" class="mb-8 space-y-6">
+      <form @submit.prevent="handleLogin" class="mb-8 space-y-6 flex flex-col items-center">
         <div>
           <label for="username" class="block mb-2 font-semibold text-gray-800 text-sm">Username</label>
           <input id="username" ref="usernameInput" v-model="username" type="text" placeholder="Enter your username"
             required :disabled="loading" autocomplete="username"
-            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:opacity-70" />
+            class="px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:opacity-70"
+            style="width: 300px;" />
         </div>
-
         <div>
           <label for="password" class="block mb-2 font-semibold text-gray-800 text-sm">Password</label>
           <input id="password" v-model="password" type="password" placeholder="Enter your password" required
             :disabled="loading" autocomplete="current-password"
-            class="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:opacity-70" />
+            class="px-4 py-3 border-2 border-gray-200 rounded-lg text-base transition focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-gray-100 disabled:opacity-70"
+            style="width: 300px;" />
         </div>
-
         <!-- Turnstile Widget -->
-        <div>
+        <div style="width: 300px;">
           <label class="block mb-2 font-semibold text-gray-800 text-sm">Security Verification</label>
-          <div class="w-full min-h-[65px] px-4 py-3 border-2 border-gray-200 rounded-lg bg-white flex items-center justify-center transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
+          <div class="min-h-[65px] px-4 py-3 rounded-lg bg-white flex items-center justify-center transition focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100"
+               style="border: none;">
             <div ref="turnstileRef"></div>
           </div>
         </div>
-
-        <div v-if="turnstileError" class="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div v-if="turnstileError" class="flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm" style="width: 300px;">
           <i class="fas fa-exclamation-triangle"></i>
           {{ turnstileError }}
         </div>
-
         <button type="submit" :disabled="loading || !isFormValid || !turnstileToken"
-          class="w-full flex items-center justify-center gap-2 px-4 py-3 text-white font-semibold text-base rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed min-h-[50px]">
+          class="flex items-center justify-center gap-2 px-4 py-3 text-white font-semibold text-base rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 transition hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed min-h-[50px]"
+          style="width: 300px;">
           <i v-if="loading" class="fas fa-spinner fa-spin"></i>
           <span>{{ loading ? 'Signing in...' : 'Sign In' }}</span>
         </button>
-
-        <div v-if="error" class="mt-4 flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div v-if="error" class="mt-4 flex items-center gap-2 bg-red-100 text-red-700 px-4 py-3 rounded-lg text-sm" style="width: 300px;">
           <i class="fas fa-exclamation-triangle"></i>
           {{ error }}
         </div>
-
         <button type="button" @click="emit('close')" :disabled="loading"
-          class="w-full mt-3 flex items-center justify-center gap-2 px-4 py-3 text-gray-700 font-medium text-base border-2 border-gray-300 rounded-lg transition hover:bg-gray-100 hover:border-gray-400 disabled:opacity-60 disabled:cursor-not-allowed">
+          class="mt-3 flex items-center justify-center gap-2 px-4 py-3 text-gray-700 font-medium text-base border-2 border-gray-300 rounded-lg transition hover:bg-gray-100 hover:border-gray-400 disabled:opacity-60 disabled:cursor-not-allowed"
+          style="width: 300px;">
           <i class="fas fa-times-circle"></i>
           Cancel
         </button>
@@ -99,13 +98,12 @@ const onTurnstileError = () => {
 
 // Render Turnstile widget once script is loaded
 const renderTurnstile = () => {
-  console.log('Turnstile key', TURNSTILE_SITE_KEY)
   if (!TURNSTILE_SITE_KEY) {
     console.error('Turnstile site key is missing!')
   }
 
   if (!window.turnstile || !turnstileRef.value || widgetId.value) return
-  
+
   try {
     widgetId.value = window.turnstile.render(turnstileRef.value, {
       sitekey: TURNSTILE_SITE_KEY,

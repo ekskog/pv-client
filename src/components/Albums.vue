@@ -69,29 +69,51 @@
     </div>
 
     <!-- Albums Grid -->
-    <div v-if="!loading && !error" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-      <AlbumCard
-        v-for="album in sortedAlbums"
-        :key="album.name"
-        :album="album"
-        :can-rename="canRenameAlbum"
-        :can-delete="canDeleteAlbum"
-        @click="openAlbum"
-        @rename="confirmRename"
-        @delete="confirmDelete"
-      />
+    <div v-if="!loading && !error">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <AlbumCard
+          v-for="album in paginatedAlbums"
+          :key="album.name"
+          :album="album"
+          :can-rename="canRenameAlbum"
+          :can-delete="canDeleteAlbum"
+          @click="openAlbum"
+          @rename="confirmRename"
+          @delete="confirmDelete"
+        />
+        <!-- Empty State -->
+        <div v-if="albums.length === 0" class="col-span-full text-center py-16 px-8">
+          <div class="text-5xl mb-4 text-gray-400"><i class="fas fa-camera"></i></div>
+          <h3 class="text-xl text-gray-800 mb-4">No Albums Yet</h3>
+          <p class="text-gray-600 mb-6">
+            <span v-if="canCreateAlbum">Create your first photo album to get started!</span>
+            <span v-else>No albums available to view.</span>
+          </p>
+          <button v-if="canCreateAlbum" @click="showCreateDialog = true"
+            class="bg-blue-500 text-white px-6 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600">
+            <i class="fas fa-plus mr-2"></i>Create Album
+          </button>
+        </div>
+      </div>
 
-      <!-- Empty State -->
-      <div v-if="albums.length === 0" class="col-span-full text-center py-16 px-8">
-        <div class="text-5xl mb-4 text-gray-400"><i class="fas fa-camera"></i></div>
-        <h3 class="text-xl text-gray-800 mb-4">No Albums Yet</h3>
-        <p class="text-gray-600 mb-6">
-          <span v-if="canCreateAlbum">Create your first photo album to get started!</span>
-          <span v-else>No albums available to view.</span>
-        </p>
-        <button v-if="canCreateAlbum" @click="showCreateDialog = true"
-          class="bg-blue-500 text-white px-6 py-3 rounded-md text-sm font-semibold shadow-md transition hover:bg-blue-600">
-          <i class="fas fa-plus mr-2"></i>Create Album
+      <!-- Pagination Controls -->
+      <div v-if="totalPages > 1" class="flex justify-center items-center gap-2 mt-8">
+        <button
+          @click="goToPage(currentPage - 1)"
+          :disabled="currentPage === 1"
+          class="px-3 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span class="text-sm text-gray-600">
+          Page {{ currentPage }} of {{ totalPages }}
+        </span>
+        <button
+          @click="goToPage(currentPage + 1)"
+          :disabled="currentPage === totalPages"
+          class="px-3 py-2 bg-gray-100 text-gray-700 border border-gray-300 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <i class="fas fa-chevron-right"></i>
         </button>
       </div>
     </div>
@@ -179,20 +201,8 @@ const albumToDelete = ref(null)
 const albumToRename = ref(null)
 const renameAlbumNameInput = ref(null)
 const sortOrder = ref('date-desc')
-
-// Computed properties for permission checks
-const canCreateAlbum = computed(() => {
-  return authService.canPerformAction('create_album')
-})
-
-const canDeleteAlbum = computed(() => {
-  return authService.canPerformAction('delete_album')
-})
-
-const canRenameAlbum = computed(() => {
-  return authService.canPerformAction('delete_album')
-})
-
+const currentPage = ref(1)
+const itemsPerPage = ref(24)
 // Computed property for sorted albums
 const sortedAlbums = computed(() => {
   return [...albums.value].sort((a, b) => {
@@ -213,6 +223,31 @@ const sortedAlbums = computed(() => {
         return 0
     }
   })
+})
+
+// Computed property for paginated albums
+const paginatedAlbums = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return sortedAlbums.value.slice(start, end)
+})
+
+// Computed property for total pages
+const totalPages = computed(() => {
+  return Math.ceil(sortedAlbums.value.length / itemsPerPage.value)
+})
+
+// Computed properties for permission checks
+const canCreateAlbum = computed(() => {
+  return authService.canPerformAction('create_album')
+})
+
+const canDeleteAlbum = computed(() => {
+  return authService.canPerformAction('delete_album')
+})
+
+const canRenameAlbum = computed(() => {
+  return authService.canPerformAction('delete_album')
 })
 
 // Constants
@@ -372,6 +407,12 @@ const refreshAlbums = async () => {
   await loadAlbums()
 }
 
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
+
 const focusRenameInput = async () => {
   await nextTick()
   if (renameAlbumNameInput.value) {
@@ -384,6 +425,10 @@ watch(showRenameDialog, (newVal) => {
   if (newVal) {
     focusRenameInput()
   }
+})
+
+watch(sortOrder, () => {
+  currentPage.value = 1
 })
 
 // Lifecycle
