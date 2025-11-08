@@ -295,7 +295,9 @@ const loadPhotos = async () => {
 
       resetPagination();
     } else {
-      throw new Error(response.error || "Failed to load album photos");
+      // No photos found - set empty array to show PhotoGridEmpty component
+      photos.value = [];
+      resetPagination();
     }
   } catch (err) {
     error.value = `Error loading photos: ${err.message}`;
