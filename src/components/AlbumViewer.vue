@@ -295,7 +295,7 @@ const loadPhotos = async () => {
 
       resetPagination();
     } else {
-      // No photos found - set empty array to show PhotoGridEmpty component
+      console.log("[AlbumViewer] No photos found - set empty array to show PhotoGridEmpty component");
       photos.value = [];
       resetPagination();
     }
