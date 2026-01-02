@@ -198,7 +198,20 @@ const triggerUpload = (type) => {
   uploadType.value = type
   selectedFiles.value = []
   filesRejectedDueToLimit.value = false
-  fileInput.value?.click()
+  
+  // Reset the file input to ensure accept attribute is properly applied
+  // This is especially important on mobile devices (iOS/Android) where the
+  // accept attribute might not update reactively when uploadType changes
+  if (fileInput.value) {
+    fileInput.value.value = ''
+    const acceptValue = type === 'photos' ? 'image/*' : 'video/*'
+    fileInput.value.setAttribute('accept', acceptValue)
+  }
+  
+  // Small delay to ensure attribute is set before opening picker
+  setTimeout(() => {
+    fileInput.value?.click()
+  }, 10)
 }
 
 // File selection
