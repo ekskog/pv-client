@@ -18,9 +18,13 @@
             preload="metadata"
             muted
             @loadedmetadata="handleVideoLoaded"
+            @click.stop="handleVideoPlay(video, $event)"
           />
           <!-- Play Button Overlay -->
-          <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 hover:bg-opacity-20 transition-opacity">
+          <div 
+            class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30 hover:bg-opacity-20 transition-opacity cursor-pointer"
+            @click.stop="handleVideoPlay(video, $event)"
+          >
             <i class="fas fa-play-circle text-white text-6xl opacity-80"></i>
           </div>
           <!-- Video Icon Badge -->
@@ -165,6 +169,11 @@ const formatVideoTimestamp = (video) => {
 
 const handleVideoLoaded = (event) => {
   emit('videoLoad', event)
+}
+
+const handleVideoPlay = (video, event) => {
+  // Emit the video click event to parent
+  emit('videoClick', video)
 }
 
 // Expose loadMore method for parent component if needed

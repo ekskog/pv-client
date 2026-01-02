@@ -440,10 +440,11 @@ const openPhoto = async (photo) => {
 };
 
 const handleVideoClick = (video) => {
-  // Simple handler for now - just log and show video URL
+  // Open video in a new tab - with proper headers, browser should play it inline
   console.log('[AlbumViewer] Video clicked:', video);
   const videoUrl = apiService.getObject(props.albumName, video.name);
-  // For now, just open in a new tab/window
+  // Open in new tab - browser should play it if server sends proper headers
+  // (Accept-Ranges: bytes and no Content-Disposition: attachment)
   window.open(videoUrl, '_blank');
   // TODO: Later can implement a video player modal similar to PhotoLightbox
 };
