@@ -38,10 +38,14 @@
             style="max-height: calc(100vh - 120px);"
             controls
             preload="metadata"
+            playsinline
+            webkit-playsinline
             @error="handleVideoError" 
             @loadedmetadata="handleVideoLoad"
+            @canplay="handleVideoCanPlay"
             @play="handleVideoPlay"
             @pause="handleVideoPause"
+            @click="handleVideoClick"
           >
             Your browser does not support the video tag.
           </video>
@@ -161,7 +165,12 @@ const canShowDeleteButton = computed(() => {
 })
 
 // Watch for video changes
-watch(currentVideo, () => {
+watch(currentVideo, (newVideo, oldVideo) => {
+  console.log('[VideoLightbox] Video changed:', {
+    from: oldVideo?.name,
+    to: newVideo?.name,
+    index: props.currentIndex
+  })
   videoLoaded.value = false
   showMetadata.value = false
   isPlaying.value = false
@@ -172,27 +181,78 @@ watch(currentVideo, () => {
   }
 })
 
+// Watch for show prop changes
+watch(() => props.show, (isShowing) => {
+  console.log('[VideoLightbox] Show prop changed:', isShowing)
+  if (isShowing) {
+    console.log('[VideoLightbox] Opening with video:', currentVideo.value?.name)
+    console.log('[VideoLightbox] Video URL:', getVideoUrl(currentVideo.value))
+    console.log('[VideoLightbox] Videos array length:', props.videos?.length)
+    console.log('[VideoLightbox] Current index:', props.currentIndex)
+  }
+})
+
 // Methods
 const handleVideoLoad = () => {
+  console.log('[VideoLightbox] Video loaded:', currentVideo.value?.name)
+  console.log('[VideoLightbox] Video URL:', getVideoUrl(currentVideo.value))
+  console.log('[VideoLightbox] Video element:', videoPlayer.value)
+  console.log('[VideoLightbox] Video readyState:', videoPlayer.value?.readyState)
   videoLoaded.value = true
 }
 
 const handleVideoError = (event) => {
   console.error('[VideoLightbox] Video load error:', event)
+  console.error('[VideoLightbox] Error details:', {
+    code: event.target?.error?.code,
+    message: event.target?.error?.message,
+    networkState: event.target?.networkState,
+    readyState: event.target?.readyState,
+    src: event.target?.src
+  })
   videoLoaded.value = true // Hide loading spinner even on error
 }
 
 const handleVideoPlay = () => {
+  console.log('[VideoLightbox] Video play event triggered')
+  console.log('[VideoLightbox] Video element:', videoPlayer.value)
+  console.log('[VideoLightbox] Video paused:', videoPlayer.value?.paused)
   isPlaying.value = true
 }
 
 const handleVideoPause = () => {
+  console.log('[VideoLightbox] Video pause event triggered')
   isPlaying.value = false
 }
 
+const handleVideoCanPlay = () => {
+  console.log('[VideoLightbox] Video can play - ready to play')
+  console.log('[VideoLightbox] Video duration:', videoPlayer.value?.duration)
+  console.log('[VideoLightbox] Video networkState:', videoPlayer.value?.networkState)
+}
+
+const handleVideoClick = (event) => {
+  console.log('[VideoLightbox] Video element clicked:', event)
+  console.log('[VideoLightbox] Video paused before click:', videoPlayer.value?.paused)
+  // On iOS, sometimes we need to explicitly call play()
+  if (videoPlayer.value && videoPlayer.value.paused) {
+    console.log('[VideoLightbox] Attempting to play video programmatically')
+    videoPlayer.value.play().then(() => {
+      console.log('[VideoLightbox] Video play() promise resolved')
+    }).catch((error) => {
+      console.error('[VideoLightbox] Video play() promise rejected:', error)
+    })
+  }
+}
+
 const getVideoUrl = (video) => {
-  if (!video) return ''
-  return apiService.getObject(props.albumName, video.name)
+  if (!video) {
+    console.warn('[VideoLightbox] getVideoUrl called with no video')
+    return ''
+  }
+  const url = apiService.getObject(props.albumName, video.name)
+  console.log('[VideoLightbox] Generated video URL:', url, 'for video:', video.name)
+  return url
 }
 
 const getVideoDisplayName = (filename) => {

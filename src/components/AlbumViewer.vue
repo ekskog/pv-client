@@ -288,6 +288,9 @@ const sortedVideos = computed(() => {
 // NEW: Sorted lightbox photos computed property
 const sortedLightboxPhotos = computed(() => sortedPhotos.value);
 
+// NEW: Sorted lightbox videos computed property
+const sortedLightboxVideos = computed(() => sortedVideos.value);
+
 const handleJobReady = (payload) => {
   if (payload?.jobId) {
     processingJobId.value = payload.jobId;
@@ -459,13 +462,21 @@ const openPhoto = async (photo) => {
 };
 
 const openVideo = async (video) => {
+  console.log('[AlbumViewer] openVideo called with:', video)
+  console.log('[AlbumViewer] sortedLightboxVideos:', sortedLightboxVideos.value)
+  console.log('[AlbumViewer] sortedLightboxVideos length:', sortedLightboxVideos.value?.length)
   // Find video in sorted array
   const targetVideoIndex = sortedLightboxVideos.value.findIndex(
     (v) => v.name === video.name
   );
-  if (targetVideoIndex === -1) return;
+  console.log('[AlbumViewer] Found video at index:', targetVideoIndex)
+  if (targetVideoIndex === -1) {
+    console.error('[AlbumViewer] Video not found in sortedLightboxVideos:', video.name)
+    return;
+  }
   currentVideoIndex.value = targetVideoIndex;
   showVideoLightbox.value = true;
+  console.log('[AlbumViewer] Video lightbox opened, currentVideoIndex:', currentVideoIndex.value)
 };
 
 const closeVideoLightbox = () => {
