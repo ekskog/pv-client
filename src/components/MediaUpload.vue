@@ -80,6 +80,14 @@
         </div>
       </div>
 
+      <!-- Error Message -->
+      <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+        <p class="text-sm text-red-800">
+          <i class="fas fa-exclamation-circle mr-2"></i>
+          {{ error }}
+        </p>
+      </div>
+
       <!-- Upload Progress -->
       <div v-if="uploading" class="mb-6">
         <div class="w-full h-2 bg-gray-200 rounded overflow-hidden mb-2">
@@ -294,17 +302,17 @@ async function uploadFiles() {
           const percentComplete = Math.round((event.loaded / event.total) * 100);
           uploadProgress.value = percentComplete;
           uploadStatus.value = `Uploading ${selectedFiles.value.length} files... ${percentComplete}%`;
-          if (percentComplete === 100) {
-            uploadStatus.value = `Upload complete! Processing starting...`;
-            emit('close', { filesCount: selectedFiles.value.length });
-          }
+          // Don't close dialog here - wait for server response
         }
       });
 
       xhr.addEventListener("load", () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
-            resolve(JSON.parse(xhr.responseText));
+            const response = JSON.parse(xhr.responseText);
+            uploadProgress.value = 100;
+            uploadStatus.value = `Upload complete! Processing starting...`;
+            resolve(response);
           } catch (error) {
             reject(new Error("Invalid JSON response"));
           }
@@ -315,6 +323,10 @@ async function uploadFiles() {
 
       xhr.addEventListener("error", () => {
         reject(new Error("Network error occurred"));
+      });
+
+      xhr.addEventListener("abort", () => {
+        reject(new Error("Upload was cancelled"));
       });
 
       xhr.open("POST", url);
@@ -331,9 +343,15 @@ async function uploadFiles() {
     // Files uploaded successfully to server, now waiting for processing
     console.log('[MediaUpload] Upload complete, jobId:', response.data.jobId);
 
-    // Store jobId and emit jobReady - dialog already closed on 100%
+    // Store jobId and emit jobReady
     pendingJobId.value = response.data.jobId;
     emit('jobReady', { jobId: pendingJobId.value });
+    
+    // Close dialog after successful upload
+    emit('close', { 
+      filesCount: selectedFiles.value.length,
+      jobId: pendingJobId.value 
+    });
 
     // Show success modal - skip that for now
     // showUploadCompleteModal.value = true;
@@ -344,7 +362,10 @@ async function uploadFiles() {
   } catch (err) {
     error.value = `Upload failed: ${err.message}`;
     console.error('[MediaUpload] Upload failed:', err);
-    uploading.value = false; // Only set to false on actual error
+    uploading.value = false;
+    uploadProgress.value = 0;
+    uploadStatus.value = `Upload failed: ${err.message}`;
+    // Don't close dialog on error - let user see the error message
   }
 }
 
