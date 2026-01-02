@@ -112,7 +112,7 @@
       :bucket-name="BUCKET_NAME"
       :items-per-page="24"
       :auto-load="false"
-      @video-click="handleVideoClick"
+      @video-click="openVideo"
     />
 
     <!-- Upload Dialog -->
@@ -152,6 +152,22 @@
       @previous-photo="previousPhoto"
       @delete-photo="confirmDeletePhoto"
     />
+
+    <!-- Video Lightbox Viewer -->
+    <VideoLightbox
+      :show="showVideoLightbox"
+      :videos="sortedLightboxVideos"
+      :current-index="currentVideoIndex"
+      :loading="false"
+      :can-delete="canDeletePhoto"
+      bucket-name="photovault"
+      :album-name="albumName"
+      :photo-metadata-lookup="photoMetadataLookup"
+      @close="closeVideoLightbox"
+      @next-video="nextVideo"
+      @previous-video="previousVideo"
+      @delete-video="confirmDeleteVideo"
+    />
   </div>
 </template>
 
@@ -164,6 +180,7 @@ import SSEService from "../services/sseService.js";
 import AlbumHeader from "./AlbumHeader.vue";
 import MediaUpload from "./MediaUpload.vue";
 import PhotoLightbox from "./PhotoLightbox.vue";
+import VideoLightbox from "./VideoLightbox.vue";
 import DeletePhotoDialog from "./DeletePhotoDialog.vue";
 import PhotoGridEmpty from "./PhotoGridEmpty.vue";
 import PhotoGrid from "./PhotoGrid.vue";
@@ -185,6 +202,8 @@ const showUploadDialog = ref(false);
 const showLightbox = ref(false);
 const currentPhotoIndex = ref(0);
 const lightboxLoading = ref(false);
+const showVideoLightbox = ref(false);
+const currentVideoIndex = ref(0);
 const showDeletePhotoDialog = ref(false);
 const photoToDelete = ref(null);
 const deletingPhoto = ref(false);
@@ -439,14 +458,30 @@ const openPhoto = async (photo) => {
   if (!isPreloaded) lightboxLoading.value = true;
 };
 
-const handleVideoClick = (video) => {
-  // Open video in a new tab - with proper headers, browser should play it inline
-  console.log('[AlbumViewer] Video clicked:', video);
-  const videoUrl = apiService.getObject(props.albumName, video.name);
-  // Open in new tab - browser should play it if server sends proper headers
-  // (Accept-Ranges: bytes and no Content-Disposition: attachment)
-  window.open(videoUrl, '_blank');
-  // TODO: Later can implement a video player modal similar to PhotoLightbox
+const openVideo = async (video) => {
+  // Find video in sorted array
+  const targetVideoIndex = sortedLightboxVideos.value.findIndex(
+    (v) => v.name === video.name
+  );
+  if (targetVideoIndex === -1) return;
+  currentVideoIndex.value = targetVideoIndex;
+  showVideoLightbox.value = true;
+};
+
+const closeVideoLightbox = () => {
+  showVideoLightbox.value = false;
+};
+
+const nextVideo = () => {
+  if (currentVideoIndex.value < sortedLightboxVideos.value.length - 1) {
+    currentVideoIndex.value++;
+  }
+};
+
+const previousVideo = () => {
+  if (currentVideoIndex.value > 0) {
+    currentVideoIndex.value--;
+  }
 };
 
 const closeLightbox = () => {
@@ -476,6 +511,11 @@ const previousPhoto = () => {
     if (!prevGridImage?.dataset.fullLoaded) lightboxLoading.value = true;
     currentPhotoIndex.value--;
   }
+};
+
+const confirmDeleteVideo = (video) => {
+  photoToDelete.value = video;
+  showDeletePhotoDialog.value = true;
 };
 
 const confirmDeletePhoto = (photo) => {
