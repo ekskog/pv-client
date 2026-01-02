@@ -3,16 +3,18 @@
     <!-- Use the new AlbumHeader component -->
     <AlbumHeader
       :album-name="albumName"
-      :photo-count="visiblePhotos.length"
+      :photo-count="mediaType === 'images' ? visiblePhotos.length : visibleVideos.length"
       :loading="loading"
       :can-upload-photos="canUploadPhotos"
+      :media-type="mediaType"
       @back="$emit('back')"
       @refresh="refreshAlbum"
       @upload="showUploadDialog = true"
+      @media-type-change="mediaType = $event"
     />
 
     <!-- Sort Controls - Add this section -->
-    <div v-if="!loading && !error && visiblePhotos.length > 0" class="flex justify-end items-center mb-6">
+    <div v-if="!loading && !error && (mediaType === 'images' ? visiblePhotos.length > 0 : visibleVideos.length > 0)" class="flex justify-end items-center mb-6">
       <div class="flex items-center gap-2">
         <span class="text-sm text-gray-600">Sort by:</span>
         <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
@@ -79,10 +81,15 @@
     </div>
 
     <!-- Empty State -->
-    <PhotoGridEmpty v-if="!loading && !error && visiblePhotos.length === 0" />
+    <PhotoGridEmpty v-if="!loading && !error && mediaType === 'images' && visiblePhotos.length === 0" />
+    <div v-if="!loading && !error && mediaType === 'videos' && visibleVideos.length === 0" class="text-center py-12">
+      <i class="fas fa-video text-gray-400 text-6xl mb-4"></i>
+      <p class="text-gray-600">No videos found in this album</p>
+    </div>
 
     <!-- Photos Grid with Pagination (now uses sortedPhotos) -->
     <PhotoGrid
+      v-if="mediaType === 'images'"
       :photos="sortedPhotos"
       :photo-metadata-lookup="photoMetadataLookup"
       :image-loaded-map="imageLoadedMap"
@@ -94,6 +101,18 @@
       @image-load="handleImageLoad"
       @image-error="handleImageError"
       @image-load-start="handleImageLoadStart"
+    />
+
+    <!-- Videos Grid -->
+    <VideoGrid
+      v-if="mediaType === 'videos'"
+      :videos="sortedVideos"
+      :photo-metadata-lookup="photoMetadataLookup"
+      :album-name="albumName"
+      :bucket-name="BUCKET_NAME"
+      :items-per-page="24"
+      :auto-load="false"
+      @video-click="handleVideoClick"
     />
 
     <!-- Upload Dialog -->
@@ -148,6 +167,7 @@ import PhotoLightbox from "./PhotoLightbox.vue";
 import DeletePhotoDialog from "./DeletePhotoDialog.vue";
 import PhotoGridEmpty from "./PhotoGridEmpty.vue";
 import PhotoGrid from "./PhotoGrid.vue";
+import VideoGrid from "./VideoGrid.vue";
 
 const props = defineProps({ albumName: String, isPublic: Boolean });
 const emit = defineEmits(["back", "photoOpened", "uploadComplete"]);
@@ -186,6 +206,9 @@ let sseService = null;
 // NEW: Sort order state
 const sortOrder = ref('chronological'); // 'chronological' or 'reverse'
 
+// NEW: Media type state (images or videos)
+const mediaType = ref('images'); // 'images' or 'videos'
+
 // Helper function to sort photos by timestamp
 const sortPhotosByTimestamp = (photosArray, order = 'chronological') => {
   return [...photosArray].sort((a, b) => {
@@ -223,10 +246,24 @@ const visiblePhotos = computed(() =>
   )
 );
 
+// NEW: Visible videos computed property
+const visibleVideos = computed(() =>
+  photos.value.filter(
+    (p) =>
+      /\.(mp4|mov|avi|mkv|webm|m4v|3gp|flv|wmv)$/i.test(p.name)
+  )
+);
+
 // NEW: Sorted photos computed property
 const sortedPhotos = computed(() => {
   if (!visiblePhotos.value.length) return [];
   return sortPhotosByTimestamp(visiblePhotos.value, sortOrder.value);
+});
+
+// NEW: Sorted videos computed property
+const sortedVideos = computed(() => {
+  if (!visibleVideos.value.length) return [];
+  return sortPhotosByTimestamp(visibleVideos.value, sortOrder.value);
 });
 
 // NEW: Sorted lightbox photos computed property
@@ -400,6 +437,15 @@ const openPhoto = async (photo) => {
   currentPhotoIndex.value = targetPhotoIndex;
   showLightbox.value = true;
   if (!isPreloaded) lightboxLoading.value = true;
+};
+
+const handleVideoClick = (video) => {
+  // Simple handler for now - just log and show video URL
+  console.log('[AlbumViewer] Video clicked:', video);
+  const videoUrl = apiService.getObject(props.albumName, video.name);
+  // For now, just open in a new tab/window
+  window.open(videoUrl, '_blank');
+  // TODO: Later can implement a video player modal similar to PhotoLightbox
 };
 
 const closeLightbox = () => {

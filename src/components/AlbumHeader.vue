@@ -43,16 +43,49 @@
       </div>
     </div>
 
-       <!-- Album Info -->
-    <div class="flex items-center gap-3 flex-grow min-w-0">
-      <h2
-        class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 truncate"
-      >
-        <i class="fas fa-images text-blue-500"></i> {{ cleanAlbumName }}
-      </h2>
-      <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
-        {{ photoCount }} photos
-      </span>
+       <!-- Album Info and Media Type Selector -->
+    <div class="flex items-center justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-3 flex-grow min-w-0">
+        <h2
+          class="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2 truncate"
+        >
+          <i class="fas fa-images text-blue-500"></i> {{ cleanAlbumName }}
+        </h2>
+        <span class="text-sm text-gray-600 dark:text-gray-400 whitespace-nowrap">
+          {{ photoCount }} {{ mediaType === 'images' ? 'photos' : 'videos' }}
+        </span>
+      </div>
+
+      <!-- Media Type Selector -->
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-gray-600">Show:</span>
+        <div class="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button 
+            @click="$emit('mediaTypeChange', 'images')"
+            :class="[
+              'px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-2',
+              mediaType === 'images' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            ]"
+          >
+            <i class="fas fa-image"></i>
+            Images
+          </button>
+          <button 
+            @click="$emit('mediaTypeChange', 'videos')"
+            :class="[
+              'px-3 py-1 text-sm rounded-md transition-colors flex items-center gap-2',
+              mediaType === 'videos' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            ]"
+          >
+            <i class="fas fa-video"></i>
+            Videos
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -67,9 +100,10 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   canUploadPhotos: { type: Boolean, default: false },
   isPublic: { type: Boolean, default: false },
+  mediaType: { type: String, default: 'images' }, // 'images' or 'videos'
 });
 
-const emit = defineEmits(["back", "refresh", "upload"]);
+const emit = defineEmits(["back", "refresh", "upload", "mediaTypeChange"]);
 
 const cleanAlbumName = computed(() => {
   const match = props.albumName.match(/^(.*)\.(\d{2})\/$/);
