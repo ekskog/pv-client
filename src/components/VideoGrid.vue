@@ -34,7 +34,10 @@
           </div>
         </div>
         <div class="p-3">
-          <div class="flex items-center gap-2 text-sm text-gray-600 mb-1">
+          <div 
+            v-if="hasVideoTimestamp(video)" 
+            class="flex items-center gap-2 text-sm text-gray-600 mb-1"
+          >
             <i class="fas fa-clock text-xs text-gray-400 w-3"></i>
             {{ formatVideoTimestamp(video) }}
           </div>
@@ -143,16 +146,37 @@ const getVideoDisplayName = (filename) => {
   return filename.split('/').pop() || filename
 }
 
-const formatVideoTimestamp = (video) => {
+const hasVideoTimestamp = (video) => {
   if (Object.keys(props.photoMetadataLookup).length === 0) {
-    return "Loading...";
+    return false;
   }
 
   const filename = video.name.split("/").pop();
   let metadata = props.photoMetadataLookup[filename] || props.photoMetadataLookup[video.name];
 
   if (!metadata || !metadata.timestamp) {
-    return "No date";
+    return false;
+  }
+
+  try {
+    const date = new Date(metadata.timestamp);
+    // Check if date is valid
+    return !isNaN(date.getTime());
+  } catch {
+    return false;
+  }
+}
+
+const formatVideoTimestamp = (video) => {
+  if (Object.keys(props.photoMetadataLookup).length === 0) {
+    return "";
+  }
+
+  const filename = video.name.split("/").pop();
+  let metadata = props.photoMetadataLookup[filename] || props.photoMetadataLookup[video.name];
+
+  if (!metadata || !metadata.timestamp) {
+    return "";
   }
 
   try {
@@ -163,7 +187,7 @@ const formatVideoTimestamp = (video) => {
       date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     );
   } catch {
-    return "Invalid date";
+    return "";
   }
 }
 
