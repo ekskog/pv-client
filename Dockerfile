@@ -17,7 +17,7 @@ RUN npm ci
 COPY . .
 
 # Accept build-time environment variables (only API URL needed)
-ARG VITE_API_URL=https://vault-api.ekskog.xyz
+ARG VITE_API_URL=https://vault-api.ekskog.net
 
 # Set environment variables for build
 ENV VITE_API_URL=$VITE_API_URL

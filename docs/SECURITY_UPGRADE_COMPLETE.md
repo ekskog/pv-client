@@ -34,7 +34,7 @@
 
 #### `.env` (Local Configuration)
 ```env
-VITE_API_URL=https://vault-api.ekskog.xyz
+VITE_API_URL=https://vault-api.ekskog.net
 VITE_DEMO_MODE=true
 VITE_DEMO_ADMIN_USERNAME=admin
 VITE_DEMO_ADMIN_PASSWORD=admin123
